@@ -1,0 +1,12 @@
+{
+  "extends": "@repo/typescript-config/base.json",
+  "include": ["src"],
+  "exclude": ["dist", "build", "node_modules"],
+  "compilerOptions": {
+    "strict": true,
+    "module": "esnext",
+    "target": "es2020",
+    "lib": ["es2020"],
+    "noEmit": true
+  }
+}

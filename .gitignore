@@ -36,3 +36,7 @@ yarn-error.log*
 # agent skill directories
 .agents/
 .claude/
+
+# turbo & local tooling
+.turbo/
+.mcp.json
