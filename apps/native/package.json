@@ -11,6 +11,7 @@
     "eject": "expo eject"
   },
   "dependencies": {
+    "@repo/shared": "*",
     "@repo/ui": "*",
     "expo": "^55.0.4",
     "expo-constants": "~55.0.7",

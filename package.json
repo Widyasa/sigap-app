@@ -3,6 +3,8 @@
   "scripts": {
     "dev": "turbo run dev",
     "build": "turbo run build",
+    "test": "turbo run test",
+    "typecheck": "turbo run typecheck",
     "clean": "turbo run clean && rm -rf node_modules",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\" --ignore-path .gitignore"
   },
@@ -18,7 +20,7 @@
   "devEngines": {
     "packageManager": {
       "name": "npm",
-      "version": "11.17.0"
+      "version": "^10.0.0"
     }
   },
   "workspaces": [

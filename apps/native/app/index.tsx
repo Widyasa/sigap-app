@@ -1,6 +1,7 @@
 import { StyleSheet, Text, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { Button } from "@repo/ui";
+import { colors } from "@repo/shared";
 
 export default function Native() {
   return (
@@ -21,7 +22,7 @@ export default function Native() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#fff",
+    backgroundColor: colors.light.background,
     alignItems: "center",
     justifyContent: "center",
   },
