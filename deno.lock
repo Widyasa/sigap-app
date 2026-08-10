@@ -38,17 +38,23 @@
         "packageJson": {
           "dependencies": [
             "npm:@repo/shared@*",
+            "npm:@repo/supabase@*",
             "npm:@repo/ui@*",
             "npm:@types/react@~19.2.10",
+            "npm:expo-clipboard@7.1",
             "npm:expo-constants@~55.0.7",
+            "npm:expo-image-picker@~55.0.22",
             "npm:expo-linking@~55.0.7",
+            "npm:expo-location@~55.1.12",
             "npm:expo-router@~55.0.3",
+            "npm:expo-secure-store@14.1",
             "npm:expo-status-bar@~55.0.4",
             "npm:expo-system-ui@~55.0.9",
             "npm:expo@^55.0.4",
             "npm:react-dom@19.2.0",
             "npm:react-native-safe-area-context@~5.6.2",
             "npm:react-native-screens@4.23",
+            "npm:react-native-url-polyfill@2",
             "npm:react-native-web@0.21",
             "npm:react-native@0.83.2",
             "npm:react@19.2.0",
@@ -99,6 +105,7 @@
       "packages/supabase": {
         "packageJson": {
           "dependencies": [
+            "npm:@repo/shared@*",
             "npm:@repo/typescript-config@*",
             "npm:@supabase/supabase-js@^2.45.4",
             "npm:tsup@^8.0.1",
