@@ -40,3 +40,4 @@ yarn-error.log*
 # turbo & local tooling
 .turbo/
 .mcp.json
+supabase/functions/.env
