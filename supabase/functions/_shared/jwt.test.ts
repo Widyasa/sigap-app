@@ -19,7 +19,8 @@ Deno.test("create/verify access token", async () => {
   });
   const payload = await verifyAccessToken(token);
   assertEquals(payload.sub, "11111111-1111-1111-1111-111111111111");
-  assertEquals(payload.role, "citizen");
+  assertEquals(payload.role, "authenticated");
+  assertEquals(payload.app_role, "citizen");
   assertEquals(payload.type, "access");
   assertEquals(payload.iss, "sigap");
   assertEquals(payload.aud, "sigap");

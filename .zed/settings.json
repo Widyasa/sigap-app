@@ -1,0 +1,21 @@
+{
+  "lsp": {
+    "deno": {
+      "settings": {
+        "deno": {
+          "enable": true,
+          "enablePaths": ["supabase/functions"],
+          "config": "supabase/functions/deno.json"
+        }
+      }
+    }
+  },
+  "languages": {
+    "JavaScript": {
+      "language_servers": ["deno", "typescript-language-server"]
+    },
+    "TypeScript": {
+      "language_servers": ["deno", "typescript-language-server"]
+    }
+  }
+}

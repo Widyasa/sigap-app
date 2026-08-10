@@ -1,34 +1,37 @@
-import { StyleSheet, Text, View } from "react-native";
-import { StatusBar } from "expo-status-bar";
-import { Button } from "@repo/ui";
-import { colors } from "@repo/shared";
+import { useEffect } from 'react';
+import { View, ActivityIndicator } from 'react-native';
+import { useRouter } from 'expo-router';
+import { useAuth } from './_components/AuthProvider';
+import { useTheme } from './_components/useTheme';
 
-export default function Native() {
+export default function Index() {
+  const { isLoading, isAuthenticated, needsOnboarding } = useAuth();
+  const router = useRouter();
+  const { colors } = useTheme();
+
+  useEffect(() => {
+    if (isLoading) return;
+    if (!isAuthenticated) {
+      router.replace('/login');
+      return;
+    }
+    if (needsOnboarding) {
+      router.replace('/onboarding');
+      return;
+    }
+    router.replace('/home');
+  }, [isLoading, isAuthenticated, needsOnboarding, router]);
+
   return (
-    <View style={styles.container}>
-      <Text style={styles.header}>Native</Text>
-      <Button
-        onClick={() => {
-          console.log("Pressed!");
-          alert("Pressed!");
-        }}
-        text="Boop"
-      />
-      <StatusBar style="auto" />
+    <View
+      style={{
+        flex: 1,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: colors.background,
+      }}
+    >
+      <ActivityIndicator size="large" color={colors.primary} />
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.light.background,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  header: {
-    fontWeight: "bold",
-    marginBottom: 20,
-    fontSize: 36,
-  },
-});

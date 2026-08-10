@@ -30,6 +30,28 @@ INSERT INTO users (id, email, email_verified_at) VALUES
   ('55555555-5555-5555-5555-555555555555', 'admin@sigap.test',    NOW())
 ON CONFLICT (email) DO NOTHING;
 
+-- ---------------------------------------------------------------------
+-- Dummy warga lintas kelurahan/kecamatan (data nyata wilayah Kota Bandung).
+-- Tidak ada tabel katalog kelurahan/kecamatan terpisah — onboarding.tsx
+-- menyimpannya sebagai teks bebas di profiles, jadi data ini hanya untuk
+-- variasi uji coba (leaderboard, deteksi duplikat lintas wilayah, dll).
+-- ---------------------------------------------------------------------
+INSERT INTO users (id, email, email_verified_at) VALUES
+  ('66666666-6666-6666-6666-666666666666', 'warga.dago@sigap.test',     NOW()),
+  ('77777777-7777-7777-7777-777777777777', 'warga.sukagalih@sigap.test', NOW()),
+  ('88888888-8888-8888-8888-888888888888', 'warga.citarum@sigap.test',  NOW()),
+  ('99999999-9999-9999-9999-999999999999', 'warga.turangga@sigap.test', NOW()),
+  ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'warga.pasirkaliki@sigap.test', NOW())
+ON CONFLICT (email) DO NOTHING;
+
+INSERT INTO profiles (id, full_name, role, dinas_id, kelurahan, kecamatan) VALUES
+  ('66666666-6666-6666-6666-666666666666', 'Agus Setiawan',  'citizen', NULL, 'Dago',        'Coblong'),
+  ('77777777-7777-7777-7777-777777777777', 'Rina Marlina',   'citizen', NULL, 'Sukagalih',   'Sukajadi'),
+  ('88888888-8888-8888-8888-888888888888', 'Hendra Gunawan', 'citizen', NULL, 'Citarum',     'Bandung Wetan'),
+  ('99999999-9999-9999-9999-999999999999', 'Siti Nurhaliza', 'citizen', NULL, 'Turangga',    'Lengkong'),
+  ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'Bayu Prasetyo',  'citizen', NULL, 'Pasirkaliki', 'Cicendo')
+ON CONFLICT (id) DO NOTHING;
+
 INSERT INTO profiles (id, full_name, role, dinas_id, kelurahan, kecamatan) VALUES
   ('11111111-1111-1111-1111-111111111111', 'Sri Wahyuni',  'citizen',            NULL,   'Sukamaju', 'Cibeunying'),
   ('22222222-2222-2222-2222-222222222222', 'Wulan Sari',   'verifier',           NULL,   'Sukamaju', 'Cibeunying'),

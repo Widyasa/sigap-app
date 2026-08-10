@@ -1,7 +1,12 @@
-import { Stack } from "expo-router"
+import { Stack } from 'expo-router';
+import { AuthProvider } from './_components/AuthProvider';
+import { StatusBar } from 'expo-status-bar';
 
-const AppLayout = () => {
-  return <Stack />
+export default function RootLayout() {
+  return (
+    <AuthProvider>
+      <Stack screenOptions={{ headerShown: false }} />
+      <StatusBar style="auto" />
+    </AuthProvider>
+  );
 }
-
-export default AppLayout
