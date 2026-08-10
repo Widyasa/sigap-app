@@ -33,5 +33,6 @@ yarn-error.log*
 .env.test.local
 .env.production.local
 
-# turbo
-.turbo
+# agent skill directories
+.agents/
+.claude/
