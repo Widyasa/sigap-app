@@ -1,0 +1,125 @@
+{
+  "version": "5",
+  "specifiers": {
+    "jsr:@std/assert@*": "1.0.19",
+    "jsr:@std/internal@^1.0.12": "1.0.14"
+  },
+  "jsr": {
+    "@std/assert@1.0.19": {
+      "integrity": "eaada96ee120cb980bc47e040f82814d786fe8162ecc53c91d8df60b8755991e",
+      "dependencies": [
+        "jsr:@std/internal"
+      ]
+    },
+    "@std/internal@1.0.14": {
+      "integrity": "291516b3d4c35024d6ffbc0a9df5bf4c64116e05b50012cf846710152d2ffdf7"
+    }
+  },
+  "remote": {
+    "https://deno.land/std@0.221.0/encoding/_util.ts": "beacef316c1255da9bc8e95afb1fa56ed69baef919c88dc06ae6cb7a6103d376",
+    "https://deno.land/std@0.221.0/encoding/base64.ts": "8ccae67a1227b875340a8582ff707f37b131df435b07080d3bb58e07f5f97807",
+    "https://deno.land/std@0.221.0/encoding/base64url.ts": "9cc46cf510436be63ac00ebf97a7de1993e603ca58e1853b344bf90d80ea9945",
+    "https://deno.land/x/djwt@v3.0.2/algorithm.ts": "b1c6645f9dbd6e6c47c123a3b18c28b956f91c65ed17f5b6d5d968fc3750542b",
+    "https://deno.land/x/djwt@v3.0.2/deps.ts": "a7954fe567f2097b4f6aca11d091b6df658e485a817ac4dee47257ed5c28fd6e",
+    "https://deno.land/x/djwt@v3.0.2/mod.ts": "962d8f2c4d6a4db111f45d777b152356aec31ba7db0ca664601175a422629857",
+    "https://deno.land/x/djwt@v3.0.2/signature.ts": "16238fbf558267c85dd6c0178045f006c8b914a7301db87149f3318326569272",
+    "https://deno.land/x/djwt@v3.0.2/util.ts": "5cb264d2125c553678e11446bcfa0494025d120e3f59d0a3ab38f6800def697d"
+  },
+  "workspace": {
+    "packageJson": {
+      "dependencies": [
+        "npm:@types/minimatch@6",
+        "npm:prettier@^3.1.1",
+        "npm:turbo@^2.10.9"
+      ]
+    },
+    "members": {
+      "apps/native": {
+        "packageJson": {
+          "dependencies": [
+            "npm:@repo/shared@*",
+            "npm:@repo/ui@*",
+            "npm:@types/react@~19.2.10",
+            "npm:expo-constants@~55.0.7",
+            "npm:expo-linking@~55.0.7",
+            "npm:expo-router@~55.0.3",
+            "npm:expo-status-bar@~55.0.4",
+            "npm:expo-system-ui@~55.0.9",
+            "npm:expo@^55.0.4",
+            "npm:react-dom@19.2.0",
+            "npm:react-native-safe-area-context@~5.6.2",
+            "npm:react-native-screens@4.23",
+            "npm:react-native-web@0.21",
+            "npm:react-native@0.83.2",
+            "npm:react@19.2.0",
+            "npm:typescript@5.9.2"
+          ]
+        }
+      },
+      "apps/web": {
+        "packageJson": {
+          "dependencies": [
+            "npm:@repo/typescript-config@*",
+            "npm:@repo/ui@*",
+            "npm:@types/minimatch@6",
+            "npm:@types/node@^20.10.6",
+            "npm:@types/react-dom@19.2",
+            "npm:@types/react@~19.2.10",
+            "npm:babel-plugin-react-native-web@~0.19.10",
+            "npm:eslint-config-next@16.3.0",
+            "npm:eslint@9",
+            "npm:next@16.3.0",
+            "npm:react-dom@19.2.0",
+            "npm:react-native-web@0.21",
+            "npm:react@19.2.0",
+            "npm:typescript@5.9.2"
+          ]
+        }
+      },
+      "packages/ai": {
+        "packageJson": {
+          "dependencies": [
+            "npm:@repo/typescript-config@*",
+            "npm:tsup@^8.0.1",
+            "npm:typescript@^5.5.4"
+          ]
+        }
+      },
+      "packages/shared": {
+        "packageJson": {
+          "dependencies": [
+            "npm:@repo/typescript-config@*",
+            "npm:tsup@^8.0.1",
+            "npm:typescript@^5.5.4",
+            "npm:vitest@^2.1.1",
+            "npm:zod@^3.23.8"
+          ]
+        }
+      },
+      "packages/supabase": {
+        "packageJson": {
+          "dependencies": [
+            "npm:@repo/typescript-config@*",
+            "npm:@supabase/supabase-js@^2.45.4",
+            "npm:tsup@^8.0.1",
+            "npm:typescript@^5.5.4",
+            "npm:vitest@^2.1.1"
+          ]
+        }
+      },
+      "packages/ui": {
+        "packageJson": {
+          "dependencies": [
+            "npm:@repo/typescript-config@*",
+            "npm:@types/minimatch@6",
+            "npm:@types/react@~19.2.10",
+            "npm:react-native@0.83.2",
+            "npm:react@19.2.0",
+            "npm:tsup@^8.0.1",
+            "npm:typescript@5.9.2"
+          ]
+        }
+      }
+    }
+  }
+}
