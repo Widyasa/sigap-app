@@ -3,10 +3,14 @@
     "name": "native",
     "slug": "native",
     "version": "1.0.0",
-    "scheme": "com.turbo.example",
+    "scheme": "sigap",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "automatic",
+    "extra": {
+      "supabaseUrl": "https://kfbbaeuzvfzcbwjlopne.supabase.co",
+      "supabasePublishableKey": "sb_publishable_scwzXInxD6edkia43QDjjA_WB5z_b9k"
+    },
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",
@@ -30,6 +34,22 @@
       "favicon": "./assets/favicon.png",
       "bundler": "metro"
     },
-    "plugins": ["expo-router"]
+    "plugins": [
+      "expo-router",
+      [
+        "expo-image-picker",
+        {
+          "cameraPermission": "SIGAP butuh akses kamera untuk memotret aduan.",
+          "photosPermission": "SIGAP butuh akses galeri untuk melampirkan foto aduan.",
+          "microphonePermission": false
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "SIGAP butuh lokasi untuk menandai posisi aduan."
+        }
+      ]
+    ]
   }
 }
