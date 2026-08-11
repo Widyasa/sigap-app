@@ -60,3 +60,23 @@ export type {
   AskBudgetResponse,
   EmbedBudgetItemResponse,
 } from './queries/budget';
+export {
+  uploadServiceDocument,
+  getServiceRequestSignedUrl,
+  createServiceRequest,
+  listMyServiceRequests,
+  getServiceRequest,
+  runOcr,
+  generateServicePdf,
+  listServiceRequestsForReview,
+  updateServiceRequestStatus,
+  verifyServiceDocument,
+} from './queries/services';
+export type {
+  ServiceRequestSummary,
+  OcrField,
+  OcrResponse,
+  GenerateServicePdfResponse,
+  UpdateServiceRequestStatusInput,
+  VerifyServiceDocumentResult,
+} from './queries/services';

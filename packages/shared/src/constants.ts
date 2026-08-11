@@ -95,3 +95,50 @@ export const POINT_REASONS: Record<PointReason, number> = {
   aspiration_musrenbang: 100,
   report_false: -35,
 };
+
+/**
+ * Katalog jenis layanan administrasi (M4 Layanan) — daftar tetap yang
+ * cocok persis dengan CHECK constraint `service_requests.service_type`
+ * (lihat 20260810000004_modules.sql). Ini bukan tabel DB karena nilainya
+ * tidak pernah berubah tanpa migrasi skema.
+ */
+export interface ServiceCatalogEntry {
+  id: 'domisili' | 'sktm' | 'pengantar_nikah' | 'izin_keramaian' | 'usaha';
+  name: string;
+  description: string;
+  /** Jenis dokumen yang wajib diunggah warga untuk jenis layanan ini. */
+  requiredDocuments: Array<'ktp' | 'kk'>;
+}
+
+export const SERVICE_CATALOG: ServiceCatalogEntry[] = [
+  {
+    id: 'domisili',
+    name: 'Surat Keterangan Domisili',
+    description: 'Bukti tempat tinggal untuk keperluan administrasi (sekolah, kerja, bank, dll).',
+    requiredDocuments: ['ktp', 'kk'],
+  },
+  {
+    id: 'sktm',
+    name: 'Surat Keterangan Tidak Mampu',
+    description: 'Keterangan status ekonomi untuk keperluan bantuan sosial, beasiswa, atau keringanan biaya.',
+    requiredDocuments: ['ktp', 'kk'],
+  },
+  {
+    id: 'pengantar_nikah',
+    name: 'Surat Pengantar Nikah',
+    description: 'Pengantar dari kelurahan untuk pendaftaran nikah di KUA.',
+    requiredDocuments: ['ktp', 'kk'],
+  },
+  {
+    id: 'izin_keramaian',
+    name: 'Surat Izin Keramaian',
+    description: 'Izin untuk kegiatan/acara warga yang berpotensi ramai (hajatan, konser lingkungan, dll).',
+    requiredDocuments: ['ktp'],
+  },
+  {
+    id: 'usaha',
+    name: 'Surat Keterangan Usaha',
+    description: 'Keterangan kepemilikan usaha untuk keperluan perizinan atau permodalan.',
+    requiredDocuments: ['ktp'],
+  },
+];

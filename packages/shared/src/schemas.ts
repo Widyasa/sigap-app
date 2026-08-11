@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { DINAS_LIST, CATEGORY_LIST, URGENCY_VALUES } from './constants';
+import { DINAS_LIST, CATEGORY_LIST, URGENCY_VALUES, SERVICE_CATALOG } from './constants';
 
 const dinasIds = DINAS_LIST.map((d) => d.id) as [string, ...string[]];
 const categories = CATEGORY_LIST as unknown as [string, ...string[]];
@@ -82,3 +82,25 @@ export function canVoteAspiration(
   if (!period.isActive) return false;
   return now >= new Date(period.startsAt) && now <= new Date(period.endsAt);
 }
+
+const serviceTypeIds = SERVICE_CATALOG.map((s) => s.id) as [string, ...string[]];
+
+/**
+ * `formData` pakai `z.record(z.string())` longgar (bukan skema per-jenis
+ * layanan yang ketat) — field yang relevan berbeda per `service_type` (lihat
+ * `FIELD_LABELS` di supabase/functions/_shared/servicePdf.ts) dan sumber
+ * kebenaran field mana yang dipakai adalah label surat itu sendiri, bukan
+ * validasi client. Ketatnya cukup di server: field yang tak dikenal untuk
+ * suatu jenis layanan cukup diabaikan saat merender surat.
+ */
+export const createServiceRequestSchema = z.object({
+  serviceType: z.enum(serviceTypeIds),
+  formData: z.record(z.string(), z.string().trim()),
+  documentUrls: z.array(z.string()).min(1, 'Wajib melampirkan minimal satu dokumen').max(5),
+});
+export type CreateServiceRequestInput = z.infer<typeof createServiceRequestSchema>;
+
+export const SERVICE_STATUSES = [
+  'submitted', 'verifying', 'signing', 'ready', 'rejected', 'collected',
+] as const;
+export type ServiceStatus = (typeof SERVICE_STATUSES)[number];
