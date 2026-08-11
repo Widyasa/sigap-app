@@ -263,3 +263,237 @@ export function isDuplicateUpvoteError(error: unknown): boolean {
   const { code } = error;
   return code === '23505';
 }
+
+// ---------------------------------------------------------------------
+// Complaints (staff-facing: verifier koreksi klasifikasi, dinas tindak
+// lanjut) — issue #14 "Admin dashboard foundation and role-based views".
+// ---------------------------------------------------------------------
+
+export interface VerifierComplaint {
+  id: string;
+  title: string | null;
+  description: string;
+  category: string | null;
+  assignedDinas: string | null;
+  assignedDinasName: string | null;
+  urgency: Urgency | null;
+  status: ComplaintStatus;
+  kelurahan: string | null;
+  kecamatan: string | null;
+  imageUrls: string[];
+  aiSummary: string | null;
+  upvoteCount: number;
+  createdAt: string;
+  /** Pelapor asli — verifier/dinas perlu tahu siapa yang mengajukan. */
+  userId: string;
+}
+
+/** Bentuk sama dengan VerifierComplaint; dipisah sebagai alias supaya layar
+ * dinas dan verifier tidak diam-diam terikat pada tipe yang sama jika salah
+ * satunya berubah nanti. */
+export type DinasComplaint = VerifierComplaint;
+
+interface StaffComplaintRow {
+  id: string;
+  title: string | null;
+  description: string;
+  category: string | null;
+  assigned_dinas: string | null;
+  urgency: string | null;
+  status: string;
+  kelurahan: string | null;
+  kecamatan: string | null;
+  image_urls: string[];
+  ai_summary: string | null;
+  upvote_count: number;
+  created_at: string;
+  user_id: string;
+  dinas: { name: string } | null;
+}
+
+const STAFF_COMPLAINT_COLUMNS =
+  'id, title, description, category, assigned_dinas, urgency, status, kelurahan, kecamatan, ' +
+  'image_urls, ai_summary, upvote_count, created_at, user_id, dinas:assigned_dinas ( name )';
+
+function rowToStaffComplaint(row: StaffComplaintRow): VerifierComplaint {
+  return {
+    id: row.id,
+    title: row.title,
+    description: row.description,
+    category: row.category,
+    assignedDinas: row.assigned_dinas,
+    assignedDinasName: row.dinas?.name ?? null,
+    urgency: row.urgency as Urgency | null,
+    status: row.status as ComplaintStatus,
+    kelurahan: row.kelurahan,
+    kecamatan: row.kecamatan,
+    imageUrls: row.image_urls,
+    aiSummary: row.ai_summary,
+    upvoteCount: row.upvote_count,
+    createdAt: row.created_at,
+    userId: row.user_id,
+  };
+}
+
+/**
+ * Antrean aduan untuk verifier: masih menunggu klasifikasi AI atau sudah
+ * diklasifikasi tapi belum diverifikasi manusia. RLS `complaints_read`
+ * mengizinkan semua baca; filter status di sini murni kenyamanan tampilan
+ * (kriteria "Verifier sees aduan queue").
+ */
+export async function listComplaintsForVerifier(
+  supabase: SupabaseClient<Database>,
+  opts?: { limit?: number },
+): Promise<VerifierComplaint[]> {
+  let query = supabase
+    .from('complaints')
+    .select<string, StaffComplaintRow>(STAFF_COMPLAINT_COLUMNS)
+    .in('status', ['pending_classification', 'pending'])
+    .order('created_at', { ascending: false });
+  if (opts?.limit) query = query.limit(opts.limit);
+  const { data, error } = await query;
+  if (error) throw error;
+  return (data ?? []).map(rowToStaffComplaint);
+}
+
+/**
+ * Aduan yang sudah lolos verifikasi dan ditugaskan ke satu dinas (kriteria
+ * "Dinas staff sees only aduan assigned to their dinas"). RLS
+ * `complaints_dinas_update` sudah membatasi TULIS ke `assigned_dinas =
+ * current_dinas_id()`, tapi `complaints_read` mengizinkan BACA semua baris —
+ * parameter `dinasId` di sini adalah pertahanan berlapis di sisi klien agar
+ * dinas tidak pernah melihat antrean dinas lain, bukan otorisasi sebenarnya.
+ */
+export async function listComplaintsForDinas(
+  supabase: SupabaseClient<Database>,
+  dinasId: string,
+): Promise<DinasComplaint[]> {
+  const { data, error } = await supabase
+    .from('complaints')
+    .select<string, StaffComplaintRow>(STAFF_COMPLAINT_COLUMNS)
+    .eq('assigned_dinas', dinasId)
+    .in('status', ['verified', 'in_progress'])
+    .order('status', { ascending: true })
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  return (data ?? []).map(rowToStaffComplaint);
+}
+
+/**
+ * Aduan aktif lintas dinas — dipakai admin tanpa `dinasId` sendiri di layar
+ * `/dinas` (lihat catatan di halaman itu untuk alasan admin butuh tampilan
+ * gabungan, bukan per-dinas).
+ */
+export async function listActiveComplaintsAllDinas(
+  supabase: SupabaseClient<Database>,
+): Promise<DinasComplaint[]> {
+  const { data, error } = await supabase
+    .from('complaints')
+    .select<string, StaffComplaintRow>(STAFF_COMPLAINT_COLUMNS)
+    .in('status', ['verified', 'in_progress'])
+    .order('status', { ascending: true })
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  return (data ?? []).map(rowToStaffComplaint);
+}
+
+/** Peta transisi status yang boleh dilakukan verifier/admin saat mengoreksi
+ * klasifikasi AI. Fungsi murni (tanpa I/O) supaya bisa diuji tanpa DB.
+ * Setiap status juga memetakan ke DIRINYA SENDIRI supaya UI bisa menyimpan
+ * koreksi field (judul/kategori/dinas/urgensi) tanpa memaksa lompat status —
+ * itu bukan "transisi tak sah", hanya belum siap diverifikasi/ditolak. */
+const CLASSIFICATION_TRANSITIONS: Partial<Record<ComplaintStatus, ComplaintStatus[]>> = {
+  pending_classification: ['pending_classification', 'pending', 'rejected'],
+  pending: ['pending', 'verified', 'rejected'],
+};
+
+/** true jika `from` -> `to` adalah transisi klasifikasi yang sah (kriteria
+ * "Verifier ... can correct AI classification"). Diuji lewat unit test murni
+ * di complaints.test.ts karena tidak menyentuh Supabase sama sekali. */
+export function isValidClassificationTransition(
+  from: ComplaintStatus,
+  to: ComplaintStatus,
+): boolean {
+  return CLASSIFICATION_TRANSITIONS[from]?.includes(to) ?? false;
+}
+
+export interface UpdateComplaintClassificationInput {
+  currentStatus: ComplaintStatus;
+  status: ComplaintStatus;
+  title?: string | null;
+  category?: string | null;
+  assignedDinas?: string | null;
+  urgency?: Urgency;
+  rejectionReason?: string | null;
+}
+
+/**
+ * Verifier/admin mengoreksi klasifikasi AI dan memajukan status
+ * (pending_classification -> pending/rejected, pending -> verified/rejected).
+ * RLS `complaints_verifier_update` adalah otoritas penulisan sebenarnya;
+ * validasi transisi di sini mencegah UI mengirim lompatan status yang tak
+ * masuk akal sebelum permintaan sampai ke database.
+ */
+export async function updateComplaintClassification(
+  supabase: SupabaseClient<Database>,
+  complaintId: string,
+  input: UpdateComplaintClassificationInput,
+): Promise<void> {
+  if (!isValidClassificationTransition(input.currentStatus, input.status)) {
+    throw new Error(`Transisi status tidak valid: ${input.currentStatus} -> ${input.status}`);
+  }
+
+  const update: Database['public']['Tables']['complaints']['Update'] = {
+    status: input.status,
+  };
+  if (input.title !== undefined) update.title = input.title;
+  if (input.category !== undefined) update.category = input.category;
+  if (input.assignedDinas !== undefined) update.assigned_dinas = input.assignedDinas;
+  if (input.urgency !== undefined) update.urgency = input.urgency;
+  if (input.rejectionReason !== undefined) update.rejection_reason = input.rejectionReason;
+
+  const { error } = await supabase.from('complaints').update(update).eq('id', complaintId);
+  if (error) throw error;
+}
+
+export interface UpdateComplaintStatusInput {
+  status: 'in_progress' | 'resolved';
+  actorId: string;
+  note?: string;
+  photoUrls?: string[];
+}
+
+const DINAS_STATUS_EVENT: Record<UpdateComplaintStatusInput['status'], string> = {
+  in_progress: 'progress',
+  resolved: 'resolved',
+};
+
+/**
+ * Dinas staff/head menindaklanjuti aduan (verified -> in_progress ->
+ * resolved). RLS `complaints_dinas_update` (atau `complaints_verifier_update`
+ * untuk admin) menegakkan siapa yang boleh menulis baris `complaints`.
+ * Trigger `complaints_status_log` sudah mencatat perubahan status itu
+ * sendiri ke `complaint_timeline` secara otomatis (tanpa catatan/foto);
+ * insert kedua di sini menambahkan entri terpisah berisi catatan progres
+ * dan foto lapangan dari petugas, yang tidak bisa ditangkap trigger generik.
+ */
+export async function updateComplaintStatus(
+  supabase: SupabaseClient<Database>,
+  complaintId: string,
+  input: UpdateComplaintStatusInput,
+): Promise<void> {
+  const { error: updateError } = await supabase
+    .from('complaints')
+    .update({ status: input.status })
+    .eq('id', complaintId);
+  if (updateError) throw updateError;
+
+  const { error: timelineError } = await supabase.from('complaint_timeline').insert({
+    complaint_id: complaintId,
+    actor_id: input.actorId,
+    event_type: DINAS_STATUS_EVENT[input.status],
+    note: input.note ?? null,
+    photo_urls: input.photoUrls ?? [],
+  });
+  if (timelineError) throw timelineError;
+}

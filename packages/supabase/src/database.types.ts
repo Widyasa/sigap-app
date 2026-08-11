@@ -842,6 +842,10 @@ export type Database = {
         Args: never
         Returns: Database["public"]["Enums"]["user_role"]
       }
+      disable_user: {
+        Args: { p_disabled: boolean; p_user_id: string }
+        Returns: undefined
+      }
       earth: { Args: never; Returns: number }
       find_duplicate_complaints: {
         Args: {
