@@ -75,3 +75,60 @@ container recreation regardless of where it lived.
 
 Adjust host/port if your `[db].port` in `supabase/config.toml` differs from
 the default `54322`.
+
+
+## Related: Realtime `postgres_changes` silently drops rows for
+## `auth.uid()`/custom-function RLS predicates (found in issue #12)
+
+### Symptom
+
+A `postgres_changes` subscription (any event, any filter) on a table whose
+SELECT policy calls `auth.uid()` or another custom function (e.g.
+`emergency_read` on `emergency_alerts`: `user_id = auth.uid() OR
+current_role_name() IN (...)`) never delivers events to ANY subscriber —
+not the row owner, not an operator/admin role that should qualify via the
+`OR` branch. No error is logged by the `realtime` container; the row is
+just silently filtered out. `INSERT`, `UPDATE`, unfiltered and per-id
+filtered subscriptions are all affected identically.
+
+Tables whose SELECT policy is a bare `USING (true)` (`complaints_read`,
+`timeline_read`) are **not** affected — this is why issue #8's realtime
+proof never surfaced this gap.
+
+### Root cause (local-only, not a repo bug)
+
+The `realtime` service authorizes each `postgres_changes` subscription on
+a dedicated connection tagged `application_name=realtime_rls` (visible in
+`pg_stat_activity`), running as `supabase_admin`. That connection does not
+resolve `auth.uid()`/`current_role_name()` to the subscriber's actual
+claims the way PostgREST's request connection does (even after applying
+the `auth.uid()` GUC patch above, and even on a freshly-restarted
+`realtime` container) — the predicate evaluates to `NULL`/false for every
+subscriber, so the row never passes RLS for the realtime feed specifically
+regardless of the subscriber's real access.
+
+**Confirmed via A/B test**: temporarily adding a second, always-true SELECT
+policy on `emergency_alerts` (`CREATE POLICY ... USING (true)`, immediately
+dropped afterward — Postgres OR-combines multiple permissive policies)
+made INSERT events flow instantly through the exact same subscription
+code; reverting to only the real `emergency_read` policy reproduces the
+silent drop every time. REST access (`SELECT`/`INSERT`/`UPDATE` via
+PostgREST) is unaffected throughout — only `realtime`'s own authorization
+connection is impacted.
+
+**Production Supabase Cloud projects are unaffected** — same reasoning as
+the `auth.uid()` GUC skew above: this local `realtime` image doesn't
+propagate JWT claims into its RLS-check connection the way the hosted
+platform does.
+
+### Workaround
+
+None found that doesn't change the security model (the alternative is
+relaxing the SELECT policy to `USING (true)`, which is NOT acceptable —
+it would let any authenticated user read every other citizen's alerts via
+REST too, not just realtime). Until the local `realtime` image is fixed
+upstream, verify `auth.uid()`-gated realtime tables (`emergency_alerts`)
+by proving the pipeline mechanically (publication membership + the A/B
+`true`-policy test above) and by code review against an already-proven
+pattern (`apps/native/app/aduan/[id].tsx`), rather than a live two-client
+demo on this local stack.
