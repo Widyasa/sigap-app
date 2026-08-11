@@ -6,7 +6,8 @@
 
 export type { ThemeMode, Urgency, ComplaintStatus, ColorTokens } from './theme';
 export type { Dinas, PointReason } from './constants';
-export type { CreateComplaintInput, AiClassification } from './schemas';
+export type { CreateComplaintInput, AiClassification, CreateServiceRequestInput, ServiceStatus } from './schemas';
+export type { ServiceCatalogEntry } from './constants';
 
 export type Category = string;
 

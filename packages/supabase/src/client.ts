@@ -12,7 +12,14 @@ export function createSigapClient(
   getAccessToken: () => Promise<string | null>,
 ) {
   return createClient<Database>(url, anonKey, {
-    accessToken: async () => (await getAccessToken()) ?? '',
+    // `?? null` (bukan `?? ''`) penting: fetchWithAuth supabase-js hanya
+    // jatuh balik ke apikey (anon key) sebagai Authorization saat callback
+    // ini mengembalikan null/undefined — string kosong dianggap token valid
+    // dan dikirim sebagai `Authorization: Bearer ` (rusak, 401 dari
+    // PostgREST). Ini wajib benar agar panggilan tanpa sesi (mis. halaman
+    // publik /verify/[code] yang memanggil RPC dengan grant EXECUTE anon)
+    // benar-benar terautentikasi sebagai `anon`, bukan token kosong.
+    accessToken: async () => await getAccessToken(),
     auth: {
       // Modul auth bawaan dimatikan total. SIGAP mengelola sesinya sendiri.
       persistSession: false,

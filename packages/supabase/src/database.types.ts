@@ -890,6 +890,15 @@ export type Database = {
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
       user_total_points: { Args: { target_user: string }; Returns: number }
+      verify_service_document: {
+        Args: { code: string }
+        Returns: {
+          issued_at: string
+          service_type: string
+          status: string
+          valid: boolean
+        }[]
+      }
     }
     Enums: {
       user_role:
