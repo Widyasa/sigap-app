@@ -52,6 +52,20 @@ enabled = true
 policy = "oneshot"
 inspector_port = 8083
 
+# Fungsi auth-* dipanggil SEBELUM pengguna punya sesi (mendapatkan/menukar
+# OTP), jadi tidak mungkin mengirim JWT valid pada Authorization header —
+# verifikasinya dilakukan sendiri oleh fungsi (lihat _shared/otp.ts, jwt.ts),
+# bukan oleh gateway. Tanpa ini, gateway lokal menolak semua permintaan
+# dengan UNAUTHORIZED_NO_AUTH_HEADER sebelum kode fungsi sempat berjalan.
+[functions.auth-request-otp]
+verify_jwt = false
+[functions.auth-verify-otp]
+verify_jwt = false
+[functions.auth-refresh]
+verify_jwt = false
+[functions.auth-signout]
+verify_jwt = false
+
 [analytics]
 enabled = false
 
