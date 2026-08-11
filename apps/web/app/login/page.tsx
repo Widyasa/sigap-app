@@ -1,14 +1,21 @@
 'use client';
 
-import { useState, type CSSProperties } from 'react';
+import { useEffect, useState, type CSSProperties } from 'react';
 import { useRouter } from 'next/navigation';
 import { emailSchema, otpCodeSchema } from '@repo/shared';
 import { useAuth } from '../_lib/auth';
 
 type Step = 'email' | 'code';
 
+/** Landing pasca-login per peran (issue #14 kriteria role-based views).
+ * Operator darurat langsung ke antrean SOS; peran lain ke dashboard `/`
+ * yang menyaring kartu navigasi sesuai peran. */
+function landingPathForRole(role: string): string {
+  return role === 'emergency_operator' ? '/darurat' : '/';
+}
+
 export default function LoginPage() {
-  const { requestOtp, verifyOtp } = useAuth();
+  const { requestOtp, verifyOtp, isAuthenticated, user } = useAuth();
   const router = useRouter();
 
   const [step, setStep] = useState<Step>('email');
@@ -16,6 +23,16 @@ export default function LoginPage() {
   const [code, setCode] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  // Redirect pasca-verifikasi: `verifyOtp` hanya mengonfirmasi sukses/gagal,
+  // profil (dan perannya) baru tersedia lewat `user` setelah AuthProvider
+  // menyetel state-nya, jadi navigasi ditunda ke sini alih-alih di
+  // handleVerify agar selalu memakai peran yang sudah termuat.
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      router.replace(landingPathForRole(user.role));
+    }
+  }, [isAuthenticated, user, router]);
 
   const handleRequestOtp = async () => {
     setError(null);
@@ -32,8 +49,7 @@ export default function LoginPage() {
       return;
     }
     setEmail(parsed.data);
-    // Dev mode: fungsi auth-request-otp mengembalikan devCode di JSON respons
-    // sehingga tidak perlu email nyata untuk pengujian lokal (lihat OTP_DEV_MODE).
+    // Prefill kode jika backend mengembalikannya (server memutuskan kapan).
     setCode(result.devCode ?? '');
     setStep('code');
   };
@@ -52,7 +68,7 @@ export default function LoginPage() {
       setError(result.message ?? 'Gagal memverifikasi kode');
       return;
     }
-    router.replace('/aspirasi');
+    // Navigasi ditangani oleh effect di atas begitu `user` termuat.
   };
 
   return (
