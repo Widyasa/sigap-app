@@ -132,3 +132,23 @@ INSERT INTO budget_items (
    500000000, 120000000, 'Balai Kota Bandung', NULL, NULL,
    24, NULL)
 ON CONFLICT (id) DO NOTHING;
+
+
+-- ---------------------------------------------------------------------
+-- Pengumuman contoh (M6 Info & Komunitas, issue #13) — satu untuk seluruh
+-- warga (kelurahan NULL) dan satu untuk kelurahan tertentu, agar targeting
+-- "semua warga vs kelurahan tertentu" bisa langsung didemokan tanpa perlu
+-- mengisi form admin dulu.
+-- ---------------------------------------------------------------------
+INSERT INTO announcements (
+  id, title, body, dinas_id, kelurahan, is_pinned, created_by
+) VALUES
+  ('cccccccc-0001-0001-0001-000000000001',
+   'Jadwal Vaksinasi Massal Kota Bandung',
+   'Dinas Kesehatan membuka layanan vaksinasi gratis di seluruh puskesmas mulai Senin depan.',
+   'dinkes', NULL, TRUE, '55555555-5555-5555-5555-555555555555'),
+  ('cccccccc-0001-0001-0001-000000000002',
+   'Perbaikan Drainase Jalan Merdeka Dimulai',
+   'Warga Kelurahan Sukamaju dimohon berhati-hati, pengerjaan drainase berlangsung dua minggu ke depan.',
+   'pupr', 'Sukamaju', FALSE, '55555555-5555-5555-5555-555555555555')
+ON CONFLICT (id) DO NOTHING;
