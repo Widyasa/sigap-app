@@ -2,6 +2,8 @@
 // packages/shared/CONTEXT.md). Seluruh aplikasi wajib mengambil warna dari
 // token di berkas ini — tidak ada hex hard-coded di tempat lain.
 
+import type { AspirationStatus } from './schemas';
+
 export type ThemeMode = 'light' | 'dark';
 export type Urgency = 'P0' | 'P1' | 'P2';
 export type ComplaintStatus =
@@ -47,8 +49,18 @@ const STATUS: Record<ComplaintStatus, Record<ThemeMode, Pair>> = {
   rejected:               { light: { fg: '#64748B', bg: '#F8FAFC' }, dark: { fg: '#94A3B8', bg: '#1B2A36' } },
 };
 
+const ASPIRATION_STATUS: Record<AspirationStatus, Record<ThemeMode, Pair>> = {
+  voting:     { light: { fg: '#0284C7', bg: '#EFF6FF' }, dark: { fg: '#60A5FA', bg: '#12253C' } },
+  musrenbang: { light: { fg: '#CA8A04', bg: '#FEFCE8' }, dark: { fg: '#FACC15', bg: '#332A08' } },
+  approved:   { light: { fg: '#7C3AED', bg: '#F5F3FF' }, dark: { fg: '#A78BFA', bg: '#241B3D' } },
+  budgeted:   { light: { fg: '#0F4C5C', bg: '#E6F2F5' }, dark: { fg: '#2DD4BF', bg: '#134E4A' } },
+  realized:   { light: { fg: '#16A34A', bg: '#F0FDF4' }, dark: { fg: '#4ADE80', bg: '#0C2A16' } },
+  rejected:   { light: { fg: '#64748B', bg: '#F8FAFC' }, dark: { fg: '#94A3B8', bg: '#1B2A36' } },
+};
+
 export const urgencyColor = (u: Urgency, m: ThemeMode): Pair => URGENCY[u][m];
 export const statusColor  = (s: ComplaintStatus, m: ThemeMode): Pair => STATUS[s][m];
+export const aspirationStatusColor = (s: AspirationStatus, m: ThemeMode): Pair => ASPIRATION_STATUS[s][m];
 
 export const typography = {
   display: { fontSize: 28, lineHeight: 34, fontWeight: '800' as const },
