@@ -80,3 +80,15 @@ export type {
   UpdateServiceRequestStatusInput,
   VerifyServiceDocumentResult,
 } from './queries/services';
+export {
+  uploadEmergencyAudio,
+  getEmergencyAlertSignedAudioUrl,
+  createEmergencyAlert,
+  getMyActiveEmergencyAlert,
+  getEmergencyAlert,
+  listActiveEmergencyAlerts,
+  respondToEmergencyAlert,
+  resolveEmergencyAlert,
+  markFalseAlarm,
+} from './queries/emergency';
+export type { EmergencyAlertSummary } from './queries/emergency';
