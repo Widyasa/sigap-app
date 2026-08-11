@@ -80,6 +80,14 @@ export const aspirationStatusColor = (s: AspirationStatus, m: ThemeMode): Pair =
 export const serviceStatusColor = (s: ServiceStatus, m: ThemeMode): Pair => SERVICE_STATUS[s][m];
 export const emergencyStatusColor = (s: EmergencyStatus, m: ThemeMode): Pair => EMERGENCY_STATUS[s][m];
 
+/**
+ * Warna +/- untuk mutasi poin (issue #13) — dipetakan ke pasangan warna
+ * yang sudah ada (hijau `resolved`, merah `P0`) daripada menambah hex
+ * literal baru, sesuai aturan "satu-satunya tempat hex literal" di atas.
+ */
+export const pointsColor = (points: number, m: ThemeMode): Pair =>
+  points > 0 ? STATUS.resolved[m] : points < 0 ? URGENCY.P0[m] : STATUS.pending[m];
+
 export const typography = {
   display: { fontSize: 28, lineHeight: 34, fontWeight: '800' as const },
   h1:      { fontSize: 22, lineHeight: 28, fontWeight: '700' as const },

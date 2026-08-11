@@ -127,3 +127,21 @@ export const EMERGENCY_STATUSES = [
   'active', 'responding', 'resolved', 'false_alarm',
 ] as const;
 export type EmergencyStatus = (typeof EMERGENCY_STATUSES)[number];
+
+/**
+ * Skema pengumuman (M6 Info & Komunitas, issue #13). `kelurahan` kosong
+ * berarti berlaku untuk seluruh warga (`NULL` di kolom `announcements.kelurahan`),
+ * sesuai kriteria "Announcements can target all users or a specific
+ * kelurahan" — free text karena `profiles.kelurahan` juga free text, tidak
+ * ada tabel katalog kelurahan (lihat catatan seed.sql).
+ */
+export const createAnnouncementSchema = z.object({
+  title: z.string().trim().min(3, 'Judul minimal 3 karakter').max(150),
+  body: z.string().trim().min(10, 'Isi minimal 10 karakter').max(5000),
+  kelurahan: z.string().trim().min(1).max(100).optional().nullable(),
+  dinasId: z.enum(dinasIds).optional(),
+  imageUrl: z.string().optional(),
+  isPinned: z.boolean().default(false),
+  expiresAt: z.string().datetime().optional(),
+});
+export type CreateAnnouncementInput = z.infer<typeof createAnnouncementSchema>;
