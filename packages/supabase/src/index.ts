@@ -9,12 +9,22 @@ export {
   listComplaintTimeline,
   listMyUpvotedComplaintIds,
   isDuplicateUpvoteError,
+  listComplaintsForVerifier,
+  listComplaintsForDinas,
+  listActiveComplaintsAllDinas,
+  isValidClassificationTransition,
+  updateComplaintClassification,
+  updateComplaintStatus,
 } from './queries/complaints';
 export type {
   ComplaintAuthorProfile,
   FeedComplaint,
   ComplaintDetail,
   TimelineEntry,
+  VerifierComplaint,
+  DinasComplaint,
+  UpdateComplaintClassificationInput,
+  UpdateComplaintStatusInput,
 } from './queries/complaints';
 export {
   getActiveVotingPeriod,
@@ -50,6 +60,7 @@ export {
   budgetItemEmbeddingText,
   askBudget,
   embedBudgetItemText,
+  importBudgetItems,
 } from './queries/budget';
 export type {
   BudgetSummaryByDinas,
@@ -59,6 +70,7 @@ export type {
   AskBudgetCitedItem,
   AskBudgetResponse,
   EmbedBudgetItemResponse,
+  BudgetItemImportRow,
 } from './queries/budget';
 export {
   uploadServiceDocument,
@@ -108,3 +120,6 @@ export type {
   KelurahanLeaderboardEntry,
   PointLedgerEntry,
 } from './queries/community';
+
+export { listStaffUsers, setUserDisabled, updateUserRole } from './queries/admin';
+export type { StaffUser } from './queries/admin';

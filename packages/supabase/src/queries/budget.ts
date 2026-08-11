@@ -311,3 +311,52 @@ export async function embedBudgetItemText(
   });
   return response.json() as Promise<EmbedBudgetItemResponse>;
 }
+
+// ---------------------------------------------------------------------
+// Budget import (admin dashboard "budget import" — issue #14 kriteria
+// "Admin manages ... budget import"). Minimal berbentuk insert baris
+// terstruktur (form manual satu-per-satu ATAU beberapa baris hasil parse
+// CSV di UI) alih-alih wizard upload penuh; parsing CSV dilakukan di
+// halaman admin karena murni transformasi teks -> objek tanpa I/O.
+// ---------------------------------------------------------------------
+
+export interface BudgetItemImportRow {
+  fiscalYear: number;
+  dinasId: string | null;
+  programName: string;
+  activityName: string | null;
+  budgetAllocated: number;
+  budgetRealized: number;
+  locationAddress: string | null;
+  kelurahan: string | null;
+  kecamatan: string | null;
+  progressPercent: number;
+  contractor: string | null;
+}
+
+/**
+ * Admin menambah item anggaran baru secara batch. RLS `budget_admin_write`
+ * adalah otoritas penulisan sebenarnya (FOR ALL, hanya admin) — fungsi ini
+ * hanya membangun payload INSERT yang konsisten dari baris CSV/form.
+ */
+export async function importBudgetItems(
+  supabase: SupabaseClient<Database>,
+  rows: BudgetItemImportRow[],
+): Promise<{ inserted: number }> {
+  const payload: Database['public']['Tables']['budget_items']['Insert'][] = rows.map((row) => ({
+    fiscal_year: row.fiscalYear,
+    dinas_id: row.dinasId,
+    program_name: row.programName,
+    activity_name: row.activityName,
+    budget_allocated: row.budgetAllocated,
+    budget_realized: row.budgetRealized,
+    location_address: row.locationAddress,
+    kelurahan: row.kelurahan,
+    kecamatan: row.kecamatan,
+    progress_percent: row.progressPercent,
+    contractor: row.contractor,
+  }));
+  const { error } = await supabase.from('budget_items').insert(payload);
+  if (error) throw error;
+  return { inserted: payload.length };
+}
