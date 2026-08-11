@@ -42,3 +42,21 @@ export type {
   BudgetItemOption,
   UpdateAspirationStatusInput,
 } from './queries/aspirations';
+export {
+  listBudgetSummaryByDinas,
+  listBudgetItemsByDinas,
+  getBudgetItemDetail,
+  listBudgetIndexStatus,
+  budgetItemEmbeddingText,
+  askBudget,
+  embedBudgetItemText,
+} from './queries/budget';
+export type {
+  BudgetSummaryByDinas,
+  BudgetItemListEntry,
+  BudgetItemDetail,
+  BudgetIndexStatus,
+  AskBudgetCitedItem,
+  AskBudgetResponse,
+  EmbedBudgetItemResponse,
+} from './queries/budget';
