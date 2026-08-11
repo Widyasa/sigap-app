@@ -10,6 +10,8 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@repo/shared": "*",
+    "@repo/supabase": "*",
     "@repo/ui": "*",
     "next": "16.3.0",
     "react": "19.2.0",

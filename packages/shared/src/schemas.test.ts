@@ -4,6 +4,8 @@ import {
   aiClassificationSchema,
   emailSchema,
   otpCodeSchema,
+  canVoteAspiration,
+  type AspirationStatus,
 } from './schemas';
 
 describe('createComplaintSchema', () => {
@@ -97,5 +99,40 @@ describe('otpCodeSchema', () => {
   it('menolak kode selain enam digit angka', () => {
     expect(otpCodeSchema.safeParse('12345').success).toBe(false);
     expect(otpCodeSchema.safeParse('abcdef').success).toBe(false);
+  });
+});
+
+describe('canVoteAspiration', () => {
+  const aspiration = { kelurahan: 'Sukamaju', status: 'voting' as AspirationStatus };
+  const period = {
+    isActive: true,
+    startsAt: '2026-08-01T00:00:00.000Z',
+    endsAt: '2026-08-31T00:00:00.000Z',
+  };
+  const now = new Date('2026-08-15T00:00:00.000Z');
+
+  it('mengizinkan warga kelurahan sama saat periode aktif dan status voting', () => {
+    expect(canVoteAspiration('Sukamaju', aspiration, period, now)).toBe(true);
+  });
+
+  it('menolak warga dari kelurahan berbeda', () => {
+    expect(canVoteAspiration('Cihampelas', aspiration, period, now)).toBe(false);
+  });
+
+  it('menolak saat periode tidak aktif', () => {
+    expect(canVoteAspiration('Sukamaju', aspiration, { ...period, isActive: false }, now)).toBe(false);
+  });
+
+  it('menolak saat waktu di luar rentang starts_at..ends_at', () => {
+    const outside = new Date('2026-09-15T00:00:00.000Z');
+    expect(canVoteAspiration('Sukamaju', aspiration, period, outside)).toBe(false);
+  });
+
+  it('menolak saat status aspirasi bukan voting', () => {
+    expect(canVoteAspiration('Sukamaju', { ...aspiration, status: 'musrenbang' }, period, now)).toBe(false);
+  });
+
+  it('menolak saat voterKelurahan null', () => {
+    expect(canVoteAspiration(null, aspiration, period, now)).toBe(false);
   });
 });

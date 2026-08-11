@@ -1,4 +1,4 @@
-import type { ComplaintStatus, Urgency } from '@repo/shared';
+import type { ComplaintStatus, Urgency, AspirationStatus } from '@repo/shared';
 
 /** Label tampilan berbahasa Indonesia untuk urgensi aduan (lihat constants.ts). */
 export const URGENCY_LABELS: Record<Urgency, string> = {
@@ -14,6 +14,16 @@ export const STATUS_LABELS: Record<ComplaintStatus, string> = {
   verified: 'Terverifikasi',
   in_progress: 'Sedang Diproses',
   resolved: 'Selesai',
+  rejected: 'Ditolak',
+};
+
+/** Label tampilan berbahasa Indonesia untuk status aspirasi. */
+export const ASPIRATION_STATUS_LABELS: Record<AspirationStatus, string> = {
+  voting: 'Voting',
+  musrenbang: 'Musrenbang',
+  approved: 'Disetujui',
+  budgeted: 'Dianggarkan',
+  realized: 'Terealisasi',
   rejected: 'Ditolak',
 };
 

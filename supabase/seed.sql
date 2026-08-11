@@ -59,3 +59,24 @@ INSERT INTO profiles (id, full_name, role, dinas_id, kelurahan, kecamatan) VALUE
   ('44444444-4444-4444-4444-444444444444', 'Operator Piket','emergency_operator', NULL,  'Sukamaju', 'Cibeunying'),
   ('55555555-5555-5555-5555-555555555555', 'Admin SIGAP',  'admin',              NULL,   'Sukamaju', 'Cibeunying')
 ON CONFLICT (id) DO NOTHING;
+
+-- ---------------------------------------------------------------------
+-- Item anggaran contoh (M3 Anggaran) — dibutuhkan agar dropdown "tautkan
+-- item anggaran" di dashboard admin (/aspirasi) punya data untuk diuji,
+-- dan agar jejak dampak aspirasi -> realisasi anggaran (issue #9) bisa
+-- didemokan tanpa harus mengisi form anggaran manual dulu.
+-- ---------------------------------------------------------------------
+INSERT INTO budget_items (
+  id, fiscal_year, dinas_id, program_name, activity_name,
+  budget_allocated, budget_realized, location_address, kelurahan, kecamatan,
+  progress_percent, contractor
+) VALUES
+  ('bbbbbbbb-0001-0001-0001-000000000001', 2026, 'pupr',
+   'Perbaikan Drainase Jalan Merdeka', 'Normalisasi saluran air',
+   1500000000, 900000000, 'Jl. Merdeka, Kel. Sukamaju', 'Sukamaju', 'Cibeunying',
+   60, 'CV Bangun Jaya'),
+  ('bbbbbbbb-0001-0001-0001-000000000002', 2026, 'pupr',
+   'Pembangunan Trotoar Kelurahan Sukamaju', 'Pelebaran trotoar dan penerangan jalan',
+   800000000, 0, 'Jl. Sukamaju Raya', 'Sukamaju', 'Cibeunying',
+   0, NULL)
+ON CONFLICT (id) DO NOTHING;
