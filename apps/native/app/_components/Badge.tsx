@@ -1,9 +1,9 @@
 import { View, StyleSheet, ViewStyle } from 'react-native';
-import type { Urgency, ComplaintStatus, AspirationStatus } from '@repo/shared';
-import { urgencyColor, statusColor, aspirationStatusColor } from '@repo/shared';
+import type { Urgency, ComplaintStatus, AspirationStatus, ServiceStatus } from '@repo/shared';
+import { urgencyColor, statusColor, aspirationStatusColor, serviceStatusColor } from '@repo/shared';
 import { ThemedText } from './ThemedText';
 import { useTheme } from './useTheme';
-import { URGENCY_LABELS, STATUS_LABELS, ASPIRATION_STATUS_LABELS } from './labels';
+import { URGENCY_LABELS, STATUS_LABELS, ASPIRATION_STATUS_LABELS, SERVICE_STATUS_LABELS } from './labels';
 
 interface ChipProps {
   fg: string;
@@ -45,6 +45,12 @@ export function AspirationStatusBadge({ status, style }: { status: AspirationSta
   const { mode } = useTheme();
   const { fg, bg } = aspirationStatusColor(status, mode);
   return <Chip fg={fg} bg={bg} label={ASPIRATION_STATUS_LABELS[status]} style={style} />;
+}
+
+export function ServiceStatusBadge({ status, style }: { status: ServiceStatus; style?: ViewStyle }) {
+  const { mode } = useTheme();
+  const { fg, bg } = serviceStatusColor(status, mode);
+  return <Chip fg={fg} bg={bg} label={SERVICE_STATUS_LABELS[status]} style={style} />;
 }
 
 const styles = StyleSheet.create({

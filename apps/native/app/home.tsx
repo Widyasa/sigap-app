@@ -42,6 +42,12 @@ export default function HomeScreen() {
           containerStyle={{ marginTop: spacing(2) }}
         />
         <Button
+          text="Layanan"
+          variant="secondary"
+          onPress={() => router.push('/layanan')}
+          containerStyle={{ marginTop: spacing(2) }}
+        />
+        <Button
           text="Keluar"
           variant="secondary"
           onPress={() => signOut()}

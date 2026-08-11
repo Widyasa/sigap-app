@@ -1,4 +1,4 @@
-import type { ComplaintStatus, Urgency, AspirationStatus } from '@repo/shared';
+import type { ComplaintStatus, Urgency, AspirationStatus, ServiceStatus } from '@repo/shared';
 
 /** Label tampilan berbahasa Indonesia untuk urgensi aduan (lihat constants.ts). */
 export const URGENCY_LABELS: Record<Urgency, string> = {
@@ -25,6 +25,16 @@ export const ASPIRATION_STATUS_LABELS: Record<AspirationStatus, string> = {
   budgeted: 'Dianggarkan',
   realized: 'Terealisasi',
   rejected: 'Ditolak',
+};
+
+/** Label tampilan berbahasa Indonesia untuk status permohonan layanan. */
+export const SERVICE_STATUS_LABELS: Record<ServiceStatus, string> = {
+  submitted: 'Diajukan',
+  verifying: 'Diverifikasi',
+  signing: 'Diproses Tanda Tangan',
+  ready: 'Siap Diunduh',
+  rejected: 'Ditolak',
+  collected: 'Sudah Diambil',
 };
 
 /** Label event timeline aduan (lihat komentar kolom complaint_timeline.event_type). */
