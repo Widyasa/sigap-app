@@ -16,3 +16,29 @@ export type {
   ComplaintDetail,
   TimelineEntry,
 } from './queries/complaints';
+export {
+  getActiveVotingPeriod,
+  listVotingPeriods,
+  createVotingPeriod,
+  setVotingPeriodActive,
+  listAspirations,
+  createAspiration,
+  voteAspiration,
+  unvoteAspiration,
+  isVoteDeniedError,
+  isDuplicateVoteError,
+  listMyVotedAspirationIds,
+  getAspirationDetail,
+  listBudgetItemsForLinking,
+  listAspirationsForReview,
+  updateAspirationStatus,
+} from './queries/aspirations';
+export type {
+  VotingPeriod,
+  AspirationSummary,
+  AspirationAuthorProfile,
+  BudgetItemInfo,
+  AspirationDetail,
+  BudgetItemOption,
+  UpdateAspirationStatusInput,
+} from './queries/aspirations';
