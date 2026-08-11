@@ -6,7 +6,9 @@ import {
   listBudgetIndexStatus,
   budgetItemEmbeddingText,
   embedBudgetItemText,
+  importBudgetItems,
   type BudgetIndexStatus,
+  type BudgetItemImportRow,
 } from '@repo/supabase';
 import { useAuth } from '../_lib/auth';
 import { supabase } from '../_lib/supabaseClient';
@@ -148,9 +150,141 @@ export default function AnggaranAdminPage() {
               </tbody>
             </table>
           </section>
+          <BudgetImportSection onImported={load} />
         </>
       )}
     </div>
+  );
+}
+
+const CSV_COLUMNS = [
+  'fiscal_year',
+  'dinas_id',
+  'program_name',
+  'activity_name',
+  'budget_allocated',
+  'budget_realized',
+  'location_address',
+  'kelurahan',
+  'kecamatan',
+  'progress_percent',
+  'contractor',
+] as const;
+
+const CSV_PLACEHOLDER =
+  'fiscal_year,dinas_id,program_name,activity_name,budget_allocated,budget_realized,location_address,kelurahan,kecamatan,progress_percent,contractor\n' +
+  '2026,pupr,Pemeliharaan Jalan Kelurahan Sukamaju,Perbaikan aspal,500000000,0,Jl. Merdeka,Sukamaju,Cibeunying,0,CV Mitra Jaya';
+
+/**
+ * Parser CSV minimal: header wajib cocok (urutan bebas) dengan `CSV_COLUMNS`,
+ * tanpa dukungan koma di dalam nilai berkutip — cukup untuk impor manual
+ * admin (kriteria "budget import"), bukan pengganti alur ETL penuh. Baris
+ * kosong dilewati; nilai kosong pada kolom opsional menjadi `null`.
+ */
+function parseBudgetCsv(text: string): { rows: BudgetItemImportRow[]; errors: string[] } {
+  const lines = text.split('\n').map((l) => l.trim()).filter((l) => l.length > 0);
+  if (lines.length === 0) return { rows: [], errors: ['CSV kosong.'] };
+
+  const header = lines[0]!.split(',').map((h) => h.trim());
+  const missing = ['fiscal_year', 'program_name', 'budget_allocated'].filter((c) => !header.includes(c));
+  if (missing.length > 0) {
+    return { rows: [], errors: [`Kolom wajib hilang di header: ${missing.join(', ')}`] };
+  }
+
+  const rows: BudgetItemImportRow[] = [];
+  const errors: string[] = [];
+  for (let i = 1; i < lines.length; i++) {
+    const cells = lines[i]!.split(',').map((c) => c.trim());
+    const byCol = Object.fromEntries(header.map((h, idx) => [h, cells[idx] ?? '']));
+    const fiscalYear = Number(byCol.fiscal_year);
+    const budgetAllocated = Number(byCol.budget_allocated);
+    if (!byCol.program_name || Number.isNaN(fiscalYear) || Number.isNaN(budgetAllocated)) {
+      errors.push(`Baris ${i + 1}: fiscal_year/program_name/budget_allocated tidak valid.`);
+      continue;
+    }
+    rows.push({
+      fiscalYear,
+      dinasId: byCol.dinas_id || null,
+      programName: byCol.program_name,
+      activityName: byCol.activity_name || null,
+      budgetAllocated,
+      budgetRealized: byCol.budget_realized ? Number(byCol.budget_realized) : 0,
+      locationAddress: byCol.location_address || null,
+      kelurahan: byCol.kelurahan || null,
+      kecamatan: byCol.kecamatan || null,
+      progressPercent: byCol.progress_percent ? Number(byCol.progress_percent) : 0,
+      contractor: byCol.contractor || null,
+    });
+  }
+  return { rows, errors };
+}
+
+/**
+ * Impor item anggaran baru (kriteria "budget import"). Bentuk MINIMAL yang
+ * disengaja: tempel CSV -> parse di klien -> INSERT batch lewat RLS
+ * `budget_admin_write`, bukan wizard upload berkas/mapping kolom penuh.
+ * Baris hasil impor TIDAK otomatis terindeks untuk pencarian semantik —
+ * jalankan "Indeks ulang anggaran" di atas setelahnya.
+ */
+function BudgetImportSection({ onImported }: { onImported: () => void }) {
+  const [csvText, setCsvText] = useState('');
+  const [importing, setImporting] = useState(false);
+  const [result, setResult] = useState<string | null>(null);
+  const [errors, setErrors] = useState<string[]>([]);
+
+  const handleImport = async () => {
+    setResult(null);
+    const { rows, errors: parseErrors } = parseBudgetCsv(csvText);
+    setErrors(parseErrors);
+    if (rows.length === 0) return;
+    setImporting(true);
+    try {
+      const { inserted } = await importBudgetItems(supabase, rows);
+      setResult(`${inserted} item anggaran berhasil diimpor.`);
+      setCsvText('');
+      onImported();
+    } catch (e) {
+      console.error('importBudgetItems error', e);
+      setResult('Gagal mengimpor item anggaran. Coba lagi.');
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  return (
+    <section style={sectionStyle}>
+      <h2 style={h2Style}>Impor Item Anggaran (CSV)</h2>
+      <p style={{ color: '#475569', fontSize: 13, marginBottom: 8 }}>
+        Tempel CSV dengan header: {CSV_COLUMNS.join(', ')}. Kolom wajib: fiscal_year, program_name,
+        budget_allocated.
+      </p>
+      <textarea
+        style={{
+          width: '100%',
+          minHeight: 140,
+          fontFamily: 'monospace',
+          fontSize: 12,
+          border: '1px solid #E2E8F0',
+          borderRadius: 6,
+          padding: 8,
+          boxSizing: 'border-box',
+        }}
+        value={csvText}
+        onChange={(e) => setCsvText(e.target.value)}
+        placeholder={CSV_PLACEHOLDER}
+      />
+      {errors.length > 0 ? (
+        <ul style={{ color: '#DC2626', fontSize: 13 }}>
+          {errors.map((err) => (
+            <li key={err}>{err}</li>
+          ))}
+        </ul>
+      ) : null}
+      {result ? <p style={{ fontSize: 13, color: '#0F4C5C' }}>{result}</p> : null}
+      <button style={buttonStyle} disabled={importing || csvText.trim().length === 0} onClick={handleImport}>
+        {importing ? 'Mengimpor…' : 'Impor CSV'}
+      </button>
+    </section>
   );
 }
 
