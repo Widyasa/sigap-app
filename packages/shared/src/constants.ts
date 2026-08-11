@@ -142,3 +142,24 @@ export const SERVICE_CATALOG: ServiceCatalogEntry[] = [
     requiredDocuments: ['ktp'],
   },
 ];
+
+/**
+ * Katalog jenis darurat SOS (M5 Darurat) — daftar tetap yang cocok persis
+ * dengan CHECK constraint `emergency_alerts.emergency_type` (lihat
+ * 20260810000004_modules.sql). Bukan tabel DB, sama seperti SERVICE_CATALOG,
+ * karena nilainya tidak pernah berubah tanpa migrasi skema.
+ */
+export interface EmergencyTypeEntry {
+  id: 'fire' | 'medical' | 'flood' | 'crime' | 'tree' | 'other';
+  label: string;
+  icon: string;
+}
+
+export const EMERGENCY_TYPES: EmergencyTypeEntry[] = [
+  { id: 'fire', label: 'Kebakaran', icon: '🔥' },
+  { id: 'medical', label: 'Medis', icon: '🚑' },
+  { id: 'flood', label: 'Banjir', icon: '🌊' },
+  { id: 'crime', label: 'Kriminal', icon: '🚨' },
+  { id: 'tree', label: 'Pohon Tumbang', icon: '🌳' },
+  { id: 'other', label: 'Lainnya', icon: '⚠️' },
+];
