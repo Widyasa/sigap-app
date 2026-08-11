@@ -2,13 +2,14 @@ import { View, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { ThemedText } from './_components/ThemedText';
-import { Button } from './_components/Button';
 import { useAuth } from './_components/AuthProvider';
+import { Button } from './_components/Button';
 import { useTheme } from './_components/useTheme';
+import { urgencyColor } from '@repo/shared';
 
 export default function HomeScreen() {
   const { user, signOut } = useAuth();
-  const { colors, spacing } = useTheme();
+  const { colors, spacing, mode } = useTheme();
   const router = useRouter();
 
   return (
@@ -19,9 +20,15 @@ export default function HomeScreen() {
           Kelurahan {user?.kelurahan ?? '-'}, Kecamatan {user?.kecamatan ?? '-'}
         </ThemedText>
         <Button
+          text="SOS Darurat"
+          onPress={() => router.push('/sos')}
+          style={{ backgroundColor: urgencyColor('P0', mode).fg }}
+          containerStyle={{ marginTop: spacing(6) }}
+        />
+        <Button
           text="Buat Aduan"
           onPress={() => router.push('/lapor')}
-          containerStyle={{ marginTop: spacing(6) }}
+          containerStyle={{ marginTop: spacing(2) }}
         />
         <Button
           text="Lihat Feed Aduan"

@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { DINAS_LIST, CATEGORY_LIST, URGENCY_VALUES, SERVICE_CATALOG } from './constants';
+import { DINAS_LIST, CATEGORY_LIST, URGENCY_VALUES, SERVICE_CATALOG, EMERGENCY_TYPES } from './constants';
 
 const dinasIds = DINAS_LIST.map((d) => d.id) as [string, ...string[]];
 const categories = CATEGORY_LIST as unknown as [string, ...string[]];
@@ -104,3 +104,26 @@ export const SERVICE_STATUSES = [
   'submitted', 'verifying', 'signing', 'ready', 'rejected', 'collected',
 ] as const;
 export type ServiceStatus = (typeof SERVICE_STATUSES)[number];
+
+const emergencyTypeIds = EMERGENCY_TYPES.map((e) => e.id) as [string, ...string[]];
+
+/**
+ * Skema payload SOS. Beda dengan `createAspirationSchema`, koordinat lokasi
+ * WAJIB (bukan optional) — SOS tanpa lokasi tidak berguna bagi operator.
+ * `audioUrl` optional karena perekaman audio boleh gagal (izin mikrofon
+ * ditolak, dsb.) tanpa memblokir pengiriman SOS (lihat catatan issue #12).
+ */
+export const createEmergencyAlertSchema = z.object({
+  emergencyType: z.enum(emergencyTypeIds),
+  locationLat: latitude,
+  locationLng: longitude,
+  locationAddress: z.string().max(300).optional(),
+  note: z.string().trim().max(1000).optional(),
+  audioUrl: z.string().optional(),
+});
+export type CreateEmergencyAlertInput = z.infer<typeof createEmergencyAlertSchema>;
+
+export const EMERGENCY_STATUSES = [
+  'active', 'responding', 'resolved', 'false_alarm',
+] as const;
+export type EmergencyStatus = (typeof EMERGENCY_STATUSES)[number];

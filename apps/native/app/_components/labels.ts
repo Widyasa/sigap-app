@@ -1,4 +1,5 @@
-import type { ComplaintStatus, Urgency, AspirationStatus, ServiceStatus } from '@repo/shared';
+import type { ComplaintStatus, Urgency, AspirationStatus, ServiceStatus, EmergencyStatus } from '@repo/shared';
+import { EMERGENCY_TYPES } from '@repo/shared';
 
 /** Label tampilan berbahasa Indonesia untuk urgensi aduan (lihat constants.ts). */
 export const URGENCY_LABELS: Record<Urgency, string> = {
@@ -50,3 +51,16 @@ export const TIMELINE_EVENT_LABELS: Record<string, string> = {
   reopened: 'Dibuka kembali',
   citizen_comment: 'Komentar warga',
 };
+
+/** Label tampilan berbahasa Indonesia untuk status alert darurat SOS. */
+export const EMERGENCY_STATUS_LABELS: Record<EmergencyStatus, string> = {
+  active: 'Menunggu Operator',
+  responding: 'Ditanggapi',
+  resolved: 'Selesai',
+  false_alarm: 'Alarm Palsu',
+};
+
+/** Label tampilan berbahasa Indonesia untuk jenis darurat, dikumpulkan dari EMERGENCY_TYPES. */
+export const EMERGENCY_TYPE_LABELS: Record<string, string> = Object.fromEntries(
+  EMERGENCY_TYPES.map((t) => [t.id, t.label]),
+);
