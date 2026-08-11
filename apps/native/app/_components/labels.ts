@@ -1,4 +1,4 @@
-import type { ComplaintStatus, Urgency, AspirationStatus, ServiceStatus, EmergencyStatus } from '@repo/shared';
+import type { ComplaintStatus, Urgency, AspirationStatus, ServiceStatus, EmergencyStatus, PointReason } from '@repo/shared';
 import { EMERGENCY_TYPES } from '@repo/shared';
 
 /** Label tampilan berbahasa Indonesia untuk urgensi aduan (lihat constants.ts). */
@@ -64,3 +64,13 @@ export const EMERGENCY_STATUS_LABELS: Record<EmergencyStatus, string> = {
 export const EMERGENCY_TYPE_LABELS: Record<string, string> = Object.fromEntries(
   EMERGENCY_TYPES.map((t) => [t.id, t.label]),
 );
+
+/** Label tampilan berbahasa Indonesia untuk alasan mutasi poin (lihat POINT_REASONS di constants.ts). */
+export const POINT_REASON_LABELS: Record<PointReason, string> = {
+  report_created: 'Aduan dibuat',
+  report_verified: 'Aduan terverifikasi',
+  report_resolved: 'Aduan selesai ditangani',
+  upvote_given: 'Memberi dukungan aduan',
+  aspiration_musrenbang: 'Aspirasi lolos Musrenbang',
+  report_false: 'Aduan ditolak (poin dibatalkan)',
+};
