@@ -16,8 +16,7 @@ interface NavItem {
  * sendiri (lihat masing-masing `canAccess` di app/*\/page.tsx). */
 export const NAV_ITEMS: NavItem[] = [
   { href: '/', label: 'Ringkasan', roles: ['verifier', 'dinas_staff', 'dinas_head', 'emergency_operator', 'admin'] },
-  { href: '/verifikasi', label: 'Aduan Verifikasi', roles: ['verifier', 'admin'] },
-  { href: '/dinas', label: 'Aduan Dinas', roles: ['dinas_staff', 'dinas_head', 'admin'] },
+  { href: '/aduan', label: 'Aduan', roles: ['verifier', 'dinas_staff', 'dinas_head', 'admin'] },
   { href: '/aspirasi', label: 'Aspirasi', roles: ['admin', 'dinas_head'] },
   { href: '/layanan', label: 'Layanan', roles: ['verifier', 'dinas_staff', 'dinas_head', 'admin'] },
   { href: '/pengumuman', label: 'Pengumuman', roles: ['admin', 'dinas_head'] },

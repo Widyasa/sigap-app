@@ -1,19 +1,24 @@
 'use client';
 
-import { useCallback, useEffect, useState, type CSSProperties } from 'react';
+import { useCallback, useEffect, useState, type CSSProperties, Fragment } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   listAnnouncementsForAdmin,
   createAnnouncement,
+  updateAnnouncement,
   deleteAnnouncement,
   refreshLeaderboard,
   listLeaderboard,
   type Announcement,
   type KelurahanLeaderboardEntry,
 } from '@repo/supabase';
-import { createAnnouncementSchema, ANNOUNCEMENT_CATEGORIES } from '@repo/shared';
+import { createAnnouncementSchema, ANNOUNCEMENT_CATEGORIES, colors } from '@repo/shared';
 import { useAuth } from '../_lib/auth';
 import { supabase } from '../_lib/supabaseClient';
+import { DashboardShell } from '../_lib/DashboardShell';
+import { ConfirmModal } from '../_lib/ConfirmModal';
+
+const THEME = colors.light;
 
 export default function PengumumanAdminPage() {
   const { isLoading: authLoading, isAuthenticated, user } = useAuth();
@@ -59,13 +64,8 @@ export default function PengumumanAdminPage() {
   }
 
   return (
-    <div style={{ width: '100%', maxWidth: 960, padding: 24, boxSizing: 'border-box' }}>
-      <h1 style={{ fontSize: 24, marginBottom: 4 }}>Info & Komunitas</h1>
-      <p style={{ color: '#475569', marginBottom: 24, fontSize: 14 }}>
-        Masuk sebagai {user?.fullName ?? user?.role}.
-      </p>
-
-      {error ? <p style={{ color: '#DC2626' }}>{error}</p> : null}
+    <DashboardShell title="Info & Komunitas" subtitle={`Masuk sebagai ${user?.fullName ?? user?.role}.`}>
+      {error ? <p style={{ color: THEME.danger }}>{error}</p> : null}
       {loading ? (
         <p>Memuat data…</p>
       ) : (
@@ -74,7 +74,7 @@ export default function PengumumanAdminPage() {
           <LeaderboardSection leaderboard={leaderboard} onRefreshed={load} />
         </>
       )}
-    </div>
+    </DashboardShell>
   );
 }
 
@@ -95,7 +95,88 @@ function AnnouncementsSection({
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [confirmingDeleteId, setConfirmingDeleteId] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editTitle, setEditTitle] = useState('');
+  const [editBody, setEditBody] = useState('');
+  const [editTarget, setEditTarget] = useState<'all' | 'kelurahan'>('all');
+  const [editKelurahan, setEditKelurahan] = useState('');
+  const [editCategory, setEditCategory] = useState('');
+  const [editIsPinned, setEditIsPinned] = useState(false);
+  const [editAttachmentFile, setEditAttachmentFile] = useState<File | null>(null);
+  const [editRemoveAttachment, setEditRemoveAttachment] = useState(false);
+  const [editSubmitting, setEditSubmitting] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
 
+  const handleEditStart = (a: Announcement) => {
+    setEditingId(a.id);
+    setEditTitle(a.title);
+    setEditBody(a.body);
+    setEditTarget(a.kelurahan ? 'kelurahan' : 'all');
+    setEditKelurahan(a.kelurahan ?? '');
+    setEditCategory(a.category ?? '');
+    setEditIsPinned(a.isPinned);
+    setEditAttachmentFile(null);
+    setEditRemoveAttachment(false);
+    setEditError(null);
+  };
+
+  const handleEditCancel = () => {
+    setEditingId(null);
+    setEditError(null);
+  };
+
+  const handleEditSave = async (id: string, a: Announcement) => {
+    setEditSubmitting(true);
+    setEditError(null);
+    if (!user?.id) return;
+
+    let attachmentUrl = editRemoveAttachment ? undefined : a.attachmentUrl;
+    let attachmentName = editRemoveAttachment ? undefined : a.attachmentName;
+
+    if (editAttachmentFile) {
+      try {
+        const path = `${user.id}/${crypto.randomUUID()}.pdf`;
+        const { error: uploadError } = await supabase.storage
+          .from('announcement-attachments')
+          .upload(path, editAttachmentFile, { contentType: 'application/pdf' });
+        if (uploadError) throw uploadError;
+        attachmentUrl = supabase.storage.from('announcement-attachments').getPublicUrl(path).data.publicUrl;
+        attachmentName = editAttachmentFile.name;
+      } catch (e) {
+        console.error('upload attachment error', e);
+        setEditError('Gagal mengunggah lampiran PDF. Coba lagi.');
+        setEditSubmitting(false);
+        return;
+      }
+    }
+
+    const parsed = createAnnouncementSchema.safeParse({
+      title: editTitle,
+      body: editBody,
+      kelurahan: editTarget === 'kelurahan' ? editKelurahan.trim() : undefined,
+      category: editCategory || undefined,
+      attachmentUrl,
+      attachmentName,
+      isPinned: editIsPinned,
+    });
+    if (!parsed.success) {
+      setEditError(parsed.error.issues[0]?.message ?? 'Data pengumuman tidak valid.');
+      setEditSubmitting(false);
+      return;
+    }
+
+    try {
+      await updateAnnouncement(supabase, id, parsed.data);
+      handleEditCancel();
+      onChanged();
+    } catch (e) {
+      console.error('updateAnnouncement error', e);
+      setEditError('Gagal memperbarui pengumuman. Coba lagi.');
+    } finally {
+      setEditSubmitting(false);
+    }
+  };
   const { user } = useAuth();
 
   const handleCreate = async () => {
@@ -180,45 +261,104 @@ function AnnouncementsSection({
             <th style={thStyle}>Lampiran</th>
             <th style={thStyle}>Pin</th>
             <th style={thStyle}>Terbit</th>
-            <th style={thStyle}></th>
+            <th style={thStyle}>Aksi</th>
           </tr>
         </thead>
         <tbody>
           {announcements.length === 0 ? (
             <tr>
-              <td style={tdStyle} colSpan={7}>
+            <td style={tdStyle} colSpan={8}>
                 Belum ada pengumuman.
               </td>
             </tr>
           ) : (
             announcements.map((a) => (
-              <tr key={a.id}>
-                <td style={tdStyle}>{a.title}</td>
-                <td style={tdStyle}>{a.kelurahan ?? 'Semua warga'}</td>
-                <td style={tdStyle}>
-                  {ANNOUNCEMENT_CATEGORIES.find((c) => c.id === a.category)?.label ?? '-'}
-                </td>
-                <td style={tdStyle}>
-                  {a.attachmentUrl ? (
-                    <a href={a.attachmentUrl} target="_blank" rel="noreferrer">
-                      {a.attachmentName ?? 'Unduh'}
-                    </a>
-                  ) : (
-                    '-'
-                  )}
-                </td>
-                <td style={tdStyle}>{a.isPinned ? 'Ya' : '-'}</td>
-                <td style={tdStyle}>{new Date(a.publishedAt).toLocaleString('id-ID')}</td>
-                <td style={tdStyle}>
-                  <button
-                    style={smallButtonStyle}
-                    disabled={deletingId === a.id}
-                    onClick={() => handleDelete(a.id)}
-                  >
-                    Hapus
-                  </button>
-                </td>
-              </tr>
+              <Fragment key={a.id}>
+                <tr>
+                  <td style={tdStyle}>{a.title}</td>
+                  <td style={tdStyle}>{a.kelurahan ?? 'Semua warga'}</td>
+                  <td style={tdStyle}>
+                    {ANNOUNCEMENT_CATEGORIES.find((c) => c.id === a.category)?.label ?? '-'}
+                  </td>
+                  <td style={tdStyle}>
+                    {a.attachmentUrl ? (
+                      <a href={a.attachmentUrl} target="_blank" rel="noreferrer">
+                        {a.attachmentName ?? 'Unduh'}
+                      </a>
+                    ) : (
+                      '-'
+                    )}
+                  </td>
+                  <td style={tdStyle}>{a.isPinned ? 'Ya' : '-'}</td>
+                  <td style={tdStyle}>{new Date(a.publishedAt).toLocaleString('id-ID')}</td>
+                  <td style={{ ...tdStyle, display: 'flex', gap: 4 }}>
+                    <button style={smallButtonStyle} onClick={() => handleEditStart(a)}>
+                      Ubah
+                    </button>
+                    <button
+                      style={smallButtonStyle}
+                      disabled={deletingId === a.id}
+                      onClick={() => setConfirmingDeleteId(a.id)}
+                    >
+                      Hapus
+                    </button>
+                  </td>
+                </tr>
+                {editingId === a.id && (
+                  <tr>
+                    <td style={tdStyle} colSpan={8}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: '12px 0' }}>
+                        <input style={inputStyle} value={editTitle} onChange={(e) => setEditTitle(e.target.value)} />
+                        <textarea
+                          style={{ ...inputStyle, minHeight: 80 }}
+                          value={editBody}
+                          onChange={(e) => setEditBody(e.target.value)}
+                        />
+                        <select
+                          style={selectStyle}
+                          value={editTarget}
+                          onChange={(e) => setEditTarget(e.target.value as 'all' | 'kelurahan')}
+                        >
+                          <option value="all">Semua warga</option>
+                          <option value="kelurahan">Kelurahan tertentu</option>
+                        </select>
+                        {editTarget === 'kelurahan' && (
+                          <input style={inputStyle} value={editKelurahan} onChange={(e) => setEditKelurahan(e.target.value)} />
+                        )}
+                        <select style={selectStyle} value={editCategory} onChange={(e) => setEditCategory(e.target.value)}>
+                          <option value="">Tanpa kategori</option>
+                          {ANNOUNCEMENT_CATEGORIES.map((c) => (
+                            <option key={c.id} value={c.id}>{c.label}</option>
+                          ))}
+                        </select>
+                        <div>
+                          <label style={labelStyle}>Lampiran saat ini: {a.attachmentName ?? '-'}</label>
+                          <label style={{ ...labelStyle, display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <input type="checkbox" checked={editRemoveAttachment} onChange={(e) => setEditRemoveAttachment(e.target.checked)} />
+                            Hapus lampiran
+                          </label>
+                          <input
+                            type="file"
+                            accept="application/pdf"
+                            onChange={(e) => setEditAttachmentFile(e.target.files?.[0] ?? null)}
+                          />
+                        </div>
+                        <label style={{ ...labelStyle, display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <input type="checkbox" checked={editIsPinned} onChange={(e) => setEditIsPinned(e.target.checked)} />
+                          Sematkan di atas
+                        </label>
+                        <div style={{ display: 'flex', gap: 8 }}>
+                          <button style={smallButtonStyle} disabled={editSubmitting} onClick={() => handleEditSave(a.id, a)}>
+                            {editSubmitting ? 'Menyimpan…' : 'Simpan'}
+                          </button>
+                          <button style={smallButtonStyle} onClick={handleEditCancel}>Batal</button>
+                        </div>
+                        {editError && <p style={{ color: THEME.danger, fontSize: 13 }}>{editError}</p>}
+                      </div>
+                    </td>
+                  </tr>
+                )}
+              </Fragment>
             ))
           )}
         </tbody>
@@ -282,7 +422,20 @@ function AnnouncementsSection({
           {submitting ? 'Menyimpan…' : 'Buat Pengumuman'}
         </button>
       </div>
-      {formError ? <p style={{ color: '#DC2626', fontSize: 13 }}>{formError}</p> : null}
+      {formError ? <p style={{ color: THEME.danger, fontSize: 13 }}>{formError}</p> : null}
+      {confirmingDeleteId ? (
+        <ConfirmModal
+          title="Hapus Pengumuman"
+          message="Pengumuman ini akan dihapus permanen dan tidak dapat dipulihkan."
+          danger
+          onCancel={() => setConfirmingDeleteId(null)}
+          onConfirm={() => {
+            const id = confirmingDeleteId;
+            setConfirmingDeleteId(null);
+            if (id) handleDelete(id);
+          }}
+        />
+      ) : null}
     </section>
   );
 }
@@ -317,7 +470,7 @@ function LeaderboardSection({
       <button style={{ ...smallButtonStyle, marginBottom: 12 }} disabled={refreshing} onClick={handleRefresh}>
         {refreshing ? 'Menyegarkan…' : 'Segarkan Sekarang'}
       </button>
-      {refreshError ? <p style={{ color: '#DC2626', fontSize: 13 }}>{refreshError}</p> : null}
+      {refreshError ? <p style={{ color: THEME.danger, fontSize: 13 }}>{refreshError}</p> : null}
 
       <table style={tableStyle}>
         <thead>
@@ -363,15 +516,15 @@ const h3Style: CSSProperties = { fontSize: 15, marginTop: 20, marginBottom: 8 };
 const tableStyle: CSSProperties = { width: '100%', borderCollapse: 'collapse', fontSize: 14 };
 const thStyle: CSSProperties = {
   textAlign: 'left',
-  borderBottom: '1px solid #E2E8F0',
+  borderBottom: `1px solid ${THEME.border}`,
   padding: '8px 6px',
-  color: '#475569',
+  color: THEME.textSecondary,
 };
-const tdStyle: CSSProperties = { borderBottom: '1px solid #E2E8F0', padding: '8px 6px' };
-const labelStyle: CSSProperties = { display: 'block', fontSize: 12, color: '#475569', marginBottom: 4 };
+const tdStyle: CSSProperties = { borderBottom: `1px solid ${THEME.border}`, padding: '8px 6px' };
+const labelStyle: CSSProperties = { display: 'block', fontSize: 12, color: THEME.textSecondary, marginBottom: 4 };
 const inputStyle: CSSProperties = {
   minHeight: 36,
-  border: '1px solid #E2E8F0',
+  border: `1px solid ${THEME.border}`,
   borderRadius: 6,
   padding: '4px 8px',
   fontSize: 14,
@@ -380,7 +533,7 @@ const inputStyle: CSSProperties = {
 };
 const selectStyle: CSSProperties = {
   minHeight: 32,
-  border: '1px solid #E2E8F0',
+  border: `1px solid ${THEME.border}`,
   borderRadius: 6,
   padding: '2px 6px',
   fontSize: 13,
@@ -390,8 +543,8 @@ const smallButtonStyle: CSSProperties = {
   padding: '6px 14px',
   borderRadius: 6,
   border: 'none',
-  background: '#0F4C5C',
-  color: 'white',
+  background: THEME.primary,
+  color: THEME.surface,
   fontSize: 13,
   fontWeight: 600,
   cursor: 'pointer',

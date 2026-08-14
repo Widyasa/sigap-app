@@ -3,10 +3,13 @@
 import { useCallback, useEffect, useState, type CSSProperties } from 'react';
 import { useRouter } from 'next/navigation';
 import { listStaffUsers, setUserDisabled, updateUserRole, type StaffUser } from '@repo/supabase';
-import { DINAS_LIST } from '@repo/shared';
+import { DINAS_LIST, colors, statusColor } from '@repo/shared';
 import type { Database } from '@repo/supabase';
 import { useAuth } from '../_lib/auth';
 import { supabase } from '../_lib/supabaseClient';
+import { DashboardShell } from '../_lib/DashboardShell';
+
+const THEME = colors.light;
 
 type UserRole = Database['public']['Enums']['user_role'];
 
@@ -120,13 +123,12 @@ export default function PenggunaPage() {
   }
 
   return (
-    <div style={{ width: '100%', maxWidth: 1100, padding: 24, boxSizing: 'border-box' }}>
-      <h1 style={{ fontSize: 24, marginBottom: 4 }}>Kelola Pengguna</h1>
-      <p style={{ color: '#475569', marginBottom: 24, fontSize: 14 }}>
-        Masuk sebagai {user?.fullName ?? user?.role}. {users.length} akun terdaftar.
-      </p>
+    <DashboardShell
+      title="Kelola Pengguna"
+      subtitle={`Masuk sebagai ${user?.fullName ?? user?.role}. ${users.length} akun terdaftar.`}
+    >
+      {error ? <p style={{ color: THEME.danger }}>{error}</p> : null}
 
-      {error ? <p style={{ color: '#DC2626' }}>{error}</p> : null}
       {loading ? (
         <p>Memuat data…</p>
       ) : (
@@ -188,8 +190,8 @@ export default function PenggunaPage() {
                       borderRadius: 999,
                       fontSize: 12,
                       fontWeight: 600,
-                      color: u.disabledAt ? '#DC2626' : '#16A34A',
-                      background: u.disabledAt ? '#FEF2F2' : '#F0FDF4',
+                      color: u.disabledAt ? THEME.danger : statusColor('resolved', 'light').fg,
+                      background: u.disabledAt ? THEME.dangerSurface : statusColor('resolved', 'light').bg,
                     }}
                   >
                     {u.disabledAt ? 'Nonaktif' : 'Aktif'}
@@ -210,22 +212,22 @@ export default function PenggunaPage() {
           </tbody>
         </table>
       )}
-    </div>
+    </DashboardShell>
   );
 }
 
 const tableStyle: CSSProperties = { width: '100%', borderCollapse: 'collapse', fontSize: 14 };
 const thStyle: CSSProperties = {
   textAlign: 'left',
-  borderBottom: '2px solid #E2E8F0',
+  borderBottom: `2px solid ${THEME.border}`,
   padding: '8px 6px',
   fontSize: 12,
-  color: '#475569',
+  color: THEME.textSecondary,
   textTransform: 'uppercase',
 };
-const tdStyle: CSSProperties = { borderBottom: '1px solid #E2E8F0', padding: '8px 6px' };
+const tdStyle: CSSProperties = { borderBottom: `1px solid ${THEME.border}`, padding: '8px 6px' };
 const selectStyle: CSSProperties = {
-  border: '1px solid #E2E8F0',
+  border: `1px solid ${THEME.border}`,
   borderRadius: 6,
   padding: '4px 6px',
   fontSize: 13,
@@ -235,8 +237,8 @@ const smallButtonStyle: CSSProperties = {
   padding: '0 10px',
   borderRadius: 6,
   border: 'none',
-  background: '#0F4C5C',
-  color: '#FFFFFF',
+  background: THEME.primary,
+  color: THEME.surface,
   fontSize: 12,
   fontWeight: 600,
   cursor: 'pointer',

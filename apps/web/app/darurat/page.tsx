@@ -11,9 +11,13 @@ import {
   type EmergencyAlertSummary,
 } from '@repo/supabase';
 import type { Database } from '@repo/supabase';
-import { EMERGENCY_TYPES, formatTimeSince, type EmergencyStatus } from '@repo/shared';
+import { EMERGENCY_TYPES, formatTimeSince, type EmergencyStatus, colors, emergencyStatusColor } from '@repo/shared';
 import { useAuth } from '../_lib/auth';
 import { supabase } from '../_lib/supabaseClient';
+import { DashboardShell } from '../_lib/DashboardShell';
+import { ConfirmModal } from '../_lib/ConfirmModal';
+
+const THEME = colors.light;
 
 type EmergencyAlertRow = Database['public']['Tables']['emergency_alerts']['Row'];
 
@@ -28,13 +32,6 @@ const STATUS_LABELS: Record<EmergencyStatus, string> = {
   responding: 'Ditanggapi',
   resolved: 'Selesai',
   false_alarm: 'Alarm Palsu',
-};
-
-const STATUS_COLORS: Record<EmergencyStatus, { fg: string; bg: string }> = {
-  active: { fg: '#DC2626', bg: '#FEF2F2' },
-  responding: { fg: '#CA8A04', bg: '#FEFCE8' },
-  resolved: { fg: '#16A34A', bg: '#F0FDF4' },
-  false_alarm: { fg: '#64748B', bg: '#F8FAFC' },
 };
 
 function rowFromRealtime(row: EmergencyAlertRow): EmergencyAlertSummary {
@@ -145,13 +142,11 @@ export default function DaruratOperatorPage() {
   const sorted = [...alerts].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
 
   return (
-    <div style={{ width: '100%', maxWidth: 960, padding: 24, boxSizing: 'border-box' }}>
-      <h1 style={{ fontSize: 24, marginBottom: 4 }}>Antrean Darurat SOS</h1>
-      <p style={{ color: '#475569', marginBottom: 24, fontSize: 14 }}>
-        Masuk sebagai {user?.fullName ?? user?.role}. Baris terbaru muncul otomatis tanpa reload.
-      </p>
-
-      {error ? <p style={{ color: '#DC2626' }}>{error}</p> : null}
+    <DashboardShell
+      title="Antrean Darurat SOS"
+      subtitle={`Masuk sebagai ${user?.fullName ?? user?.role}. Baris terbaru muncul otomatis tanpa reload.`}
+    >
+      {error ? <p style={{ color: THEME.danger }}>{error}</p> : null}
       {loading ? (
         <p>Memuat data…</p>
       ) : sorted.length === 0 ? (
@@ -163,17 +158,18 @@ export default function DaruratOperatorPage() {
           ))}
         </div>
       )}
-    </div>
+    </DashboardShell>
   );
 }
 
 function AlertCard({ alert, operatorId }: { alert: EmergencyAlertSummary; operatorId: string }) {
   const [busy, setBusy] = useState(false);
+  const [confirmingFalseAlarm, setConfirmingFalseAlarm] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [loadingAudio, setLoadingAudio] = useState(false);
 
-  const color = STATUS_COLORS[alert.status];
+  const color = emergencyStatusColor(alert.status, 'light');
   const mapsUrl = `https://www.google.com/maps?q=${alert.locationLat},${alert.locationLng}`;
 
   const handleLoadAudio = async () => {
@@ -211,7 +207,7 @@ function AlertCard({ alert, operatorId }: { alert: EmergencyAlertSummary; operat
           <div style={{ fontSize: 16, fontWeight: 700 }}>
             {EMERGENCY_TYPE_LABELS[alert.emergencyType] ?? alert.emergencyType}
           </div>
-          <div style={{ fontSize: 13, color: '#475569' }}>{formatTimeSince(alert.createdAt)}</div>
+          <div style={{ fontSize: 13, color: THEME.textSecondary }}>{formatTimeSince(alert.createdAt)}</div>
         </div>
         <span
           style={{
@@ -230,7 +226,7 @@ function AlertCard({ alert, operatorId }: { alert: EmergencyAlertSummary; operat
 
       <div style={{ marginTop: 8, fontSize: 14 }}>
         Lokasi: {alert.locationAddress ?? `${alert.locationLat.toFixed(5)}, ${alert.locationLng.toFixed(5)}`}{' '}
-        <a href={mapsUrl} target="_blank" rel="noreferrer" style={{ color: '#0F4C5C' }}>
+        <a href={mapsUrl} target="_blank" rel="noreferrer" style={{ color: THEME.primary }}>
           (buka peta)
         </a>
       </div>
@@ -247,11 +243,11 @@ function AlertCard({ alert, operatorId }: { alert: EmergencyAlertSummary; operat
             </button>
           )
         ) : (
-          <span style={{ fontSize: 13, color: '#94A3B8' }}>Tidak ada audio.</span>
+          <span style={{ fontSize: 13, color: THEME.textMuted }}>Tidak ada audio.</span>
         )}
       </div>
 
-      {actionError ? <p style={{ color: '#DC2626', fontSize: 13, marginTop: 8 }}>{actionError}</p> : null}
+      {actionError ? <p style={{ color: THEME.danger, fontSize: 13, marginTop: 8 }}>{actionError}</p> : null}
 
       <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
         <button
@@ -269,19 +265,31 @@ function AlertCard({ alert, operatorId }: { alert: EmergencyAlertSummary; operat
           Selesai
         </button>
         <button
-          style={{ ...smallButtonStyle, background: '#64748B' }}
+          style={{ ...smallButtonStyle, background: THEME.textMuted }}
           disabled={busy}
-          onClick={() => runAction(() => markFalseAlarm(supabase, alert.id))}
+          onClick={() => setConfirmingFalseAlarm(true)}
         >
           Tandai Palsu
         </button>
       </div>
+      {confirmingFalseAlarm ? (
+        <ConfirmModal
+          title="Tandai Alarm Palsu"
+          message="SOS ini akan ditutup sebagai alarm palsu. Tindakan ini tidak dapat dibatalkan."
+          danger
+          onCancel={() => setConfirmingFalseAlarm(false)}
+          onConfirm={() => {
+            setConfirmingFalseAlarm(false);
+            runAction(() => markFalseAlarm(supabase, alert.id));
+          }}
+        />
+      ) : null}
     </div>
   );
 }
 
 const cardStyle: CSSProperties = {
-  border: '1px solid #E2E8F0',
+  border: `1px solid ${THEME.border}`,
   borderRadius: 10,
   padding: 16,
 };
@@ -290,8 +298,8 @@ const smallButtonStyle: CSSProperties = {
   padding: '6px 14px',
   borderRadius: 6,
   border: 'none',
-  background: '#0F4C5C',
-  color: 'white',
+  background: THEME.primary,
+  color: THEME.surface,
   fontSize: 13,
   fontWeight: 600,
   cursor: 'pointer',

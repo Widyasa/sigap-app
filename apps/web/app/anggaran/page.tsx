@@ -10,9 +10,13 @@ import {
   type BudgetIndexStatus,
   type BudgetItemImportRow,
 } from '@repo/supabase';
+import { colors, statusColor } from '@repo/shared';
 import { useAuth } from '../_lib/auth';
 import { supabase } from '../_lib/supabaseClient';
 import { getAccessToken } from '../_lib/session';
+import { DashboardShell } from '../_lib/DashboardShell';
+
+const THEME = colors.light;
 
 const FISCAL_YEAR = 2026;
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? '';
@@ -92,13 +96,11 @@ export default function AnggaranAdminPage() {
   const pendingCount = items.filter((it) => !it.isIndexed).length;
 
   return (
-    <div style={{ width: '100%', maxWidth: 960, padding: 24, boxSizing: 'border-box' }}>
-      <h1 style={{ fontSize: 24, marginBottom: 4 }}>Dashboard Anggaran</h1>
-      <p style={{ color: '#475569', marginBottom: 24, fontSize: 14 }}>
-        Masuk sebagai {user?.fullName ?? user?.role}. Tahun anggaran {FISCAL_YEAR}.
-      </p>
-
-      {error ? <p style={{ color: '#DC2626' }}>{error}</p> : null}
+    <DashboardShell
+      title="Dashboard Anggaran"
+      subtitle={`Masuk sebagai ${user?.fullName ?? user?.role}. Tahun anggaran ${FISCAL_YEAR}.`}
+    >
+      {error ? <p style={{ color: THEME.danger }}>{error}</p> : null}
 
       {loading ? (
         <p>Memuat data…</p>
@@ -108,7 +110,7 @@ export default function AnggaranAdminPage() {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
               <div>
                 <h2 style={h2Style}>Status Indeks Pencarian Semantik</h2>
-                <p style={{ color: '#475569', fontSize: 13 }}>
+                <p style={{ color: THEME.textSecondary, fontSize: 13 }}>
                   {pendingCount} dari {items.length} item anggaran belum diindeks. Item yang belum
                   diindeks tidak akan muncul di jawaban "Tanya AI".
                 </p>
@@ -117,7 +119,7 @@ export default function AnggaranAdminPage() {
                 {reindexing ? 'Mengindeks…' : 'Indeks ulang anggaran'}
               </button>
             </div>
-            {reindexResult ? <p style={{ fontSize: 13, color: '#0F4C5C' }}>{reindexResult}</p> : null}
+            {reindexResult ? <p style={{ fontSize: 13, color: THEME.primary }}>{reindexResult}</p> : null}
 
             <table style={tableStyle}>
               <thead>
@@ -153,7 +155,7 @@ export default function AnggaranAdminPage() {
           <BudgetImportSection onImported={load} />
         </>
       )}
-    </div>
+    </DashboardShell>
   );
 }
 
@@ -254,7 +256,7 @@ function BudgetImportSection({ onImported }: { onImported: () => void }) {
   return (
     <section style={sectionStyle}>
       <h2 style={h2Style}>Impor Item Anggaran (CSV)</h2>
-      <p style={{ color: '#475569', fontSize: 13, marginBottom: 8 }}>
+      <p style={{ color: THEME.textSecondary, fontSize: 13, marginBottom: 8 }}>
         Tempel CSV dengan header: {CSV_COLUMNS.join(', ')}. Kolom wajib: fiscal_year, program_name,
         budget_allocated.
       </p>
@@ -264,7 +266,7 @@ function BudgetImportSection({ onImported }: { onImported: () => void }) {
           minHeight: 140,
           fontFamily: 'monospace',
           fontSize: 12,
-          border: '1px solid #E2E8F0',
+          border: `1px solid ${THEME.border}`,
           borderRadius: 6,
           padding: 8,
           boxSizing: 'border-box',
@@ -274,13 +276,13 @@ function BudgetImportSection({ onImported }: { onImported: () => void }) {
         placeholder={CSV_PLACEHOLDER}
       />
       {errors.length > 0 ? (
-        <ul style={{ color: '#DC2626', fontSize: 13 }}>
+        <ul style={{ color: THEME.danger, fontSize: 13 }}>
           {errors.map((err) => (
             <li key={err}>{err}</li>
           ))}
         </ul>
       ) : null}
-      {result ? <p style={{ fontSize: 13, color: '#0F4C5C' }}>{result}</p> : null}
+      {result ? <p style={{ fontSize: 13, color: THEME.primary }}>{result}</p> : null}
       <button style={buttonStyle} disabled={importing || csvText.trim().length === 0} onClick={handleImport}>
         {importing ? 'Mengimpor…' : 'Impor CSV'}
       </button>
@@ -293,18 +295,18 @@ const h2Style: CSSProperties = { fontSize: 18, marginBottom: 4 };
 const tableStyle: CSSProperties = { width: '100%', borderCollapse: 'collapse', fontSize: 14 };
 const thStyle: CSSProperties = {
   textAlign: 'left',
-  borderBottom: '2px solid #CBD5E1',
+  borderBottom: `2px solid ${THEME.border}`,
   padding: '8px 6px',
   fontSize: 12,
-  color: '#475569',
+  color: THEME.textSecondary,
 };
-const tdStyle: CSSProperties = { borderBottom: '1px solid #E2E8F0', padding: '8px 6px' };
+const tdStyle: CSSProperties = { borderBottom: `1px solid ${THEME.border}`, padding: '8px 6px' };
 const buttonStyle: CSSProperties = {
   padding: '8px 16px',
   borderRadius: 6,
-  border: '1px solid #0F4C5C',
-  backgroundColor: '#0F4C5C',
-  color: '#FFFFFF',
+  border: `1px solid ${THEME.primary}`,
+  backgroundColor: THEME.primary,
+  color: THEME.surface,
   fontSize: 13,
   cursor: 'pointer',
 };
@@ -313,14 +315,14 @@ const indexedBadge: CSSProperties = {
   padding: '2px 10px',
   borderRadius: 999,
   fontSize: 12,
-  backgroundColor: '#DCFCE7',
-  color: '#166534',
+  backgroundColor: statusColor('resolved', 'light').bg,
+  color: statusColor('resolved', 'light').fg,
 };
 const notIndexedBadge: CSSProperties = {
   display: 'inline-block',
   padding: '2px 10px',
   borderRadius: 999,
   fontSize: 12,
-  backgroundColor: '#FEF3C7',
-  color: '#92400E',
+  backgroundColor: statusColor('in_progress', 'light').bg,
+  color: statusColor('in_progress', 'light').fg,
 };

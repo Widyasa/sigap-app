@@ -9,10 +9,18 @@ import {
   generateServicePdf,
   type ServiceRequestSummary,
 } from '@repo/supabase';
-import { SERVICE_CATALOG, SERVICE_STATUSES, type ServiceStatus } from '@repo/shared';
+import {
+  SERVICE_CATALOG,
+  SERVICE_STATUSES,
+  colors,
+  serviceStatusColor,
+  type ServiceStatus,
+} from '@repo/shared';
 import { useAuth } from '../_lib/auth';
 import { supabase } from '../_lib/supabaseClient';
+import { DashboardShell } from '../_lib/DashboardShell';
 
+const THEME = colors.light;
 const STAFF_ROLES = ['verifier', 'dinas_staff', 'dinas_head', 'admin'];
 
 const STATUS_LABELS: Record<ServiceStatus, string> = {
@@ -22,15 +30,6 @@ const STATUS_LABELS: Record<ServiceStatus, string> = {
   ready: 'Siap Diambil',
   rejected: 'Ditolak',
   collected: 'Sudah Diambil',
-};
-
-const STATUS_COLORS: Record<ServiceStatus, { fg: string; bg: string }> = {
-  submitted: { fg: '#64748B', bg: '#F1F5F9' },
-  verifying: { fg: '#0284C7', bg: '#EFF6FF' },
-  signing: { fg: '#CA8A04', bg: '#FEFCE8' },
-  ready: { fg: '#16A34A', bg: '#F0FDF4' },
-  rejected: { fg: '#DC2626', bg: '#FEF2F2' },
-  collected: { fg: '#475569', bg: '#F8FAFC' },
 };
 
 function serviceTypeName(serviceType: string): string {
@@ -76,13 +75,8 @@ export default function LayananAdminPage() {
   }
 
   return (
-    <div style={{ width: '100%', maxWidth: 960, padding: 24, boxSizing: 'border-box' }}>
-      <h1 style={{ fontSize: 24, marginBottom: 4 }}>Tinjauan Layanan</h1>
-      <p style={{ color: '#475569', marginBottom: 24, fontSize: 14 }}>
-        Masuk sebagai {user?.fullName ?? user?.role}.
-      </p>
-
-      {error ? <p style={{ color: '#DC2626' }}>{error}</p> : null}
+    <DashboardShell title="Tinjauan Layanan" subtitle={`Masuk sebagai ${user?.fullName ?? user?.role}.`}>
+      {error ? <p style={{ color: THEME.danger }}>{error}</p> : null}
       {loading ? (
         <p>Memuat data…</p>
       ) : (
@@ -93,7 +87,7 @@ export default function LayananAdminPage() {
           onChanged={load}
         />
       )}
-    </div>
+    </DashboardShell>
   );
 }
 
@@ -113,6 +107,7 @@ function ServiceReviewSection({
   const [openingId, setOpeningId] = useState<string | null>(null);
   const [generatingId, setGeneratingId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [rejectTarget, setRejectTarget] = useState<ServiceRequestSummary | null>(null);
 
   const handleViewDocuments = async (request: ServiceRequestSummary) => {
     if (request.documentUrls.length === 0) return;
@@ -131,14 +126,7 @@ function ServiceReviewSection({
     }
   };
 
-  const handleSave = async (request: ServiceRequestSummary) => {
-    const status = pendingStatus[request.id] ?? request.status;
-    let rejectionReason: string | undefined;
-    if (status === 'rejected') {
-      const reason = window.prompt('Alasan penolakan:');
-      if (!reason) return;
-      rejectionReason = reason;
-    }
+  const submitStatus = async (request: ServiceRequestSummary, status: ServiceStatus, rejectionReason?: string) => {
     setSavingId(request.id);
     setActionError(null);
     try {
@@ -154,6 +142,15 @@ function ServiceReviewSection({
     } finally {
       setSavingId(null);
     }
+  };
+
+  const handleSave = async (request: ServiceRequestSummary) => {
+    const status = pendingStatus[request.id] ?? request.status;
+    if (status === 'rejected') {
+      setRejectTarget(request);
+      return;
+    }
+    await submitStatus(request, status);
   };
 
   const handleGeneratePdf = async (request: ServiceRequestSummary) => {
@@ -183,7 +180,7 @@ function ServiceReviewSection({
   return (
     <section style={sectionStyle}>
       <h2 style={h2Style}>Permohonan Perlu Ditindak</h2>
-      {actionError ? <p style={{ color: '#DC2626', fontSize: 13 }}>{actionError}</p> : null}
+      {actionError ? <p style={{ color: THEME.danger, fontSize: 13 }}>{actionError}</p> : null}
 
       {requests.length === 0 ? (
         <p>Tidak ada permohonan yang perlu ditinjau.</p>
@@ -201,7 +198,7 @@ function ServiceReviewSection({
           </thead>
           <tbody>
             {requests.map((r) => {
-              const color = STATUS_COLORS[r.status];
+              const color = serviceStatusColor(r.status, 'light');
               return (
                 <tr key={r.id}>
                   <td style={tdStyle}>{serviceTypeName(r.serviceType)}</td>
@@ -271,7 +268,64 @@ function ServiceReviewSection({
           </tbody>
         </table>
       )}
+
+      {rejectTarget ? (
+        <RejectReasonModal
+          onCancel={() => setRejectTarget(null)}
+          onConfirm={(reason) => {
+            const target = rejectTarget;
+            setRejectTarget(null);
+            void submitStatus(target, 'rejected', reason);
+          }}
+        />
+      ) : null}
     </section>
+  );
+}
+
+/**
+ * Modal alasan penolakan — pengganti dialog konfirmasi bawaan browser
+ * (tidak bisa distyle, tidak konsisten dengan sisa aplikasi).
+ */
+function RejectReasonModal({
+  onCancel,
+  onConfirm,
+}: {
+  onCancel: () => void;
+  onConfirm: (reason: string) => void;
+}) {
+  const [reason, setReason] = useState('');
+  const trimmed = reason.trim();
+
+  return (
+    <div style={modalOverlayStyle} onClick={onCancel}>
+      <div style={modalCardStyle} onClick={(e) => e.stopPropagation()}>
+        <h3 style={{ fontSize: 16, margin: '0 0 8px', color: THEME.textPrimary }}>Alasan Penolakan</h3>
+        <p style={{ fontSize: 13, color: THEME.textSecondary, margin: '0 0 12px' }}>
+          Jelaskan alasan penolakan permohonan ini. Alasan wajib diisi.
+        </p>
+        <textarea
+          style={textareaStyle}
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+          placeholder="Alasan penolakan (wajib diisi)…"
+          rows={4}
+          autoFocus
+        />
+        <div style={{ display: 'flex', gap: 8, marginTop: 16, justifyContent: 'flex-end' }}>
+          <button style={secondaryButtonStyle} onClick={onCancel}>
+            Batal
+          </button>
+          <button
+            style={{ ...smallButtonStyle, background: THEME.danger, opacity: trimmed ? 1 : 0.5 }}
+            disabled={!trimmed}
+            onClick={() => onConfirm(trimmed)}
+          >
+            Konfirmasi
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -280,14 +334,14 @@ const h2Style: CSSProperties = { fontSize: 18, marginBottom: 12 };
 const tableStyle: CSSProperties = { width: '100%', borderCollapse: 'collapse', fontSize: 14 };
 const thStyle: CSSProperties = {
   textAlign: 'left',
-  borderBottom: '1px solid #E2E8F0',
+  borderBottom: `1px solid ${THEME.border}`,
   padding: '8px 6px',
-  color: '#475569',
+  color: THEME.textSecondary,
 };
-const tdStyle: CSSProperties = { borderBottom: '1px solid #E2E8F0', padding: '8px 6px' };
+const tdStyle: CSSProperties = { borderBottom: `1px solid ${THEME.border}`, padding: '8px 6px' };
 const selectStyle: CSSProperties = {
   minHeight: 32,
-  border: '1px solid #E2E8F0',
+  border: `1px solid ${THEME.border}`,
   borderRadius: 6,
   padding: '2px 6px',
   fontSize: 13,
@@ -297,9 +351,53 @@ const smallButtonStyle: CSSProperties = {
   padding: '6px 14px',
   borderRadius: 6,
   border: 'none',
-  background: '#0F4C5C',
-  color: 'white',
+  background: THEME.primary,
+  color: THEME.surface,
   fontSize: 13,
   fontWeight: 600,
   cursor: 'pointer',
+};
+
+const secondaryButtonStyle: CSSProperties = {
+  minHeight: 36,
+  padding: '0 14px',
+  borderRadius: 6,
+  border: `1px solid ${THEME.border}`,
+  background: THEME.surface,
+  color: THEME.textPrimary,
+  fontSize: 13,
+  fontWeight: 600,
+  cursor: 'pointer',
+};
+
+const modalOverlayStyle: CSSProperties = {
+  position: 'fixed',
+  inset: 0,
+  background: 'rgba(15, 23, 42, 0.5)',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  zIndex: 1000,
+  padding: 16,
+};
+
+const modalCardStyle: CSSProperties = {
+  background: THEME.surface,
+  border: `1px solid ${THEME.border}`,
+  borderRadius: 10,
+  padding: 20,
+  width: '100%',
+  maxWidth: 420,
+  boxSizing: 'border-box',
+};
+
+const textareaStyle: CSSProperties = {
+  width: '100%',
+  border: `1px solid ${THEME.border}`,
+  borderRadius: 6,
+  padding: '8px 10px',
+  fontSize: 13,
+  boxSizing: 'border-box',
+  resize: 'vertical',
+  fontFamily: 'inherit',
 };

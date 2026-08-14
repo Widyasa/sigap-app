@@ -13,9 +13,17 @@ import {
   type AspirationSummary,
   type BudgetItemOption,
 } from '@repo/supabase';
-import { createVotingPeriodSchema, ASPIRATION_STATUSES, type AspirationStatus } from '@repo/shared';
+import {
+  createVotingPeriodSchema,
+  ASPIRATION_STATUSES,
+  type AspirationStatus,
+  colors,
+} from '@repo/shared';
 import { useAuth } from '../_lib/auth';
 import { supabase } from '../_lib/supabaseClient';
+import { DashboardShell } from '../_lib/DashboardShell';
+
+const THEME = colors.light;
 
 const STATUS_LABELS: Record<AspirationStatus, string> = {
   voting: 'Voting',
@@ -73,13 +81,8 @@ export default function AspirasiAdminPage() {
   }
 
   return (
-    <div style={{ width: '100%', maxWidth: 960, padding: 24, boxSizing: 'border-box' }}>
-      <h1 style={{ fontSize: 24, marginBottom: 4 }}>Dashboard Aspirasi</h1>
-      <p style={{ color: '#475569', marginBottom: 24, fontSize: 14 }}>
-        Masuk sebagai {user?.fullName ?? user?.role}.
-      </p>
-
-      {error ? <p style={{ color: '#DC2626' }}>{error}</p> : null}
+    <DashboardShell title="Dashboard Aspirasi" subtitle={`Masuk sebagai ${user?.fullName ?? user?.role}.`}>
+      {error ? <p style={{ color: THEME.danger }}>{error}</p> : null}
       {loading ? (
         <p>Memuat data…</p>
       ) : (
@@ -92,7 +95,7 @@ export default function AspirasiAdminPage() {
           />
         </>
       )}
-    </div>
+    </DashboardShell>
   );
 }
 
@@ -232,7 +235,7 @@ function VotingPeriodsSection({
           {submitting ? 'Menyimpan…' : 'Buka Periode'}
         </button>
       </div>
-      {formError ? <p style={{ color: '#DC2626', fontSize: 13 }}>{formError}</p> : null}
+      {formError ? <p style={{ color: THEME.danger, fontSize: 13 }}>{formError}</p> : null}
     </section>
   );
 }
@@ -273,7 +276,7 @@ function AspirationReviewSection({
   return (
     <section style={sectionStyle}>
       <h2 style={h2Style}>Tinjauan Aspirasi</h2>
-      <p style={{ color: '#475569', fontSize: 13, marginBottom: 12 }}>
+      <p style={{ color: THEME.textSecondary, fontSize: 13, marginBottom: 12 }}>
         Diurutkan berdasarkan jumlah suara terbanyak. Majukan status sepanjang alur voting →
         musrenbang → disetujui → dianggarkan, dan tautkan item anggaran nyata agar warga bisa
         melihat jejak dampaknya.
@@ -354,15 +357,15 @@ const h3Style: CSSProperties = { fontSize: 15, marginTop: 20, marginBottom: 8 };
 const tableStyle: CSSProperties = { width: '100%', borderCollapse: 'collapse', fontSize: 14 };
 const thStyle: CSSProperties = {
   textAlign: 'left',
-  borderBottom: '1px solid #E2E8F0',
+  borderBottom: `1px solid ${THEME.border}`,
   padding: '8px 6px',
-  color: '#475569',
+  color: THEME.textSecondary,
 };
-const tdStyle: CSSProperties = { borderBottom: '1px solid #E2E8F0', padding: '8px 6px' };
-const labelStyle: CSSProperties = { display: 'block', fontSize: 12, color: '#475569', marginBottom: 4 };
+const tdStyle: CSSProperties = { borderBottom: `1px solid ${THEME.border}`, padding: '8px 6px' };
+const labelStyle: CSSProperties = { display: 'block', fontSize: 12, color: THEME.textSecondary, marginBottom: 4 };
 const inputStyle: CSSProperties = {
   minHeight: 36,
-  border: '1px solid #E2E8F0',
+  border: `1px solid ${THEME.border}`,
   borderRadius: 6,
   padding: '4px 8px',
   fontSize: 14,
@@ -370,7 +373,7 @@ const inputStyle: CSSProperties = {
 };
 const selectStyle: CSSProperties = {
   minHeight: 32,
-  border: '1px solid #E2E8F0',
+  border: `1px solid ${THEME.border}`,
   borderRadius: 6,
   padding: '2px 6px',
   fontSize: 13,
@@ -380,8 +383,8 @@ const smallButtonStyle: CSSProperties = {
   padding: '6px 14px',
   borderRadius: 6,
   border: 'none',
-  background: '#0F4C5C',
-  color: 'white',
+  background: THEME.primary,
+  color: THEME.surface,
   fontSize: 13,
   fontWeight: 600,
   cursor: 'pointer',

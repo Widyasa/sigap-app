@@ -3,6 +3,7 @@ export type { Database } from './database.types';
 export {
   createComplaint,
   uploadComplaintPhoto,
+  uploadProgressPhoto,
   upvoteComplaint,
   listFeedComplaints,
   getComplaint,

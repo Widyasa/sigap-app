@@ -30,6 +30,35 @@ export async function uploadComplaintPhoto(
   return data.publicUrl;
 }
 
+const PROGRESS_PHOTOS_BUCKET = 'progress-photos';
+
+/**
+ * Uploads a single progress photo (dinas staff "tindak lanjut"/"selesai"
+ * form) to the dedicated `progress-photos` bucket. Unlike
+ * `uploadComplaintPhoto`, the storage RLS policy for this bucket
+ * ("petugas mengunggah foto progres") has no folder-ownership
+ * restriction — any `dinas_staff`/`dinas_head`/`verifier`/`admin` may
+ * upload, so the path only needs to be unique per complaint.
+ */
+export async function uploadProgressPhoto(
+  supabase: SupabaseClient<Database>,
+  complaintId: string,
+  body: ComplaintPhotoBody,
+  contentType: string,
+): Promise<string> {
+  const ext = contentType === 'image/png' ? 'png' : contentType === 'image/webp' ? 'webp' : 'jpg';
+  const suffix = Math.random().toString(36).slice(2, 10);
+  const path = `${complaintId}/${Date.now()}-${suffix}.${ext}`;
+
+  const { error } = await supabase.storage
+    .from(PROGRESS_PHOTOS_BUCKET)
+    .upload(path, body, { contentType });
+  if (error) throw error;
+
+  const { data } = supabase.storage.from(PROGRESS_PHOTOS_BUCKET).getPublicUrl(path);
+  return data.publicUrl;
+}
+
 export interface ComplaintAuthorProfile {
   kelurahan: string | null;
   kecamatan: string | null;
