@@ -2605,6 +2605,58 @@ export default function RootLayout() {
 ```
 
 > **Perubahan v2.0 pada AuthGate:** `session` tidak lagi berasal dari `supabase.auth.onAuthStateChange`. `AuthProvider` menentukannya sendiri saat aplikasi dibuka: panggil `getValidAccessToken()` sekali, dan bila mengembalikan token, muat `profiles` untuk pengguna itu. Selama proses ini `loading` bernilai `true` — inilah alasan splash screen tidak boleh disembunyikan lebih cepat.
+
+## 8.3 Peta rute Dashboard Staf (apps/web) — BARU
+
+Bagian 8.1 hanya mencakup `apps/native`. Errata Bagian 0.3 menyebut `apps/admin` — implementasi memakai `apps/web`. Sebelum ini, navigasi dashboard staf tidak dirinci di PRD; subbagian ini melengkapinya berdasarkan acuan desain yang disepakati.
+
+```
+app/
+├── page.tsx                     Ringkasan — KPI + antrean singkat, landing seluruh peran staf
+├── aduan/
+│   ├── page.tsx                 Antrean aduan gabungan (verifier + dinas, tab per peran)
+│   └── — /verifikasi, /dinas menjadi redirect ke /aduan, tautan lama tidak putus
+├── aspirasi/page.tsx            Musrenbang & tinjau aspirasi warga
+├── layanan/page.tsx             Verifikasi dokumen & permohonan layanan
+├── pengumuman/page.tsx          Terbitkan pengumuman & papan peringkat
+├── anggaran/page.tsx            Indeks pencarian & item anggaran
+├── warga/page.tsx               Direktori & statistik warga per kelurahan — BARU
+├── darurat/page.tsx             Antrean SOS (emergency_operator)
+├── pengguna/page.tsx            Kelola akun staf (admin)
+├── login/page.tsx
+└── verify/[code]/page.tsx       Verifikasi dokumen publik (QR, tanpa login)
+```
+
+### Cakupan peran di Ringkasan
+
+| Peran | Cakupan data |
+|---|---|
+| `verifier`, `admin` | Se-kelurahan (seluruh dinas) |
+| `dinas_staff`, `dinas_head` | Dinas sendiri, via `current_dinas_id()` |
+| `emergency_operator` | Versi ringkas, fokus antrean SOS aktif |
+
+### KPI Ringkasan & sumber data
+
+| Kartu | Definisi | Sumber |
+|---|---|---|
+| Aduan baru hari ini | `complaints.created_at` = hari ini, discope sesuai peran | Agregat baru |
+| Menunggu tanggapan | status `pending`/`verified`, plus jumlah yang mendekati batas SLA (≤20% waktu tersisa — threshold sama dengan `SlaCountdown` di native) | Agregat baru |
+| Selesai pekan ini | status `resolved` 7 hari terakhir, dengan delta versus pekan sebelumnya | Agregat baru |
+| Rata-rata respons | rata-rata jarak `created_at` ke transisi status pertama menjadi `verified` — bukan waktu sampai selesai, yang sudah dilacak lewat SLA countdown terpisah | Agregat baru |
+| Beban per kategori | `COMPLAINT_CATEGORY_GROUPS` (Jalan, Sampah, Air, Penerangan, Keamanan) — pengelompokan tampilan atas kategori aduan mentah, pola sama dengan `BUDGET_SECTORS` | `packages/shared` (baru) |
+| Kepatuhan SLA 7 hari | persentase `resolved_at <= sla_due_at`, per hari, 7 hari terakhir | Agregat baru |
+| Perlu keputusan | gabungan `aspirations.status = 'musrenbang'` dan `service_requests.status = 'verifying'`, tombol Setuju/Tolak memakai mutation yang sudah ada (`updateAspirationStatus`, `updateServiceRequestStatus`) | Query gabungan |
+
+### Pemetaan status "Aduan masuk"
+
+| Chip filter | Enum `complaint_status` |
+|---|---|
+| Baru | `pending_classification`, `pending` |
+| Diproses | `verified` |
+| Diteruskan | `in_progress` |
+| Selesai | `resolved` |
+| Ditolak | `rejected` |
+
 ---
 
 # 9 · Spesifikasi Modul

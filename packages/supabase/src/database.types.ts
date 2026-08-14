@@ -934,6 +934,34 @@ export type Database = {
           user_id: string
         }[]
       }
+      get_pending_decisions: {
+        Args: { p_kelurahan: string }
+        Returns: {
+          created_at: string
+          ref_id: string
+          source: string
+          subtitle: string
+          title: string
+        }[]
+      }
+      get_ringkasan_stats: {
+        Args: never
+        Returns: {
+          avg_response_hours: number
+          pending_near_sla_count: number
+          pending_response_count: number
+          resolved_last_week_count: number
+          resolved_week_count: number
+          today_count: number
+        }[]
+      }
+      get_sla_compliance_daily: {
+        Args: { p_days?: number }
+        Returns: {
+          compliance_percent: number | null
+          day: string
+        }[]
+      }
       get_profile_stats: {
         Args: { target_user: string }
         Returns: {

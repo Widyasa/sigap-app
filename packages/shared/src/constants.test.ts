@@ -9,6 +9,8 @@ import {
   OTP_MAX_ATTEMPTS,
   OTP_COOLDOWN_SECONDS,
   POINT_REASONS,
+  COMPLAINT_CATEGORY_GROUPS,
+  getComplaintCategoryGroup,
 } from './constants';
 
 describe('DINAS_LIST', () => {
@@ -85,5 +87,22 @@ describe('POINT_REASONS', () => {
   it('upvote memberi poin kecil, musrenbang memberi poin tertinggi', () => {
     expect(POINT_REASONS.upvote_given).toBeLessThan(POINT_REASONS.report_created);
     expect(POINT_REASONS.aspiration_musrenbang).toBe(100);
+  });
+});
+
+describe('COMPLAINT_CATEGORY_GROUPS', () => {
+  it('setiap kategori di CATEGORY_LIST masuk tepat satu grup', () => {
+    const fromGroups = COMPLAINT_CATEGORY_GROUPS.flatMap((g) => g.categories);
+    expect(new Set(fromGroups).size).toBe(fromGroups.length);
+    expect(new Set(fromGroups)).toEqual(new Set(CATEGORY_LIST));
+  });
+
+  it('getComplaintCategoryGroup memetakan kategori ke grup yang benar', () => {
+    expect(getComplaintCategoryGroup('jalan_rusak')).toBe('jalan');
+    expect(getComplaintCategoryGroup('lainnya')).toBe('keamanan');
+  });
+
+  it('getComplaintCategoryGroup mengembalikan null untuk kategori tak dikenal', () => {
+    expect(getComplaintCategoryGroup('kategori_tidak_ada')).toBeNull();
   });
 });

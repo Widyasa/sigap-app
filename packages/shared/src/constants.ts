@@ -320,3 +320,39 @@ export function getBudgetSector(dinasId: string): BudgetSectorId | null {
   const sector = BUDGET_SECTORS.find((s) => s.dinasIds.includes(dinasId));
   return sector ? sector.id : null;
 }
+
+/**
+ * Pengelompokan tampilan kategori aduan mentah untuk panel "Beban per
+ * kategori" (Ringkasan dashboard staf, PRD 8.3) — pola sama dengan
+ * BUDGET_SECTORS di atas: bukan tabel DB, hanya pengelompokan atas
+ * CATEGORY_LIST yang sudah ada, jadi tetap satu sumber kebenaran kategori.
+ */
+export type ComplaintCategoryGroupId = 'jalan' | 'sampah' | 'air' | 'penerangan' | 'keamanan';
+
+export interface ComplaintCategoryGroup {
+  id: ComplaintCategoryGroupId;
+  label: string;
+  categories: string[];
+}
+
+export const COMPLAINT_CATEGORY_GROUPS: ComplaintCategoryGroup[] = [
+  { id: 'jalan', label: 'Jalan', categories: ['jalan_rusak', 'jembatan', 'trotoar', 'drainase'] },
+  { id: 'sampah', label: 'Sampah', categories: ['sampah', 'pencemaran', 'taman_kota'] },
+  { id: 'air', label: 'Air', categories: ['air_bersih', 'pipa_bocor', 'sanitasi'] },
+  { id: 'penerangan', label: 'Penerangan', categories: ['lampu_lalu_lintas', 'rambu'] },
+  {
+    id: 'keamanan',
+    label: 'Keamanan',
+    categories: [
+      'ketertiban_umum', 'pkl_liar', 'reklame_liar', 'parkir_liar', 'angkutan_umum',
+      'pohon_tumbang', 'wabah_penyakit', 'fasilitas_kesehatan', 'fasilitas_sekolah',
+      'layanan_pendidikan', 'lainnya',
+    ],
+  },
+];
+
+/** Grup tampilan suatu kategori aduan, atau null bila belum dipetakan. */
+export function getComplaintCategoryGroup(category: string): ComplaintCategoryGroupId | null {
+  const group = COMPLAINT_CATEGORY_GROUPS.find((g) => g.categories.includes(category));
+  return group ? group.id : null;
+}

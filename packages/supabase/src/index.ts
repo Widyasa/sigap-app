@@ -142,3 +142,19 @@ export type {
 
 export { listStaffUsers, setUserDisabled, updateUserRole } from './queries/admin';
 export type { StaffUser } from './queries/admin';
+
+export {
+  getRingkasanStats,
+  getSlaComplianceDaily,
+  getPendingDecisions,
+  getComplaintCategoryBreakdown,
+  listComplaintsForRingkasan,
+} from './queries/dashboard';
+export type {
+  RingkasanScope,
+  RingkasanStats,
+  SlaComplianceDay,
+  PendingDecision,
+  ComplaintCategoryBreakdown,
+  RingkasanComplaintRow,
+} from './queries/dashboard';
