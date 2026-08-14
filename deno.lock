@@ -29,6 +29,7 @@
     "packageJson": {
       "dependencies": [
         "npm:@types/minimatch@6",
+        "npm:expo-clipboard@~55.0.15",
         "npm:prettier@^3.1.1",
         "npm:turbo@^2.10.9"
       ]
@@ -37,26 +38,35 @@
       "apps/native": {
         "packageJson": {
           "dependencies": [
+            "npm:@expo/vector-icons@^15.0.2",
             "npm:@repo/shared@*",
             "npm:@repo/supabase@*",
             "npm:@repo/ui@*",
+            "npm:@types/leaflet@^1.9.22",
             "npm:@types/react@~19.2.10",
-            "npm:expo-clipboard@7.1",
+            "npm:cross-env@^10.1.0",
+            "npm:expo-audio@~55.0.16",
+            "npm:expo-clipboard@~55.0.15",
             "npm:expo-constants@~55.0.7",
             "npm:expo-image-picker@~55.0.22",
             "npm:expo-linking@~55.0.7",
             "npm:expo-location@~55.1.12",
             "npm:expo-router@~55.0.3",
-            "npm:expo-secure-store@14.1",
+            "npm:expo-secure-store@~55.0.16",
             "npm:expo-status-bar@~55.0.4",
             "npm:expo-system-ui@~55.0.9",
             "npm:expo@^55.0.4",
+            "npm:leaflet@^1.9.4",
             "npm:react-dom@19.2.0",
+            "npm:react-leaflet@5",
+            "npm:react-native-maps@1.27.2",
+            "npm:react-native-qrcode-svg@^6.3.21",
             "npm:react-native-safe-area-context@~5.6.2",
             "npm:react-native-screens@4.23",
+            "npm:react-native-svg@^15.15.5",
             "npm:react-native-url-polyfill@2",
             "npm:react-native-web@0.21",
-            "npm:react-native@0.83.2",
+            "npm:react-native@0.83.10",
             "npm:react@19.2.0",
             "npm:typescript@5.9.2"
           ]
@@ -65,6 +75,8 @@
       "apps/web": {
         "packageJson": {
           "dependencies": [
+            "npm:@repo/shared@*",
+            "npm:@repo/supabase@*",
             "npm:@repo/typescript-config@*",
             "npm:@repo/ui@*",
             "npm:@types/minimatch@6",

@@ -14,9 +14,45 @@ export type Database = {
   }
   public: {
     Tables: {
+      announcement_reads: {
+        Row: {
+          announcement_id: string
+          read_at: string
+          user_id: string
+        }
+        Insert: {
+          announcement_id: string
+          read_at?: string
+          user_id: string
+        }
+        Update: {
+          announcement_id?: string
+          read_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "announcement_reads_announcement_id_fkey"
+            columns: ["announcement_id"]
+            isOneToOne: false
+            referencedRelation: "announcements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "announcement_reads_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       announcements: {
         Row: {
+          attachment_name: string | null
+          attachment_url: string | null
           body: string
+          category: string | null
           created_by: string | null
           dinas_id: string | null
           expires_at: string | null
@@ -28,7 +64,10 @@ export type Database = {
           title: string
         }
         Insert: {
+          attachment_name?: string | null
+          attachment_url?: string | null
           body: string
+          category?: string | null
           created_by?: string | null
           dinas_id?: string | null
           expires_at?: string | null
@@ -40,7 +79,10 @@ export type Database = {
           title: string
         }
         Update: {
+          attachment_name?: string | null
+          attachment_url?: string | null
           body?: string
+          category?: string | null
           created_by?: string | null
           dinas_id?: string | null
           expires_at?: string | null
@@ -660,6 +702,7 @@ export type Database = {
           kelurahan: string | null
           phone: string | null
           role: Database["public"]["Enums"]["user_role"]
+          rw: string | null
         }
         Insert: {
           avatar_url?: string | null
@@ -671,6 +714,7 @@ export type Database = {
           kelurahan?: string | null
           phone?: string | null
           role?: Database["public"]["Enums"]["user_role"]
+          rw?: string | null
         }
         Update: {
           avatar_url?: string | null
@@ -682,6 +726,7 @@ export type Database = {
           kelurahan?: string | null
           phone?: string | null
           role?: Database["public"]["Enums"]["user_role"]
+          rw?: string | null
         }
         Relationships: [
           {
@@ -827,8 +872,26 @@ export type Database = {
         }
         Relationships: []
       }
+      citizen_leaderboard: {
+        Row: {
+          contribution_count: number | null
+          full_name: string | null
+          kecamatan: string | null
+          kelurahan: string | null
+          month_points: number | null
+          rw: string | null
+          total_points: number | null
+          user_id: string | null
+          week_points: number | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
+      cancel_own_emergency_alert: {
+        Args: { p_alert_id: string }
+        Returns: undefined
+      }
       check_otp_rate_limit: {
         Args: { p_email: string; p_ip: unknown }
         Returns: {
@@ -871,6 +934,17 @@ export type Database = {
           user_id: string
         }[]
       }
+      get_profile_stats: {
+        Args: { target_user: string }
+        Returns: {
+          aspiration_count: number
+          complaint_count: number
+          joined_at: string
+          kelurahan_rank: number
+          total_points: number
+          upvote_count: number
+        }[]
+      }
       purge_expired_auth_rows: { Args: never; Returns: undefined }
       refresh_leaderboard: { Args: never; Returns: undefined }
       search_budget_items: {
@@ -893,6 +967,15 @@ export type Database = {
       }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
+      update_own_emergency_location: {
+        Args: {
+          p_address?: string
+          p_alert_id: string
+          p_lat: number
+          p_lng: number
+        }
+        Returns: undefined
+      }
       user_total_points: { Args: { target_user: string }; Returns: number }
       verify_service_document: {
         Args: { code: string }

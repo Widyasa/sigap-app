@@ -172,10 +172,8 @@ function rowToAspiration(row: AspirationRow): AspirationSummary {
 }
 
 /**
- * Aspirasi yang sedang dibuka untuk voting di kelurahan pengguna (RLS
- * `aspirations_read` mengizinkan baca semua baris, tapi voting hanya masuk
- * akal untuk aspirasi wilayah sendiri — lihat issue #9 kriteria "restricted
- * to own kelurahan"). Diurutkan berdasarkan jumlah suara terbanyak.
+ * Semua aspirasi (segala status) di kelurahan pengguna, diurutkan suara
+ * terbanyak dulu — dipakai layar Aspirasi native untuk tab "Kelurahan saya".
  */
 export async function listAspirations(
   supabase: SupabaseClient<Database>,
@@ -185,7 +183,23 @@ export async function listAspirations(
     .from('aspirations')
     .select<string, AspirationRow>(ASPIRATION_COLUMNS)
     .eq('kelurahan', kelurahan)
-    .eq('status', 'voting')
+    .order('vote_count', { ascending: false });
+  if (error) throw error;
+  return (data ?? []).map(rowToAspiration);
+}
+
+/**
+ * Semua aspirasi (segala status) di kecamatan pengguna, diurutkan suara
+ * terbanyak dulu — dipakai layar Aspirasi native untuk tab "Musrenbang".
+ */
+export async function listAspirationsByKecamatan(
+  supabase: SupabaseClient<Database>,
+  kecamatan: string,
+): Promise<AspirationSummary[]> {
+  const { data, error } = await supabase
+    .from('aspirations')
+    .select<string, AspirationRow>(ASPIRATION_COLUMNS)
+    .eq('kecamatan', kecamatan)
     .order('vote_count', { ascending: false });
   if (error) throw error;
   return (data ?? []).map(rowToAspiration);
@@ -226,6 +240,7 @@ export async function createAspiration(
       kelurahan: profile.kelurahan,
       kecamatan: profile.kecamatan,
       voting_period_id: activePeriod?.id ?? null,
+      image_urls: input.imageUrls ?? [],
     })
     .select('id')
     .single();

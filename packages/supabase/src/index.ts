@@ -15,6 +15,7 @@ export {
   isValidClassificationTransition,
   updateComplaintClassification,
   updateComplaintStatus,
+  getMyComplaintSummary,
 } from './queries/complaints';
 export type {
   ComplaintAuthorProfile,
@@ -25,6 +26,7 @@ export type {
   DinasComplaint,
   UpdateComplaintClassificationInput,
   UpdateComplaintStatusInput,
+  ComplaintSummary,
 } from './queries/complaints';
 export {
   getActiveVotingPeriod,
@@ -32,6 +34,7 @@ export {
   createVotingPeriod,
   setVotingPeriodActive,
   listAspirations,
+  listAspirationsByKecamatan,
   createAspiration,
   voteAspiration,
   unvoteAspiration,
@@ -54,8 +57,10 @@ export type {
 } from './queries/aspirations';
 export {
   listBudgetSummaryByDinas,
+  listBudgetSummaryBySector,
   listBudgetItemsByDinas,
   getBudgetItemDetail,
+  getAspirationBudgetSummary,
   listBudgetIndexStatus,
   budgetItemEmbeddingText,
   askBudget,
@@ -64,6 +69,8 @@ export {
 } from './queries/budget';
 export type {
   BudgetSummaryByDinas,
+  BudgetSectorSummary,
+  AspirationBudgetSummary,
   BudgetItemListEntry,
   BudgetItemDetail,
   BudgetIndexStatus,
@@ -102,23 +109,35 @@ export {
   respondToEmergencyAlert,
   resolveEmergencyAlert,
   markFalseAlarm,
+  cancelEmergencyAlert,
+  updateOwnEmergencyLocation,
+  findActiveOperatorContact,
 } from './queries/emergency';
 export type { EmergencyAlertSummary } from './queries/emergency';
 export {
   listAnnouncements,
+  getAnnouncement,
+  markAnnouncementAsRead,
+  markAllAnnouncementsAsRead,
   listAnnouncementsForAdmin,
   createAnnouncement,
   updateAnnouncement,
   deleteAnnouncement,
   listLeaderboard,
   refreshLeaderboard,
+  listCitizenLeaderboard,
   getMyPointLedger,
   getUserTotalPoints,
+  getProfileStats,
 } from './queries/community';
 export type {
   Announcement,
+  AnnouncementCategoryId,
   KelurahanLeaderboardEntry,
+  CitizenLeaderboardEntry,
+  LeaderboardTimeFilter,
   PointLedgerEntry,
+  ProfileStats,
 } from './queries/community';
 
 export { listStaffUsers, setUserDisabled, updateUserRole } from './queries/admin';

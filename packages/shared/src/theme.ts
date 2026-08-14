@@ -3,16 +3,20 @@
 // token di berkas ini — tidak ada hex hard-coded di tempat lain.
 
 import type { AspirationStatus, ServiceStatus, EmergencyStatus } from './schemas';
+import type { BudgetSectorId } from './constants';
 
 export type ThemeMode = 'light' | 'dark';
 export type Urgency = 'P0' | 'P1' | 'P2';
 export type ComplaintStatus =
   | 'pending_classification' | 'pending' | 'verified'
   | 'in_progress' | 'resolved' | 'rejected';
+export type AnnouncementCategory =
+  | 'darurat' | 'infrastruktur' | 'kesehatan' | 'layanan' | 'kegiatan' | 'umum';
 
 export interface ColorTokens {
   primary: string; primaryPressed: string; primarySurface: string;
   accent: string; accentSurface: string; civicAmber: string;
+  danger: string; dangerSurface: string; dangerPressed: string;
   textPrimary: string; textSecondary: string; textMuted: string;
   border: string; surface: string; background: string;
 }
@@ -21,12 +25,14 @@ export const colors: Record<ThemeMode, ColorTokens> = {
   light: {
     primary: '#0F4C5C', primaryPressed: '#0A3644', primarySurface: '#E6F2F5',
     accent: '#14B8A6', accentSurface: '#CCFBF1', civicAmber: '#F59E0B',
+    danger: '#DC2626', dangerSurface: '#FEF2F2', dangerPressed: '#B91C1C',
     textPrimary: '#0F172A', textSecondary: '#475569', textMuted: '#94A3B8',
     border: '#E2E8F0', surface: '#FFFFFF', background: '#F8FAFC',
   },
   dark: {
     primary: '#2DD4BF', primaryPressed: '#14B8A6', primarySurface: '#134E4A',
     accent: '#5EEAD4', accentSurface: '#134E4A', civicAmber: '#FBBF24',
+    danger: '#F87171', dangerSurface: '#450A0A', dangerPressed: '#EF4444',
     textPrimary: '#F1F5F9', textSecondary: '#94A3B8', textMuted: '#64748B',
     border: '#1E3441', surface: '#142430', background: '#0B1620',
   },
@@ -79,6 +85,39 @@ export const statusColor  = (s: ComplaintStatus, m: ThemeMode): Pair => STATUS[s
 export const aspirationStatusColor = (s: AspirationStatus, m: ThemeMode): Pair => ASPIRATION_STATUS[s][m];
 export const serviceStatusColor = (s: ServiceStatus, m: ThemeMode): Pair => SERVICE_STATUS[s][m];
 export const emergencyStatusColor = (s: EmergencyStatus, m: ThemeMode): Pair => EMERGENCY_STATUS[s][m];
+
+/**
+ * Warna badge kategori pengumuman — dipetakan ke pasangan warna yang sudah
+ * ada per kategori (bukan hex baru), sesuai aturan "satu-satunya tempat hex
+ * literal" di atas.
+ */
+export const announcementCategoryColor = (c: AnnouncementCategory, m: ThemeMode): Pair => {
+  switch (c) {
+    case 'darurat': return URGENCY.P0[m];
+    case 'infrastruktur': return STATUS.verified[m];
+    case 'kesehatan': return STATUS.resolved[m];
+    case 'layanan': return ASPIRATION_STATUS.approved[m];
+    case 'kegiatan': return URGENCY.P1[m];
+    case 'umum': return STATUS.pending[m];
+  }
+};
+
+/**
+ * Warna kotak bidang anggaran (layar Anggaran) — dipetakan ke pasangan
+ * warna yang sudah ada per bidang (bukan hex baru), sesuai aturan
+ * "satu-satunya tempat hex literal" di atas. `lingkungan` memakai token
+ * `accent`/`accentSurface` (bukan pasangan STATUS) supaya tetap berbeda
+ * secara visual dari `kesehatan`, yang memakai hijau `resolved`.
+ */
+export const budgetSectorColor = (s: BudgetSectorId, m: ThemeMode): Pair => {
+  switch (s) {
+    case 'infrastruktur': return ASPIRATION_STATUS.budgeted[m];
+    case 'kesehatan': return STATUS.resolved[m];
+    case 'pendidikan_pemuda': return ASPIRATION_STATUS.approved[m];
+    case 'lingkungan': return { fg: colors[m].accent, bg: colors[m].accentSurface };
+    case 'pemerintahan_layanan': return URGENCY.P1[m];
+  }
+};
 
 /**
  * Warna +/- untuk mutasi poin (issue #13) — dipetakan ke pasangan warna

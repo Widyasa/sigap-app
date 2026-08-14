@@ -225,3 +225,43 @@ export async function markFalseAlarm(
     .eq('id', id);
   if (error) throw error;
 }
+
+/** Warga membatalkan SOS-nya sendiri selagi masih 'active' (jendela "salah tekan"). */
+export async function cancelEmergencyAlert(
+  supabase: SupabaseClient<Database>,
+  alertId: string,
+): Promise<void> {
+  const { error } = await supabase.rpc('cancel_own_emergency_alert', { p_alert_id: alertId });
+  if (error) throw error;
+}
+
+/** Warga mengirim lokasi terbaru selama SOS-nya masih active/responding. */
+export async function updateOwnEmergencyLocation(
+  supabase: SupabaseClient<Database>,
+  alertId: string,
+  lat: number,
+  lng: number,
+  address?: string | null,
+): Promise<void> {
+  const { error } = await supabase.rpc('update_own_emergency_location', {
+    p_alert_id: alertId,
+    p_lat: lat,
+    p_lng: lng,
+    p_address: address ?? undefined,
+  });
+  if (error) throw error;
+}
+
+/** Kontak operator piket aktif (untuk kartu "Kontak piket" di layar status SOS) — best-effort, ambil satu profil dengan role emergency_operator. */
+export async function findActiveOperatorContact(
+  supabase: SupabaseClient<Database>,
+): Promise<{ fullName: string; phone: string | null } | null> {
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('full_name, phone')
+    .eq('role', 'emergency_operator')
+    .limit(1)
+    .maybeSingle();
+  if (error) throw error;
+  return data ? { fullName: data.full_name, phone: data.phone } : null;
+}

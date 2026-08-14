@@ -43,6 +43,7 @@ export interface VerifyOtpResponse {
       dinasId: string | null;
       kelurahan: string | null;
       kecamatan: string | null;
+      rw: string | null;
     };
   };
   reason?: string;

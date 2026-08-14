@@ -41,7 +41,7 @@ export function SlaCountdown({ createdAt, slaDueAt, style }: SlaCountdownProps) 
   return (
     <View style={style}>
       <ThemedText variant="caption" style={{ color, fontWeight: status.isCritical ? '700' : '400' }}>
-        SLA: {formatSlaCountdown(status.remainingMs)}
+        {formatSlaCountdown(status.remainingMs)}
       </ThemedText>
     </View>
   );

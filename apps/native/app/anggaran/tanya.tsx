@@ -1,17 +1,17 @@
-import { useState } from 'react';
-import { View, ScrollView, Pressable, StyleSheet } from 'react-native';
+import { useState, useRef, useEffect } from 'react';
+import { View, ScrollView, Pressable, StyleSheet, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import { askBudget, type AskBudgetCitedItem } from '@repo/supabase';
+import { baseUrl } from '../_components/api';
 import { ThemedText } from '../_components/ThemedText';
-import { Button } from '../_components/Button';
-import { Input } from '../_components/Input';
 import { useAuth } from '../_components/AuthProvider';
 import { useTheme } from '../_components/useTheme';
-import { baseUrl } from '../_components/api';
-
 function reasonToMessage(reason: string | undefined): string {
   switch (reason) {
+    case 'config_error':
+      return 'Konfigurasi asisten belum lengkap. Hubungi admin.';
     case 'no_data':
       return 'Tidak ada data anggaran yang cocok dengan pertanyaan ini. Coba pertanyaan lain, misalnya sebutkan nama dinas atau program.';
     case 'ai_unavailable':
@@ -23,139 +23,150 @@ function reasonToMessage(reason: string | undefined): string {
   }
 }
 
+type Message = {
+  id: string;
+  text: string;
+  sender: 'user' | 'assistant';
+  citedItems?: AskBudgetCitedItem[];
+};
+
 export default function TanyaAnggaranScreen() {
   const { getAccessToken } = useAuth();
-  const { colors, spacing } = useTheme();
+  const { colors, spacing, typography } = useTheme();
   const router = useRouter();
+  const scrollViewRef = useRef<ScrollView>(null);
 
   const [question, setQuestion] = useState('');
-  const [answer, setAnswer] = useState<string | null>(null);
-  const [citedItems, setCitedItems] = useState<AskBudgetCitedItem[]>([]);
-  const [error, setError] = useState<string | null>(null);
+  const [messages, setMessages] = useState<Message[]>([
+    {
+      id: 'intro',
+      sender: 'assistant',
+      text: 'Tanya apa saja soal belanja kelurahan',
+      citedItems: undefined,
+    },
+  ]);
   const [loading, setLoading] = useState(false);
 
-  const handleAsk = async () => {
-    if (!question.trim() || loading) return;
+  const suggestions = [
+    'Bidang mana serapannya paling lambat?',
+    'Berapa anggaran terbesar di Kelurahan Dago?',
+    'Dinas mana realisasinya paling tinggi?',
+  ];
+
+  const handleAsk = async (q: string) => {
+    if (!q.trim()) return;
+    
+    const userMessage: Message = { id: Date.now().toString(), text: q, sender: 'user' };
+    setMessages((prev) => [...prev, userMessage]);
+    setQuestion('');
     setLoading(true);
-    setError(null);
-    setAnswer(null);
-    setCitedItems([]);
+
     try {
       const token = await getAccessToken();
       if (!token) {
-        setError(reasonToMessage('session_expired'));
+        setMessages((prev) => [...prev, { 
+          id: (Date.now() + 1).toString(), 
+          sender: 'assistant', 
+          text: reasonToMessage('session_expired')
+        }]);
         return;
       }
-      const response = await askBudget(baseUrl, token, question.trim());
+      const response = await askBudget(baseUrl, token, q);
+      
       if (response.ok && response.answer) {
-        setAnswer(response.answer);
-        setCitedItems(response.citedItems ?? []);
+        const assistantMessage: Message = {
+          id: (Date.now() + 1).toString(),
+          sender: 'assistant',
+          text: response.answer,
+          citedItems: response.citedItems,
+        };
+        setMessages((prev) => [...prev, assistantMessage]);
       } else {
-        setError(reasonToMessage(response.reason));
+        console.error('askBudget error', response);
+        setMessages((prev) => [...prev, { 
+          id: (Date.now() + 1).toString(), 
+          sender: 'assistant', 
+          text: reasonToMessage(response.reason) 
+        }]);
       }
     } catch (e) {
       console.error('askBudget error', e);
-      setError(reasonToMessage(undefined));
+      setMessages((prev) => [...prev, { 
+        id: Date.now().toString(), 
+        sender: 'assistant', 
+        text: reasonToMessage(undefined) 
+      }]);
     } finally {
       setLoading(false);
     }
   };
 
+  useEffect(() => {
+    scrollViewRef.current?.scrollToEnd({ animated: true });
+  }, [messages, loading]);
+
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
-      <ScrollView contentContainerStyle={{ padding: spacing(4), gap: spacing(4) }}>
-        <Button text="< Kembali" variant="ghost" onPress={() => router.back()} containerStyle={styles.backButton} />
-
-        <View style={{ gap: spacing(1) }}>
-          <ThemedText variant="h1">Tanya AI tentang Anggaran</ThemedText>
-          <ThemedText color="secondary">
-            Jawaban hanya berdasarkan data anggaran yang sudah diimpor — tidak ada angka
-            karangan.
-          </ThemedText>
-        </View>
-
-        <View style={{ gap: spacing(2) }}>
-          <Input
-            label="Pertanyaan"
-            placeholder="Contoh: Berapa anggaran perbaikan drainase Jalan Merdeka?"
-            value={question}
-            onChangeText={setQuestion}
-            multiline
-          />
-          <Button
-            text="Tanya"
-            onPress={handleAsk}
-            loading={loading}
-            disabled={!question.trim() || loading}
-          />
-        </View>
-
-        {error ? <ThemedText color="danger">{error}</ThemedText> : null}
-
-        {answer ? (
-          <View
-            style={[
-              styles.answerBox,
-              {
-                backgroundColor: colors.primarySurface,
-                borderColor: colors.primary,
-                padding: spacing(4),
-                borderRadius: spacing(3),
-                gap: spacing(2),
-              },
-            ]}
-          >
-            <ThemedText variant="h2">Jawaban</ThemedText>
-            <ThemedText>{answer}</ThemedText>
-
-            {citedItems.length > 0 ? (
-              <View style={{ gap: spacing(1), marginTop: spacing(2) }}>
-                <ThemedText variant="caption" color="secondary">
-                  Sumber data:
-                </ThemedText>
-                {citedItems.map((item) => (
-                  <Pressable
-                    key={item.id}
-                    onPress={() => router.push(`/anggaran/item/${item.id}`)}
-                    style={({ pressed }) => [
-                      styles.citation,
-                      {
-                        backgroundColor: colors.surface,
-                        borderColor: colors.border,
-                        borderRadius: spacing(2),
-                        padding: spacing(2),
-                        opacity: pressed ? 0.85 : 1,
-                      },
-                    ]}
-                  >
-                    <ThemedText style={{ fontWeight: '700' }} numberOfLines={1}>
-                      {item.programName}
-                    </ThemedText>
-                    <ThemedText variant="caption" color="secondary">
-                      {item.dinasId}
-                    </ThemedText>
-                  </Pressable>
-                ))}
-              </View>
-            ) : null}
+      <View style={[styles.header, { padding: spacing(4), borderBottomWidth: 1, borderColor: colors.border }]}>
+        <Pressable onPress={() => router.back()}><Ionicons name="chevron-back" size={24} color={colors.textPrimary} /></Pressable>
+        <ThemedText style={{ fontSize: 18, fontWeight: 'bold' }}>SIGAP</ThemedText>
+        <Ionicons name="ellipsis-horizontal" size={24} color={colors.textPrimary} />
+      </View>
+      <View style={[styles.subheader, { padding: spacing(4), backgroundColor: colors.surface, borderBottomWidth: 1, borderColor: colors.border }]}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing(2) }}>
+          <View style={{ backgroundColor: colors.accent, padding: spacing(2), borderRadius: spacing(2) }}>
+            <Ionicons name="document-text" size={20} color={colors.surface} />
           </View>
-        ) : null}
+          <View>
+            <ThemedText style={{ fontWeight: 'bold' }}>Asisten Anggaran</ThemedText>
+            <ThemedText style={{ color: colors.textSecondary, fontSize: 12 }}>Data APBD Kel. Dago 2026</ThemedText>
+          </View>
+        </View>
+      </View>
+
+      <ScrollView ref={scrollViewRef} contentContainerStyle={{ padding: spacing(4) }}>
+        {messages.map((m) => (
+          <View key={m.id} style={[styles.bubble, m.sender === 'user' ? { alignSelf: 'flex-end', backgroundColor: colors.primary } : { alignSelf: 'flex-start', backgroundColor: colors.surface }]}>
+            {m.id === 'intro' ? (
+              <View style={{ gap: spacing(1) }}>
+                <ThemedText style={{ fontWeight: 'bold' }}>Tanya apa saja soal belanja kelurahan</ThemedText>
+                <ThemedText style={{ color: colors.textSecondary }}>Jawaban disusun dari pagu, realisasi, dan daftar kegiatan 2026 yang tampil di halaman ini.</ThemedText>
+              </View>
+            ) : (
+              <ThemedText style={{ color: m.sender === 'user' ? colors.surface : colors.textPrimary }}>{m.text}</ThemedText>
+            )}
+          </View>
+        ))}
+        {loading && (
+          <View style={[styles.bubble, { alignSelf: 'flex-start', backgroundColor: colors.surface }]}>
+            <ThemedText>...</ThemedText>
+          </View>
+        )}
       </ScrollView>
+
+      <View style={{ padding: spacing(2) }}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: spacing(2), paddingBottom: spacing(2) }}>
+          {suggestions.map((s) => (
+            <Pressable key={s} onPress={() => handleAsk(s)} style={{ padding: spacing(2), backgroundColor: colors.primarySurface, borderRadius: spacing(4) }}>
+              <ThemedText style={{ color: colors.primary, fontSize: 12 }}>{s}</ThemedText>
+            </Pressable>
+          ))}
+        </ScrollView>
+        <View style={[styles.inputContainer, { backgroundColor: colors.surface, borderRadius: spacing(8), paddingHorizontal: spacing(4), flexDirection: 'row', alignItems: 'center' }]}>
+          <TextInput value={question} onChangeText={setQuestion} placeholder="Tulis pertanyaan..." placeholderTextColor={colors.textSecondary} style={{ flex: 1, color: colors.textPrimary }} />
+          <Pressable onPress={() => handleAsk(question)} disabled={!question.trim()} style={{ padding: spacing(2) }}>
+            <Ionicons name="chevron-forward-circle" size={32} color={question.trim() ? colors.primary : colors.border} />
+          </Pressable>
+        </View>
+      </View>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  backButton: {
-    alignSelf: 'flex-start',
-  },
-  answerBox: {
-    borderWidth: 2,
-  },
-  citation: {
-    borderWidth: 1,
-  },
+  container: { flex: 1 },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  subheader: { flexDirection: 'row', alignItems: 'center' },
+  bubble: { padding: 12, borderRadius: 16, marginBottom: 8, maxWidth: '80%' },
+  inputContainer: { borderWidth: 1 },
 });

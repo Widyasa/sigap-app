@@ -183,6 +183,7 @@ Deno.serve(async (req) => {
         dinasId: profile.dinas_id,
         kelurahan: profile.kelurahan,
         kecamatan: profile.kecamatan,
+        rw: profile.rw,
       },
     },
   });

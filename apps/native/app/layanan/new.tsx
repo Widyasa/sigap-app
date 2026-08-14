@@ -1,183 +1,126 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 import {
   View,
-  Image,
+  TextInput,
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  Pressable,
   Alert,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import * as ImagePicker from 'expo-image-picker';
-import { SERVICE_CATALOG, createServiceRequestSchema, serviceStatusColor } from '@repo/shared';
-import { createServiceRequest, runOcr, uploadServiceDocument } from '@repo/supabase';
+import { SERVICE_CATALOG, createServiceRequestSchema, type ServiceRequirement } from '@repo/shared';
+import { createServiceRequest, uploadServiceDocument } from '@repo/supabase';
 import { ThemedText } from '../_components/ThemedText';
-import { Button } from '../_components/Button';
-import { Input } from '../_components/Input';
 import { useAuth } from '../_components/AuthProvider';
 import { useTheme } from '../_components/useTheme';
 import { supabase } from '../_components/supabase';
-import { baseUrl } from '../_components/api';
 
-type DocumentType = 'ktp' | 'kk';
+const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024;
 
-const DOCUMENT_LABELS: Record<DocumentType, string> = {
-  ktp: 'KTP',
-  kk: 'Kartu Keluarga',
-};
-
-// Field bawaan yang ditampilkan bila OCR gagal/tidak tersedia, agar warga
-// tetap bisa mengisi manual (lihat kriteria "allow manual entry").
-const DEFAULT_FIELDS: Record<DocumentType, string[]> = {
-  ktp: ['nama', 'nik', 'alamat', 'tempat_tanggal_lahir'],
-  kk: ['nomor_kk', 'nama_kepala_keluarga', 'alamat'],
-};
-
-const FIELD_LABELS: Record<string, string> = {
-  nama: 'Nama',
-  nik: 'NIK',
-  alamat: 'Alamat',
-  tempat_tanggal_lahir: 'Tempat, Tanggal Lahir',
-  nomor_kk: 'Nomor KK',
-  nama_kepala_keluarga: 'Nama Kepala Keluarga',
-};
-
-function humanizeKey(key: string): string {
-  return FIELD_LABELS[key] ?? key.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
-}
-
-interface OcrFieldState {
-  value: string;
-  confidence: number;
-}
-
-interface PickedPhoto {
+interface UploadedDocument {
   uri: string;
   contentType: string;
-  base64: string;
+  sizeBytes: number;
+  fileName: string;
+  arrayBuffer: ArrayBuffer;
 }
 
-interface DocumentState {
-  type: DocumentType;
-  photo: PickedPhoto | null;
-  ocrLoading: boolean;
-  ocrNotice: string | null;
-  fields: Record<string, OcrFieldState>;
+function formatBytes(bytes: number): string {
+  if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+}
+
+function extensionFor(contentType: string): string {
+  if (contentType === 'image/png') return 'png';
+  if (contentType === 'application/pdf') return 'pdf';
+  return 'jpg';
 }
 
 export default function LayananNewScreen() {
   const { serviceType } = useLocalSearchParams<{ serviceType: string }>();
-  const { user, getAccessToken } = useAuth();
+  const { user } = useAuth();
   const router = useRouter();
-  const { colors, spacing, mode } = useTheme();
+  const { colors, spacing } = useTheme();
 
   const catalogEntry = useMemo(
     () => SERVICE_CATALOG.find((entry) => entry.id === serviceType),
     [serviceType],
   );
 
-  const [documents, setDocuments] = useState<DocumentState[]>(() =>
-    (catalogEntry?.requiredDocuments ?? []).map((type) => ({
-      type,
-      photo: null,
-      ocrLoading: false,
-      ocrNotice: null,
-      fields: {},
-    })),
-  );
+  const [documents, setDocuments] = useState<Record<string, UploadedDocument>>({});
+  const [note, setNote] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [pickingKey, setPickingKey] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   // Ref, bukan state — dibaca secara sinkron di awal handleSubmit sehingga
   // tekan ganda yang terjadi sebelum re-render tetap diblokir.
   const submittingRef = useRef(false);
 
-  const confidenceColor = useCallback(
-    (confidence: number) => {
-      if (confidence >= 0.8) return serviceStatusColor('ready', mode).fg;
-      if (confidence >= 0.5) return serviceStatusColor('signing', mode).fg;
-      return serviceStatusColor('rejected', mode).fg;
-    },
-    [mode],
-  );
-
-  const updateDocument = useCallback((docType: DocumentType, patch: Partial<DocumentState>) => {
-    setDocuments((prev) =>
-      prev.map((doc) => (doc.type === docType ? { ...doc, ...patch } : doc)),
-    );
-  }, []);
+  const requirements = catalogEntry?.requirements ?? [];
+  const uploadedCount = requirements.filter((req) => documents[req.key]).length;
+  const totalCount = requirements.length;
+  const remaining = totalCount - uploadedCount;
+  const progress = totalCount === 0 ? 0 : uploadedCount / totalCount;
 
   const handlePickPhoto = useCallback(
-    async (docType: DocumentType) => {
-      const perm = await ImagePicker.requestCameraPermissionsAsync();
-      if (!perm.granted) {
-        Alert.alert(
-          'Izin kamera diperlukan',
-          `Aktifkan izin kamera untuk memotret ${DOCUMENT_LABELS[docType]}.`,
-        );
-        return;
-      }
-      const result = await ImagePicker.launchCameraAsync({ quality: 0.7, base64: true });
-      if (result.canceled || !result.assets?.[0]) return;
-      const asset = result.assets[0];
-      if (!asset.base64) return;
-      const contentType = asset.mimeType ?? 'image/jpeg';
-
-      updateDocument(docType, {
-        photo: { uri: asset.uri, contentType, base64: asset.base64 },
-        ocrLoading: true,
-        ocrNotice: null,
-        fields: {},
-      });
-
-      const fallbackFields = (): Record<string, OcrFieldState> =>
-        Object.fromEntries(DEFAULT_FIELDS[docType].map((key) => [key, { value: '', confidence: 0 }]));
-
+    async (requirement: ServiceRequirement) => {
+      setError(null);
+      setPickingKey(requirement.key);
       try {
-        const token = await getAccessToken();
-        if (!token) throw new Error('missing access token');
-        const ocrResult = await runOcr(baseUrl, token, asset.base64, contentType, docType);
-        if (ocrResult.fields) {
-          const fields: Record<string, OcrFieldState> = {};
-          for (const [key, field] of Object.entries(ocrResult.fields)) {
-            fields[key] = { value: field.value, confidence: field.confidence };
-          }
-          updateDocument(docType, {
-            ocrLoading: false,
-            fields,
-            ocrNotice: ocrResult.ok
-              ? null
-              : 'Hasil OCR keyakinan rendah, periksa dan perbaiki bila perlu.',
-          });
+        let result: ImagePicker.ImagePickerResult;
+        if (Platform.OS === 'web') {
+          result = await ImagePicker.launchImageLibraryAsync({ quality: 0.7 });
         } else {
-          updateDocument(docType, {
-            ocrLoading: false,
-            fields: fallbackFields(),
-            ocrNotice: 'OCR tidak tersedia, isi manual.',
-          });
+          const perm = await ImagePicker.requestCameraPermissionsAsync();
+          if (!perm.granted) {
+            Alert.alert(
+              'Izin kamera diperlukan',
+              `Aktifkan izin kamera untuk memotret ${requirement.label}.`,
+            );
+            return;
+          }
+          result = await ImagePicker.launchCameraAsync({ quality: 0.7 });
         }
+        if (result.canceled || !result.assets?.[0]) return;
+        const asset = result.assets[0];
+        const contentType = asset.mimeType ?? 'image/jpeg';
+
+        const response = await fetch(asset.uri);
+        const arrayBuffer = await response.arrayBuffer();
+        if (arrayBuffer.byteLength > MAX_FILE_SIZE_BYTES) {
+          Alert.alert(
+            'Berkas terlalu besar',
+            `Ukuran ${requirement.label} maksimal 5 MB. Coba foto ulang dengan kualitas lebih rendah.`,
+          );
+          return;
+        }
+
+        const fileName = asset.fileName ?? `${requirement.key}.${extensionFor(contentType)}`;
+
+        setDocuments((prev) => ({
+          ...prev,
+          [requirement.key]: {
+            uri: asset.uri,
+            contentType,
+            sizeBytes: arrayBuffer.byteLength,
+            fileName,
+            arrayBuffer,
+          },
+        }));
       } catch (e) {
-        console.error('runOcr error', e);
-        updateDocument(docType, {
-          ocrLoading: false,
-          fields: fallbackFields(),
-          ocrNotice: 'OCR tidak tersedia, isi manual.',
-        });
+        console.error('pick document error', e);
+        setError('Gagal mengambil foto. Coba lagi.');
+      } finally {
+        setPickingKey(null);
       }
     },
-    [getAccessToken, updateDocument],
+    [],
   );
-
-  const handleFieldChange = useCallback((docType: DocumentType, key: string, value: string) => {
-    setDocuments((prev) =>
-      prev.map((doc) =>
-        doc.type === docType
-          ? { ...doc, fields: { ...doc.fields, [key]: { ...doc.fields[key], value } } }
-          : doc,
-      ),
-    );
-  }, []);
 
   const handleSubmit = useCallback(async () => {
     if (submittingRef.current) return;
@@ -191,45 +134,28 @@ export default function LayananNewScreen() {
       setError('Sesi tidak ditemukan. Masuk kembali.');
       return;
     }
-    if (documents.some((doc) => !doc.photo)) {
-      setError('Semua dokumen wajib difoto terlebih dahulu.');
-      return;
-    }
-
-    const formData: Record<string, string> = {};
-    for (const doc of documents) {
-      for (const [key, field] of Object.entries(doc.fields)) {
-        formData[`${doc.type}_${key}`] = field.value;
-      }
-    }
-
-    const preUploadFields = createServiceRequestSchema
-      .omit({ documentUrls: true })
-      .safeParse({ serviceType: catalogEntry.id, formData });
-    if (!preUploadFields.success) {
-      setError(preUploadFields.error.issues[0]?.message ?? 'Data permohonan tidak valid.');
+    if (remaining > 0) {
+      setError('Semua berkas wajib diunggah terlebih dahulu.');
       return;
     }
 
     submittingRef.current = true;
     setSubmitting(true);
     try {
+      const formData: Record<string, string> = { catatan: note.trim() };
       const documentUrls: string[] = [];
-      for (const doc of documents) {
-        if (!doc.photo) continue;
-        const response = await fetch(doc.photo.uri);
-        const arrayBuffer = await response.arrayBuffer();
-        const path = await uploadServiceDocument(
-          supabase,
-          user.id,
-          arrayBuffer,
-          doc.photo.contentType,
-        );
+
+      for (const requirement of requirements) {
+        const doc = documents[requirement.key];
+        if (!doc) continue;
+        const path = await uploadServiceDocument(supabase, user.id, doc.arrayBuffer, doc.contentType);
         documentUrls.push(path);
+        formData[requirement.key] = path;
       }
 
       const input = createServiceRequestSchema.parse({
-        ...preUploadFields.data,
+        serviceType: catalogEntry.id,
+        formData,
         documentUrls,
       });
 
@@ -244,23 +170,22 @@ export default function LayananNewScreen() {
       submittingRef.current = false;
       setSubmitting(false);
     }
-  }, [catalogEntry, user, documents, router]);
+  }, [catalogEntry, user, remaining, note, requirements, documents, router]);
 
   if (!catalogEntry) {
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
         <View style={[styles.scroll, styles.center]}>
           <ThemedText color="secondary">Jenis layanan tidak ditemukan.</ThemedText>
-          <Button
-            text="Kembali"
-            variant="secondary"
-            onPress={() => router.replace('/layanan')}
-            containerStyle={{ marginTop: spacing(3) }}
-          />
+          <Pressable onPress={() => router.replace('/layanan')} style={{ marginTop: spacing(3) }}>
+            <ThemedText style={{ color: colors.primary, fontWeight: '700' }}>Kembali</ThemedText>
+          </Pressable>
         </View>
       </SafeAreaView>
     );
   }
+
+  const ready = remaining <= 0;
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
@@ -268,81 +193,190 @@ export default function LayananNewScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboard}
       >
-        <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
-          <View style={styles.header}>
-            <ThemedText variant="h1">{catalogEntry.name}</ThemedText>
-            <ThemedText variant="body" color="secondary">
-              {catalogEntry.description}
+        <View style={[styles.topBar, { paddingHorizontal: spacing(4), paddingTop: spacing(2) }]}>
+          <Pressable
+            onPress={() => router.back()}
+            accessibilityRole="button"
+            accessibilityLabel="Kembali"
+            hitSlop={8}
+          >
+            <Ionicons name="chevron-back" size={24} color={colors.textPrimary} />
+          </Pressable>
+          <View style={{ flex: 1 }}>
+            <ThemedText variant="micro" color="secondary">
+              Pengajuan
+            </ThemedText>
+            <ThemedText variant="h2">{catalogEntry.name}</ThemedText>
+          </View>
+        </View>
+
+        <ScrollView
+          contentContainerStyle={[styles.scroll, { paddingBottom: spacing(28) }]}
+          keyboardShouldPersistTaps="handled"
+        >
+          <ThemedText variant="h1" style={{ marginTop: spacing(4) }}>
+            Unggah berkas yang diminta
+          </ThemedText>
+          <ThemedText variant="body" color="secondary" style={{ marginTop: spacing(1) }}>
+            Pastikan seluruh bagian dokumen terlihat, tidak buram, dan tidak tertutup jari.
+          </ThemedText>
+
+          <View style={{ marginTop: spacing(4) }}>
+            <View
+              style={[styles.progressTrack, { backgroundColor: colors.border, borderRadius: spacing(2) }]}
+            >
+              <View
+                style={[
+                  styles.progressFill,
+                  {
+                    width: `${Math.round(progress * 100)}%`,
+                    backgroundColor: colors.primary,
+                    borderRadius: spacing(2),
+                  },
+                ]}
+              />
+            </View>
+            <ThemedText variant="caption" color="secondary" style={{ marginTop: spacing(1) }}>
+              {uploadedCount}/{totalCount}
             </ThemedText>
           </View>
 
-          {documents.map((doc) => (
-            <View key={doc.type} style={{ marginBottom: spacing(6) }}>
-              <ThemedText variant="h2" style={{ marginBottom: spacing(2) }}>
-                {DOCUMENT_LABELS[doc.type]}
-              </ThemedText>
-
-              {doc.photo ? (
-                <View style={styles.photoWrap}>
-                  <Image source={{ uri: doc.photo.uri }} style={styles.photo} />
-                  <Button
-                    text="Ambil Ulang"
-                    variant="ghost"
-                    onPress={() => handlePickPhoto(doc.type)}
-                    containerStyle={{ marginTop: spacing(2) }}
-                  />
-                </View>
-              ) : (
-                <Button
-                  text={`Ambil Foto ${DOCUMENT_LABELS[doc.type]}`}
-                  variant="secondary"
-                  onPress={() => handlePickPhoto(doc.type)}
-                  containerStyle={{ marginBottom: spacing(3) }}
-                />
-              )}
-
-              {doc.ocrLoading ? (
-                <ThemedText variant="caption" color="secondary" style={{ marginTop: spacing(2) }}>
-                  Membaca dokumen…
-                </ThemedText>
-              ) : null}
-
-              {doc.ocrNotice ? (
-                <ThemedText
-                  variant="caption"
-                  color="secondary"
-                  style={{ marginTop: spacing(2), marginBottom: spacing(2) }}
+          <View style={{ marginTop: spacing(5), gap: spacing(3) }}>
+            {requirements.map((requirement) => {
+              const doc = documents[requirement.key];
+              const picking = pickingKey === requirement.key;
+              return (
+                <View
+                  key={requirement.key}
+                  style={[
+                    styles.docRow,
+                    {
+                      backgroundColor: colors.surface,
+                      borderColor: colors.border,
+                      borderRadius: spacing(3),
+                      padding: spacing(3),
+                    },
+                  ]}
                 >
-                  {doc.ocrNotice}
-                </ThemedText>
-              ) : null}
-
-              {Object.entries(doc.fields).map(([key, field]) => (
-                <View key={key} style={{ marginTop: spacing(3) }}>
-                  <Input
-                    label={humanizeKey(key)}
-                    value={field.value}
-                    onChangeText={(value) => handleFieldChange(doc.type, key, value)}
-                  />
-                  <ThemedText
-                    variant="micro"
-                    style={{ color: confidenceColor(field.confidence), marginTop: spacing(1) }}
+                  <View
+                    style={[
+                      styles.docIcon,
+                      {
+                        borderColor: doc ? colors.primary : colors.border,
+                        backgroundColor: colors.background,
+                      },
+                    ]}
                   >
-                    {Math.round(field.confidence * 100)}% yakin
-                  </ThemedText>
+                    <Ionicons
+                      name={doc ? 'checkmark-circle' : 'document-outline'}
+                      size={20}
+                      color={doc ? colors.primary : colors.textMuted}
+                    />
+                  </View>
+
+                  <View style={{ flex: 1, gap: spacing(0.5) }}>
+                    <ThemedText variant="body" style={{ fontWeight: '600' }}>
+                      {requirement.label}
+                    </ThemedText>
+                    {doc ? (
+                      <ThemedText variant="caption" style={{ color: colors.primary }}>
+                        {doc.fileName} · {formatBytes(doc.sizeBytes)}
+                      </ThemedText>
+                    ) : (
+                      <ThemedText variant="caption" color="muted">
+                        Belum diunggah · JPG atau PNG, maks 5 MB
+                      </ThemedText>
+                    )}
+                  </View>
+
+                  <Pressable
+                    onPress={() => handlePickPhoto(requirement)}
+                    disabled={picking}
+                    style={[
+                      styles.uploadButton,
+                      {
+                        backgroundColor: doc ? 'transparent' : colors.primary,
+                        borderColor: colors.primary,
+                        borderWidth: doc ? 1 : 0,
+                        borderRadius: 999,
+                        paddingHorizontal: spacing(3),
+                        paddingVertical: spacing(1.5),
+                        opacity: picking ? 0.6 : 1,
+                      },
+                    ]}
+                  >
+                    <ThemedText
+                      variant="caption"
+                      style={{ color: doc ? colors.primary : colors.surface, fontWeight: '700' }}
+                    >
+                      {picking ? 'Memuat…' : doc ? 'Ganti' : 'Ambil foto'}
+                    </ThemedText>
+                  </Pressable>
                 </View>
-              ))}
-            </View>
-          ))}
+              );
+            })}
+          </View>
+
+          <View style={{ marginTop: spacing(6), gap: spacing(2) }}>
+            <ThemedText variant="h2">Catatan tambahan</ThemedText>
+            <TextInput
+              value={note}
+              onChangeText={setNote}
+              placeholder={catalogEntry.notePlaceholder}
+              placeholderTextColor={colors.textMuted}
+              multiline
+              textAlignVertical="top"
+              style={[
+                styles.textArea,
+                {
+                  backgroundColor: colors.surface,
+                  borderColor: colors.border,
+                  borderRadius: spacing(3),
+                  color: colors.textPrimary,
+                  padding: spacing(3),
+                },
+              ]}
+            />
+          </View>
+
+          <ThemedText variant="micro" color="muted" style={{ marginTop: spacing(4) }}>
+            Foto hanya dipakai untuk verifikasi berkas ini dan dihapus 30 hari setelah surat terbit.
+          </ThemedText>
 
           {error ? (
-            <ThemedText variant="micro" color="danger" style={{ marginBottom: spacing(3) }}>
+            <ThemedText variant="caption" color="danger" style={{ marginTop: spacing(3) }}>
               {error}
             </ThemedText>
           ) : null}
-
-          <Button text="Ajukan Permohonan" loading={submitting} onPress={handleSubmit} />
         </ScrollView>
+
+        <View
+          style={[
+            styles.stickyBar,
+            { backgroundColor: colors.surface, borderTopColor: colors.border, padding: spacing(4) },
+          ]}
+        >
+          <Pressable
+            onPress={handleSubmit}
+            disabled={!ready || submitting}
+            style={[
+              styles.submitButton,
+              {
+                backgroundColor: ready ? colors.primary : colors.textMuted,
+                borderRadius: spacing(3),
+                opacity: submitting ? 0.7 : 1,
+              },
+            ]}
+          >
+            <ThemedText variant="body" style={{ color: colors.surface, fontWeight: '700' }}>
+              {submitting
+                ? 'Mengirim…'
+                : ready
+                  ? 'Ajukan permohonan'
+                  : `Unggah ${remaining} berkas lagi`}
+            </ThemedText>
+          </Pressable>
+        </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -355,6 +389,11 @@ const styles = StyleSheet.create({
   keyboard: {
     flex: 1,
   },
+  topBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
   scroll: {
     flexGrow: 1,
     padding: 24,
@@ -363,16 +402,44 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  header: {
-    gap: 12,
-    marginBottom: 24,
-  },
-  photoWrap: {
-    marginBottom: 16,
-  },
-  photo: {
+  progressTrack: {
+    height: 8,
     width: '100%',
-    height: 220,
-    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: 8,
+  },
+  docRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    gap: 12,
+  },
+  docIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  uploadButton: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  textArea: {
+    minHeight: 100,
+    borderWidth: 1,
+    fontSize: 15,
+  },
+  stickyBar: {
+    borderTopWidth: 1,
+  },
+  submitButton: {
+    minHeight: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

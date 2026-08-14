@@ -1,9 +1,9 @@
 import { View, StyleSheet, ViewStyle } from 'react-native';
-import type { Urgency, ComplaintStatus, AspirationStatus, ServiceStatus, EmergencyStatus } from '@repo/shared';
-import { urgencyColor, statusColor, aspirationStatusColor, serviceStatusColor, emergencyStatusColor } from '@repo/shared';
+import type { Urgency, ComplaintStatus, AspirationStatus, ServiceStatus, EmergencyStatus, AnnouncementCategory } from '@repo/shared';
+import { urgencyColor, statusColor, aspirationStatusColor, serviceStatusColor, emergencyStatusColor, announcementCategoryColor } from '@repo/shared';
 import { ThemedText } from './ThemedText';
 import { useTheme } from './useTheme';
-import { URGENCY_LABELS, STATUS_LABELS, ASPIRATION_STATUS_LABELS, SERVICE_STATUS_LABELS, EMERGENCY_STATUS_LABELS } from './labels';
+import { URGENCY_LABELS, STATUS_LABELS, ASPIRATION_STATUS_LABELS, SERVICE_STATUS_LABELS, EMERGENCY_STATUS_LABELS, ANNOUNCEMENT_CATEGORY_LABELS } from './labels';
 
 interface ChipProps {
   fg: string;
@@ -29,10 +29,19 @@ function Chip({ fg, bg, label, style }: ChipProps) {
   );
 }
 
-export function UrgencyBadge({ urgency, style }: { urgency: Urgency; style?: ViewStyle }) {
+export function UrgencyBadge({
+  urgency,
+  withCode = false,
+  style,
+}: {
+  urgency: Urgency;
+  withCode?: boolean;
+  style?: ViewStyle;
+}) {
   const { mode } = useTheme();
   const { fg, bg } = urgencyColor(urgency, mode);
-  return <Chip fg={fg} bg={bg} label={URGENCY_LABELS[urgency]} style={style} />;
+  const label = withCode ? `${urgency} ${URGENCY_LABELS[urgency]}` : URGENCY_LABELS[urgency];
+  return <Chip fg={fg} bg={bg} label={label} style={style} />;
 }
 
 export function StatusBadge({ status, style }: { status: ComplaintStatus; style?: ViewStyle }) {
@@ -57,6 +66,12 @@ export function EmergencyStatusBadge({ status, style }: { status: EmergencyStatu
   const { mode } = useTheme();
   const { fg, bg } = emergencyStatusColor(status, mode);
   return <Chip fg={fg} bg={bg} label={EMERGENCY_STATUS_LABELS[status]} style={style} />;
+}
+
+export function AnnouncementCategoryBadge({ category, style }: { category: AnnouncementCategory; style?: ViewStyle }) {
+  const { mode } = useTheme();
+  const { fg, bg } = announcementCategoryColor(category, mode);
+  return <Chip fg={fg} bg={bg} label={ANNOUNCEMENT_CATEGORY_LABELS[category]} style={style} />;
 }
 
 const styles = StyleSheet.create({

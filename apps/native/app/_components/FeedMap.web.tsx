@@ -10,6 +10,7 @@ const BANDUNG_FALLBACK: [number, number] = [-6.9175, 107.6191];
 interface FeedMapProps {
   complaints: FeedComplaint[];
   onMarkerPress: (id: string) => void;
+  userLocation?: { lat: number; lng: number } | null;
 }
 
 /**
@@ -18,10 +19,14 @@ interface FeedMapProps {
  * Lingkaran berwarna (bukan pin default Leaflet) supaya tidak butuh aset
  * ikon eksternal dan warnanya konsisten dengan `theme.ts`.
  */
-export function FeedMap({ complaints, onMarkerPress }: FeedMapProps) {
+export function FeedMap({ complaints, onMarkerPress, userLocation }: FeedMapProps) {
   const { mode, colors } = useTheme();
   const first = complaints[0];
-  const center: [number, number] = first ? [first.locationLat, first.locationLng] : BANDUNG_FALLBACK;
+  const center: [number, number] = userLocation
+    ? [userLocation.lat, userLocation.lng]
+    : first
+      ? [first.locationLat, first.locationLng]
+      : BANDUNG_FALLBACK;
 
   return (
     <View style={styles.container}>

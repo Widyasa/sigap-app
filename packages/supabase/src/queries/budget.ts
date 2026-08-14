@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { BUDGET_SECTORS, getBudgetSector, budgetSectorColor, type BudgetSectorId } from '@repo/shared';
 import type { Database } from '../database.types';
 
 // ---------------------------------------------------------------------
@@ -58,6 +59,130 @@ export async function listBudgetSummaryByDinas(
   }
 
   return Array.from(byDinas.values()).sort((a, b) => b.totalAllocated - a.totalAllocated);
+}
+
+// ---------------------------------------------------------------------
+// Budget summary per bidang (layar Anggaran — "Belanja per bidang")
+// ---------------------------------------------------------------------
+
+export interface BudgetSectorSummary {
+  sectorId: string;
+  label: string;
+  color: { fg: string; bg: string };
+  totalAllocated: number;
+  totalRealized: number;
+  itemCount: number;
+  categories: string[];
+}
+
+interface BudgetSectorRow {
+  dinas_id: string | null;
+  budget_allocated: number;
+  budget_realized: number;
+  dinas: { categories: string[] } | null;
+}
+
+/**
+ * Total anggaran dialokasikan/terealisasi per bidang untuk satu tahun
+ * anggaran — dipakai kartu "Belanja per bidang" di layar Anggaran. Bidang
+ * mengelompokkan beberapa dinas (lihat `getBudgetSector` di `@repo/shared`)
+ * jadi agregasi dilakukan di klien atas hasil `listBudgetSummaryByDinas`-
+ * style select, sama seperti agregasi per dinas di atas.
+ */
+export async function listBudgetSummaryBySector(
+  supabase: SupabaseClient<Database>,
+  fiscalYear: number,
+): Promise<BudgetSectorSummary[]> {
+  const { data, error } = await supabase
+    .from('budget_items')
+    .select<string, BudgetSectorRow>('dinas_id, budget_allocated, budget_realized, dinas!inner(categories)')
+    .eq('fiscal_year', fiscalYear);
+  if (error) throw error;
+
+  const rows = (data ?? []) as BudgetSectorRow[];
+  const bySector = new Map<
+    BudgetSectorId,
+    { totalAllocated: number; totalRealized: number; itemCount: number; categories: Set<string> }
+  >();
+  for (const row of rows) {
+    if (!row.dinas_id) continue;
+    const sectorId = getBudgetSector(row.dinas_id);
+    if (!sectorId) continue;
+    const existing = bySector.get(sectorId);
+    const categories = row.dinas?.categories ?? [];
+    if (existing) {
+      existing.totalAllocated += row.budget_allocated;
+      existing.totalRealized += row.budget_realized;
+      existing.itemCount += 1;
+      for (const c of categories) existing.categories.add(c);
+    } else {
+      bySector.set(sectorId, {
+        totalAllocated: row.budget_allocated,
+        totalRealized: row.budget_realized,
+        itemCount: 1,
+        categories: new Set(categories),
+      });
+    }
+  }
+
+  return BUDGET_SECTORS.filter((sector) => bySector.has(sector.id)).map((sector) => {
+    const agg = bySector.get(sector.id)!;
+    return {
+      sectorId: sector.id,
+      label: sector.label,
+      color: budgetSectorColor(sector.id, 'light'),
+      totalAllocated: agg.totalAllocated,
+      totalRealized: agg.totalRealized,
+      itemCount: agg.itemCount,
+      categories: Array.from(agg.categories),
+    };
+  });
+}
+
+// ---------------------------------------------------------------------
+// Anggaran terkait usulan warga (layar Anggaran — "Dari usulan warga")
+// ---------------------------------------------------------------------
+
+export interface AspirationBudgetSummary {
+  totalAllocated: number;
+  activityCount: number;
+}
+
+interface AspirationBudgetRow {
+  linked_budget_item_id: string | null;
+  budget_item: { id: string; budget_allocated: number; fiscal_year: number } | null;
+}
+
+/**
+ * Total anggaran & jumlah kegiatan yang berasal dari usulan warga yang
+ * sudah dianggarkan (`aspirations.linked_budget_item_id`) untuk satu tahun
+ * anggaran — dipakai kartu "Dari usulan warga". Dihitung per item anggaran
+ * unik supaya beberapa usulan yang tertaut ke item yang sama tidak
+ * dobel-hitung.
+ */
+export async function getAspirationBudgetSummary(
+  supabase: SupabaseClient<Database>,
+  fiscalYear: number,
+): Promise<AspirationBudgetSummary> {
+  const { data, error } = await supabase
+    .from('aspirations')
+    .select<string, AspirationBudgetRow>(
+      'linked_budget_item_id, budget_item:linked_budget_item_id ( id, budget_allocated, fiscal_year )',
+    )
+    .not('linked_budget_item_id', 'is', null);
+  if (error) throw error;
+
+  const rows = (data ?? []) as AspirationBudgetRow[];
+  const seenItemIds = new Set<string>();
+  let totalAllocated = 0;
+  for (const row of rows) {
+    const item = row.budget_item;
+    if (!item || item.fiscal_year !== fiscalYear || seenItemIds.has(item.id)) continue;
+    seenItemIds.add(item.id);
+    totalAllocated += item.budget_allocated;
+  }
+
+  return { totalAllocated, activityCount: seenItemIds.size };
 }
 
 // ---------------------------------------------------------------------
@@ -281,6 +406,14 @@ export async function askBudget(
     },
     body: JSON.stringify({ question }),
   });
+  if (!response.ok) {
+    try {
+      const errorBody = await response.json();
+      return errorBody as AskBudgetResponse;
+    } catch {
+      return { ok: false, reason: 'ai_unavailable' };
+    }
+  }
   return response.json() as Promise<AskBudgetResponse>;
 }
 

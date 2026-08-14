@@ -9,23 +9,36 @@ import {
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import * as Clipboard from 'expo-clipboard';
 import * as Linking from 'expo-linking';
 import { otpCodeSchema } from '@repo/shared';
 import { ThemedText } from './_components/ThemedText';
 import { Button } from './_components/Button';
-import { Input } from './_components/Input';
+import { OtpInput } from './_components/OtpInput';
 import { useAuth } from './_components/AuthProvider';
 import { useTheme } from './_components/useTheme';
 
+const RESEND_SECONDS = 60;
+
 export default function VerifyScreen() {
-  const { email, devCode } = useLocalSearchParams<{ email: string; devCode?: string }>();
+  const { email, devCode } = useLocalSearchParams<{
+    email: string;
+    devCode?: string;
+  }>();
   const [code, setCode] = useState(devCode ?? '');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const { verifyOtp } = useAuth();
+  const [countdown, setCountdown] = useState(RESEND_SECONDS);
+  const { verifyOtp, requestOtp, isLoading, isAuthenticated } = useAuth();
   const router = useRouter();
-  const { colors, spacing, typography } = useTheme();
+  const { colors, spacing } = useTheme();
+
+  useEffect(() => {
+    if (!isLoading && isAuthenticated) {
+      router.replace('/home');
+    }
+  }, [isLoading, isAuthenticated, router]);
 
   useEffect(() => {
     if (devCode) {
@@ -33,7 +46,6 @@ export default function VerifyScreen() {
     }
   }, [devCode]);
 
-  // Try to auto-fill a 6-digit code from clipboard when the screen mounts.
   useEffect(() => {
     if (code) return;
     Clipboard.getStringAsync()
@@ -48,6 +60,14 @@ export default function VerifyScreen() {
       });
   }, [code]);
 
+  useEffect(() => {
+    if (countdown <= 0) return;
+    const timer = setInterval(() => {
+      setCountdown((c) => c - 1);
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [countdown]);
+
   const handleChangeEmail = () => {
     router.replace('/login');
   };
@@ -58,6 +78,16 @@ export default function VerifyScreen() {
     } catch {
       // ignore
     }
+  };
+
+  const handleResend = async () => {
+    setError(null);
+    const result = await requestOtp(email);
+    if (!result.ok) {
+      setError(result.message ?? 'Gagal mengirim ulang kode');
+      return;
+    }
+    setCountdown(RESEND_SECONDS);
   };
 
   const handleVerify = async () => {
@@ -77,61 +107,116 @@ export default function VerifyScreen() {
     router.replace(result.needsOnboarding ? '/onboarding' : '/home');
   };
 
+  const isCodeComplete = code.length === 6;
+  const resendLabel =
+    countdown > 0
+      ? `Kirim ulang kode dalam ${countdown} detik`
+      : 'Kirim ulang kode';
+
+  if (isLoading || (!isLoading && isAuthenticated)) {
+    return (
+      <SafeAreaView
+        style={[styles.container, { backgroundColor: colors.surface }]}
+      >
+        <View style={styles.centered}>
+          <ThemedText variant="body" color="secondary">
+            Memuat sesi…
+          </ThemedText>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.surface }]}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboard}
       >
         <ScrollView
-          contentContainerStyle={styles.scroll}
+          contentContainerStyle={[
+            styles.scroll,
+            { padding: spacing(6) },
+          ]}
           keyboardShouldPersistTaps="handled"
         >
-          <View style={styles.header}>
-            <ThemedText variant="h1">Masukkan Kode OTP</ThemedText>
-            <ThemedText variant="body" color="secondary">
-              Kode 6 digit telah dikirim ke {email}. Kode berlaku 10 menit.
+          <View style={styles.content}>
+            <ThemedText variant="h1" color="primary" style={styles.header}>
+              Verifikasi
             </ThemedText>
-          </View>
 
-          <Input
-            label="Kode OTP"
-            placeholder="000000"
-            keyboardType="number-pad"
-            maxLength={6}
-            value={code}
-            onChangeText={setCode}
-            error={error ?? undefined}
-            containerStyle={{ marginBottom: spacing(4) }}
-          />
-
-          <Button
-            text="Verifikasi"
-            loading={loading}
-            onPress={handleVerify}
-            containerStyle={{ marginBottom: spacing(3) }}
-          />
-
-          <Button
-            text="Buka Aplikasi Email"
-            variant="secondary"
-            onPress={handleOpenEmail}
-            containerStyle={{ marginBottom: spacing(3) }}
-          />
-
-          <Pressable
-            onPress={handleChangeEmail}
-            accessibilityRole="button"
-            style={styles.link}
-          >
-            <ThemedText
-              variant="body"
-              color="primary"
-              style={{ textAlign: 'center', fontSize: typography.body.fontSize }}
+            <Pressable
+              onPress={handleChangeEmail}
+              accessibilityRole="button"
+              accessibilityLabel="Ganti alamat email"
+              style={styles.changeEmail}
             >
-              Ganti alamat email
+              <Ionicons
+                name="chevron-back"
+                size={18}
+                color={colors.primary}
+                style={{ marginTop: 1 }}
+              />
+              <ThemedText variant="body" color="primary">
+                Ganti email
+              </ThemedText>
+            </Pressable>
+
+            <ThemedText variant="display" style={styles.title}>
+              Masukkan kode
             </ThemedText>
-          </Pressable>
+            <ThemedText variant="body" color="secondary" style={styles.subtitle}>
+              Kode enam digit sudah dikirim ke{' '}
+              <ThemedText
+                variant="body"
+                color="primary"
+                style={styles.emailHighlight}
+              >
+                {email}
+              </ThemedText>
+            </ThemedText>
+
+            <OtpInput
+              value={code}
+              onChange={setCode}
+              error={error ?? undefined}
+              disabled={loading}
+              containerStyle={{ marginBottom: spacing(6) }}
+            />
+
+            <Button
+              text="Masuk"
+              loading={loading}
+              disabled={!isCodeComplete}
+              onPress={handleVerify}
+              accessibilityLabel="Verifikasi dan masuk ke aplikasi"
+              containerStyle={{ width: '100%', marginBottom: spacing(3) }}
+            />
+
+            <Button
+              text={resendLabel}
+              variant="secondary"
+              disabled={countdown > 0}
+              onPress={handleResend}
+              accessibilityLabel={
+                countdown > 0
+                  ? `Kirim ulang kode tersisa ${countdown} detik`
+                  : 'Kirim ulang kode verifikasi'
+              }
+              containerStyle={{ width: '100%', marginBottom: spacing(3) }}
+            />
+
+            <Pressable
+              onPress={handleOpenEmail}
+              accessibilityRole="button"
+              accessibilityLabel="Buka aplikasi email"
+              style={styles.link}
+            >
+              <ThemedText variant="body" color="primary">
+                Buka aplikasi email
+              </ThemedText>
+            </Pressable>
+          </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -142,19 +227,45 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  centered: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   keyboard: {
     flex: 1,
   },
   scroll: {
     flexGrow: 1,
-    justifyContent: 'center',
     padding: 24,
   },
+  content: {
+    width: '100%',
+    maxWidth: 400,
+    alignItems: 'flex-start',
+    marginTop: 24,
+  },
   header: {
-    gap: 12,
+    marginBottom: 16,
+  },
+  changeEmail: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginBottom: 24,
+    minHeight: 44,
+  },
+  title: {
+    marginBottom: 8,
+  },
+  subtitle: {
     marginBottom: 32,
   },
+  emailHighlight: {
+    fontWeight: '700',
+  },
   link: {
+    alignSelf: 'center',
     minHeight: 44,
     justifyContent: 'center',
   },

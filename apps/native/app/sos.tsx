@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { reverseGeocode } from './_lib/reverseGeocode';
 import { View, StyleSheet, Animated, Pressable, ScrollView, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -13,7 +14,6 @@ import {
   EMERGENCY_TYPES,
   SOS_HOLD_DURATION_MS,
   SOS_AUDIO_DURATION_MS,
-  urgencyColor,
   type EmergencyStatus,
 } from '@repo/shared';
 import {
@@ -54,6 +54,7 @@ export default function SosScreen() {
 
   const [step, setStep] = useState<Step>('hold');
   const [coords, setCoords] = useState<Coordinates | null>(null);
+  const [accuracy, setAccuracy] = useState<number | null>(null);
   const [address, setAddress] = useState<string | null>(null);
   const [locationError, setLocationError] = useState<string | null>(null);
   const [sendError, setSendError] = useState<string | null>(null);
@@ -97,19 +98,13 @@ export default function SosScreen() {
         return;
       }
       try {
-        const position = await Location.getCurrentPositionAsync({});
+        const position = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
         if (cancelled) return;
         setCoords({ lat: position.coords.latitude, lng: position.coords.longitude });
-        try {
-          const [place] = await Location.reverseGeocodeAsync({
-            latitude: position.coords.latitude,
-            longitude: position.coords.longitude,
-          });
-          if (!cancelled && place) {
-            setAddress([place.street, place.subregion, place.region].filter(Boolean).join(', '));
-          }
-        } catch {
-          // Reverse geocode best-effort saja.
+        setAccuracy(position.coords.accuracy);
+        const resolved = await reverseGeocode(position.coords.latitude, position.coords.longitude);
+        if (!cancelled && resolved) {
+          setAddress(resolved);
         }
       } catch {
         if (!cancelled) setLocationError('Gagal mendapatkan lokasi. Coba lagi.');
@@ -356,8 +351,6 @@ export default function SosScreen() {
     );
   }
 
-  const urgent = urgencyColor('P0', mode);
-
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={styles.centeredContent}>
@@ -381,11 +374,11 @@ export default function SosScreen() {
           disabled={!!locationError}
           accessibilityRole="button"
           accessibilityLabel="Tombol SOS, tekan dan tahan untuk mengirim"
-          style={[styles.sosButton, { borderColor: urgent.fg, opacity: locationError ? 0.5 : 1 }]}
+          style={[styles.sosButton, { borderColor: colors.danger, opacity: locationError ? 0.5 : 1 }]}
         >
           <Animated.View
             pointerEvents="none"
-            style={[styles.sosFill, { backgroundColor: urgent.fg, height: progressHeight }]}
+            style={[styles.sosFill, { backgroundColor: colors.dangerSurface, height: progressHeight }]}
           />
           <ThemedText variant="h1" style={styles.sosLabel}>
             SOS

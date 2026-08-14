@@ -167,6 +167,7 @@ export interface ComplaintDetail extends FeedComplaint {
   rejectionReason: string | null;
   dinasName: string | null;
   userId: string;
+  authorName: string | null;
 }
 
 interface ComplaintDetailRow extends FeedComplaintRow {
@@ -175,9 +176,10 @@ interface ComplaintDetailRow extends FeedComplaintRow {
   rejection_reason: string | null;
   user_id: string;
   dinas: { name: string } | null;
+  profiles: { full_name: string } | null;
 }
 
-/** Detail satu aduan, termasuk nama dinas hasil join (untuk layar detail). */
+/** Detail satu aduan, termasuk nama dinas dan penulis hasil join (untuk layar detail). */
 export async function getComplaint(
   supabase: SupabaseClient<Database>,
   complaintId: string,
@@ -185,7 +187,7 @@ export async function getComplaint(
   const { data, error } = await supabase
     .from('complaints')
     .select<string, ComplaintDetailRow>(
-      `${FEED_COLUMNS}, location_address, ai_summary, rejection_reason, user_id, dinas:assigned_dinas ( name )`,
+      `${FEED_COLUMNS}, location_address, ai_summary, rejection_reason, user_id, dinas:assigned_dinas ( name ), profiles:user_id ( full_name )`,
     )
     .eq('id', complaintId)
     .single();
@@ -197,6 +199,7 @@ export async function getComplaint(
     rejectionReason: data.rejection_reason,
     dinasName: data.dinas?.name ?? null,
     userId: data.user_id,
+    authorName: data.profiles?.full_name ?? null,
   };
 }
 
@@ -496,4 +499,69 @@ export async function updateComplaintStatus(
     photo_urls: input.photoUrls ?? [],
   });
   if (timelineError) throw timelineError;
+}
+
+
+export interface ComplaintSummary {
+  in_progress: number;
+  resolved: number;
+  pending: number;
+  latest: {
+    id: string;
+    title: string;
+    time: string;
+  } | null;
+}
+
+export async function getMyComplaintSummary(
+  supabase: SupabaseClient<Database>,
+  userId: string,
+): Promise<ComplaintSummary> {
+  const { data: counts, error: countError } = await supabase
+    .from('complaints')
+    .select('status', { count: 'exact' })
+    .eq('user_id', userId);
+
+  if (countError) throw countError;
+
+  const summary = {
+    in_progress: 0,
+    resolved: 0,
+    pending: 0,
+    latest: null as { id: string; title: string; time: string } | null,
+  };
+
+  if (counts) {
+    counts.forEach((row) => {
+      if (row.status === 'in_progress') summary.in_progress++;
+      else if (row.status === 'resolved') summary.resolved++;
+      else if (
+        row.status === 'pending' ||
+        row.status === 'pending_classification' ||
+        row.status === 'verified'
+      )
+        summary.pending++;
+    });
+  }
+
+  const { data: latest, error: latestError } = await supabase
+    .from('complaints')
+    .select('id, title, created_at')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .single();
+
+  if (latest && !latestError) {
+    summary.latest = {
+      id: latest.id,
+      title: latest.title ?? 'Aduan Tanpa Judul',
+      time: new Date(latest.created_at).toLocaleDateString('id-ID', {
+        day: 'numeric',
+        month: 'short',
+      }),
+    };
+  }
+
+  return summary;
 }

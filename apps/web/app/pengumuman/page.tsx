@@ -11,7 +11,7 @@ import {
   type Announcement,
   type KelurahanLeaderboardEntry,
 } from '@repo/supabase';
-import { createAnnouncementSchema } from '@repo/shared';
+import { createAnnouncementSchema, ANNOUNCEMENT_CATEGORIES } from '@repo/shared';
 import { useAuth } from '../_lib/auth';
 import { supabase } from '../_lib/supabaseClient';
 
@@ -89,6 +89,8 @@ function AnnouncementsSection({
   const [body, setBody] = useState('');
   const [target, setTarget] = useState<'all' | 'kelurahan'>('all');
   const [kelurahan, setKelurahan] = useState('');
+  const [category, setCategory] = useState('');
+  const [attachmentFile, setAttachmentFile] = useState<File | null>(null);
   const [isPinned, setIsPinned] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -98,23 +100,50 @@ function AnnouncementsSection({
 
   const handleCreate = async () => {
     setFormError(null);
+    if (!user?.id) return;
+
+    let attachmentUrl: string | undefined;
+    let attachmentName: string | undefined;
+    if (attachmentFile) {
+      setSubmitting(true);
+      try {
+        const path = `${user.id}/${crypto.randomUUID()}.pdf`;
+        const { error: uploadError } = await supabase.storage
+          .from('announcement-attachments')
+          .upload(path, attachmentFile, { contentType: 'application/pdf' });
+        if (uploadError) throw uploadError;
+        attachmentUrl = supabase.storage.from('announcement-attachments').getPublicUrl(path).data.publicUrl;
+        attachmentName = attachmentFile.name;
+      } catch (e) {
+        console.error('upload attachment error', e);
+        setFormError('Gagal mengunggah lampiran PDF. Coba lagi.');
+        setSubmitting(false);
+        return;
+      }
+    }
+
     const parsed = createAnnouncementSchema.safeParse({
       title,
       body,
       kelurahan: target === 'kelurahan' ? kelurahan.trim() : undefined,
+      category: category || undefined,
+      attachmentUrl,
+      attachmentName,
       isPinned,
     });
     if (!parsed.success) {
       setFormError(parsed.error.issues[0]?.message ?? 'Data pengumuman tidak valid.');
+      setSubmitting(false);
       return;
     }
-    if (!user?.id) return;
     setSubmitting(true);
     try {
       await createAnnouncement(supabase, parsed.data, user.id);
       setTitle('');
       setBody('');
       setKelurahan('');
+      setCategory('');
+      setAttachmentFile(null);
       setIsPinned(false);
       setTarget('all');
       onChanged();
@@ -147,6 +176,8 @@ function AnnouncementsSection({
           <tr>
             <th style={thStyle}>Judul</th>
             <th style={thStyle}>Target</th>
+            <th style={thStyle}>Kategori</th>
+            <th style={thStyle}>Lampiran</th>
             <th style={thStyle}>Pin</th>
             <th style={thStyle}>Terbit</th>
             <th style={thStyle}></th>
@@ -155,7 +186,7 @@ function AnnouncementsSection({
         <tbody>
           {announcements.length === 0 ? (
             <tr>
-              <td style={tdStyle} colSpan={5}>
+              <td style={tdStyle} colSpan={7}>
                 Belum ada pengumuman.
               </td>
             </tr>
@@ -164,6 +195,18 @@ function AnnouncementsSection({
               <tr key={a.id}>
                 <td style={tdStyle}>{a.title}</td>
                 <td style={tdStyle}>{a.kelurahan ?? 'Semua warga'}</td>
+                <td style={tdStyle}>
+                  {ANNOUNCEMENT_CATEGORIES.find((c) => c.id === a.category)?.label ?? '-'}
+                </td>
+                <td style={tdStyle}>
+                  {a.attachmentUrl ? (
+                    <a href={a.attachmentUrl} target="_blank" rel="noreferrer">
+                      {a.attachmentName ?? 'Unduh'}
+                    </a>
+                  ) : (
+                    '-'
+                  )}
+                </td>
                 <td style={tdStyle}>{a.isPinned ? 'Ya' : '-'}</td>
                 <td style={tdStyle}>{new Date(a.publishedAt).toLocaleString('id-ID')}</td>
                 <td style={tdStyle}>
@@ -205,6 +248,25 @@ function AnnouncementsSection({
             <option value="all">Semua warga</option>
             <option value="kelurahan">Kelurahan tertentu</option>
           </select>
+        </div>
+        <div>
+          <label style={labelStyle}>Kategori</label>
+          <select style={selectStyle} value={category} onChange={(e) => setCategory(e.target.value)}>
+            <option value="">Tanpa kategori</option>
+            {ANNOUNCEMENT_CATEGORIES.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.label}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label style={labelStyle}>Lampiran PDF</label>
+          <input
+            type="file"
+            accept="application/pdf"
+            onChange={(e) => setAttachmentFile(e.target.files?.[0] ?? null)}
+          />
         </div>
         {target === 'kelurahan' ? (
           <div>

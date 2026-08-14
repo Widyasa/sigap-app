@@ -27,10 +27,12 @@ export function Button({
 }: ButtonProps) {
   const { colors, spacing } = useTheme();
 
+  const isDisabled = disabled || loading;
+
   const base: ViewStyle = {
     minHeight: 48,
     minWidth: 48,
-    borderRadius: spacing(2),
+    borderRadius: spacing(3),
     paddingVertical: spacing(3),
     paddingHorizontal: spacing(5),
     alignItems: 'center',
@@ -42,7 +44,7 @@ export function Button({
       backgroundColor: colors.primary,
     },
     secondary: {
-      backgroundColor: colors.primarySurface,
+      backgroundColor: 'transparent',
       borderWidth: 1,
       borderColor: colors.primary,
     },
@@ -51,29 +53,56 @@ export function Button({
     },
   };
 
+  const disabledVariants: Record<NonNullable<ButtonProps['variant']>, ViewStyle> = {
+    primary: {
+      backgroundColor: colors.textMuted,
+    },
+    secondary: {
+      backgroundColor: 'transparent',
+      borderWidth: 1,
+      borderColor: colors.textMuted,
+    },
+    ghost: {
+      backgroundColor: 'transparent',
+    },
+  };
+
+  const pressedVariants: Record<NonNullable<ButtonProps['variant']>, ViewStyle> = {
+    primary: { backgroundColor: colors.primaryPressed },
+    secondary: { backgroundColor: colors.primarySurface },
+    ghost: { backgroundColor: colors.primarySurface },
+  };
+
   const textColors: Record<NonNullable<ButtonProps['variant']>, string> = {
-    primary: colors.background,
+    primary: colors.surface,
     secondary: colors.primary,
     ghost: colors.primary,
   };
 
+  const disabledTextColors: Record<NonNullable<ButtonProps['variant']>, string> = {
+    primary: colors.surface,
+    secondary: colors.textMuted,
+    ghost: colors.textMuted,
+  };
+
   const textStyle: TextStyle = {
-    color: textColors[variant],
-    opacity: loading || disabled ? 0.6 : 1,
+    color: isDisabled ? disabledTextColors[variant] : textColors[variant],
+    opacity: loading ? 0.6 : 1,
   };
 
   return (
     <Pressable
       style={({ pressed }) => [
         base,
-        variants[variant],
-        (pressed || disabled) && { opacity: 0.7 },
+        disabled && !loading ? disabledVariants[variant] : variants[variant],
+        pressed && !isDisabled && pressedVariants[variant],
         containerStyle,
         style,
       ]}
-      disabled={disabled || loading}
+      disabled={isDisabled}
       accessibilityRole="button"
-      accessibilityState={{ busy: loading }}
+      accessibilityLabel={text}
+      accessibilityState={{ busy: loading, disabled: isDisabled }}
       {...rest}
     >
       <ThemedText variant="h2" style={textStyle}>

@@ -4,16 +4,20 @@ import { ThemedText } from './ThemedText';
 import { useTheme } from './useTheme';
 import { UrgencyBadge, StatusBadge } from './Badge';
 import { SlaCountdown } from './SlaCountdown';
-import { Button } from './Button';
+import { getDinasName } from './distance';
 
 interface ComplaintCardProps {
   complaint: FeedComplaint;
   hasDukung: boolean;
+  distanceLabel: string;
   onPress: () => void;
-  onDukung: () => void;
 }
 
-export function ComplaintCard({ complaint, hasDukung, onPress, onDukung }: ComplaintCardProps) {
+/**
+ * Kartu aduan di bottom sheet feed peta: foto di kiri, badge urgensi+status
+ * dan judul di kanan, footer berisi jarak, dukungan, dan sisa SLA.
+ */
+export function ComplaintCard({ complaint, hasDukung, distanceLabel, onPress }: ComplaintCardProps) {
   const { colors, spacing } = useTheme();
 
   return (
@@ -24,45 +28,54 @@ export function ComplaintCard({ complaint, hasDukung, onPress, onDukung }: Compl
         {
           backgroundColor: colors.surface,
           borderColor: colors.border,
-          padding: spacing(3),
           borderRadius: spacing(3),
-          gap: spacing(2),
+          padding: spacing(3),
+          gap: spacing(3),
           opacity: pressed ? 0.85 : 1,
         },
       ]}
     >
-      <View style={styles.row}>
-        {complaint.imageUrls[0] ? (
-          <Image source={{ uri: complaint.imageUrls[0] }} style={[styles.thumb, { borderRadius: spacing(2) }]} />
-        ) : null}
-        <View style={[styles.info, { gap: spacing(1) }]}>
-          <ThemedText variant="h2" numberOfLines={2}>
-            {complaint.title ?? complaint.description}
+      {complaint.imageUrls[0] ? (
+        <Image source={{ uri: complaint.imageUrls[0] }} style={[styles.thumb, { borderRadius: spacing(2) }]} />
+      ) : (
+        <View
+          style={[
+            styles.thumb,
+            styles.thumbPlaceholder,
+            { borderRadius: spacing(2), backgroundColor: colors.background, borderColor: colors.border },
+          ]}
+        >
+          <ThemedText variant="micro" color="muted" align="center">
+            foto aduan
           </ThemedText>
-          <ThemedText variant="caption" color="secondary" numberOfLines={1}>
-            {complaint.kelurahan ?? 'Lokasi tidak diketahui'}
-            {complaint.kecamatan ? `, ${complaint.kecamatan}` : ''}
-          </ThemedText>
-          <View style={[styles.badges, { gap: spacing(1) }]}>
-            {complaint.urgency ? <UrgencyBadge urgency={complaint.urgency} /> : null}
-            <StatusBadge status={complaint.status} />
-          </View>
         </View>
-      </View>
+      )}
 
-      <SlaCountdown createdAt={complaint.createdAt} slaDueAt={complaint.slaDueAt} />
+      <View style={[styles.info, { gap: spacing(1) }]}>
+        <View style={[styles.badges, { gap: spacing(1) }]}>
+          {complaint.urgency ? <UrgencyBadge urgency={complaint.urgency} withCode /> : null}
+          <StatusBadge status={complaint.status} />
+        </View>
 
-      <View style={[styles.footer, { gap: spacing(2) }]}>
-        <ThemedText variant="caption" color="secondary">
-          {complaint.upvoteCount} warga mendukung
+        <ThemedText variant="h2" numberOfLines={2}>
+          {complaint.title ?? complaint.description}
         </ThemedText>
-        <Button
-          text={hasDukung ? 'Sudah Didukung' : 'Dukung'}
-          variant={hasDukung ? 'ghost' : 'secondary'}
-          disabled={hasDukung}
-          onPress={onDukung}
-          containerStyle={styles.dukungButton}
-        />
+
+        <ThemedText variant="caption" color="secondary" numberOfLines={1}>
+          {getDinasName(complaint.assignedDinas)}
+        </ThemedText>
+
+        <View style={[styles.footer, { gap: spacing(1) }]}>
+          <View style={[styles.footerLeft, { gap: spacing(2) }]}>
+            <ThemedText variant="caption" color="secondary">
+              {distanceLabel}
+            </ThemedText>
+            <ThemedText variant="caption" color={hasDukung ? 'primary' : 'secondary'}>
+              {complaint.upvoteCount} dukungan
+            </ThemedText>
+          </View>
+          <SlaCountdown createdAt={complaint.createdAt} slaDueAt={complaint.slaDueAt} />
+        </View>
       </View>
     </Pressable>
   );
@@ -70,15 +83,17 @@ export function ComplaintCard({ complaint, hasDukung, onPress, onDukung }: Compl
 
 const styles = StyleSheet.create({
   card: {
+    flexDirection: 'row',
     borderWidth: 1,
   },
-  row: {
-    flexDirection: 'row',
-    gap: 12,
-  },
   thumb: {
-    width: 72,
-    height: 72,
+    width: 88,
+    height: 88,
+  },
+  thumbPlaceholder: {
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   info: {
     flex: 1,
@@ -87,13 +102,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
   },
   footer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: 'column',
+    alignItems: 'flex-start',
   },
-  dukungButton: {
-    minHeight: 36,
-    paddingVertical: 8,
-    paddingHorizontal: 16,
+  footerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
 });

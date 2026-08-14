@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { DINAS_LIST, CATEGORY_LIST, URGENCY_VALUES, SERVICE_CATALOG, EMERGENCY_TYPES } from './constants';
+import { DINAS_LIST, CATEGORY_LIST, URGENCY_VALUES, SERVICE_CATALOG, EMERGENCY_TYPES, ANNOUNCEMENT_CATEGORIES } from './constants';
 
 const dinasIds = DINAS_LIST.map((d) => d.id) as [string, ...string[]];
 const categories = CATEGORY_LIST as unknown as [string, ...string[]];
@@ -44,6 +44,7 @@ export const createAspirationSchema = z.object({
   estimatedCost: z.number().int().nonnegative().optional(),
   locationLat: latitude.optional(),
   locationLng: longitude.optional(),
+  imageUrls: z.array(z.string()).optional(),
 });
 export type CreateAspirationInput = z.infer<typeof createAspirationSchema>;
 
@@ -106,6 +107,7 @@ export const SERVICE_STATUSES = [
 export type ServiceStatus = (typeof SERVICE_STATUSES)[number];
 
 const emergencyTypeIds = EMERGENCY_TYPES.map((e) => e.id) as [string, ...string[]];
+const announcementCategoryIds = ANNOUNCEMENT_CATEGORIES.map((c) => c.id) as [string, ...string[]];
 
 /**
  * Skema payload SOS. Beda dengan `createAspirationSchema`, koordinat lokasi
@@ -141,6 +143,9 @@ export const createAnnouncementSchema = z.object({
   kelurahan: z.string().trim().min(1).max(100).optional().nullable(),
   dinasId: z.enum(dinasIds).optional(),
   imageUrl: z.string().optional(),
+  category: z.enum(announcementCategoryIds).optional(),
+  attachmentUrl: z.string().optional(),
+  attachmentName: z.string().optional(),
   isPinned: z.boolean().default(false),
   expiresAt: z.string().datetime().optional(),
 });

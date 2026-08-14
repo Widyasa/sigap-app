@@ -25,6 +25,7 @@ export interface UserProfile {
   dinasId: string | null;
   kelurahan: string | null;
   kecamatan: string | null;
+  rw: string | null;
 }
 
 interface AuthState {
@@ -36,7 +37,12 @@ interface AuthState {
 }
 
 interface AuthActions {
-  requestOtp: (email: string) => Promise<{ ok: boolean; message?: string; devCode?: string }>;
+  requestOtp: (email: string) => Promise<{
+    ok: boolean;
+    message?: string;
+    devCode?: string;
+    retryAfterSeconds?: number;
+  }>;
   verifyOtp: (email: string, code: string) => Promise<{ ok: boolean; message?: string; needsOnboarding?: boolean }>;
   completeOnboarding: (input: OnboardingInput) => Promise<{ ok: boolean; message?: string }>;
   signOut: (all?: boolean) => Promise<void>;
@@ -81,7 +87,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Validate token by fetching own profile.
       const { data: profile, error } = await supabase
         .from('profiles')
-        .select('id, full_name, role, dinas_id, kelurahan, kecamatan')
+        .select('id, full_name, role, dinas_id, kelurahan, kecamatan, rw')
         .eq('id', getUserIdFromToken(accessToken))
         .single();
 
@@ -115,7 +121,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         const result = await requestOtp(email);
         if (!result.ok) {
-          return { ok: false, message: authReasonToMessage(result.reason) };
+          return {
+            ok: false,
+            message: authReasonToMessage(result.reason),
+            retryAfterSeconds: result.retry_after_seconds,
+          };
         }
         return { ok: true, devCode: result.devCode };
       } catch (e) {
@@ -147,6 +157,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           dinasId: result.user.profile.dinasId,
           kelurahan: result.user.profile.kelurahan,
           kecamatan: result.user.profile.kecamatan,
+          rw: result.user.profile.rw,
         };
         setState({
           isLoading: false,
@@ -269,6 +280,7 @@ function profileToUser(profile: {
   dinas_id: string | null;
   kelurahan: string | null;
   kecamatan: string | null;
+  rw: string | null;
 }): UserProfile {
   return {
     id: profile.id,
@@ -278,5 +290,6 @@ function profileToUser(profile: {
     dinasId: profile.dinas_id,
     kelurahan: profile.kelurahan,
     kecamatan: profile.kecamatan,
+    rw: profile.rw,
   };
 }

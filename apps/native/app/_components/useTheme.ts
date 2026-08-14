@@ -1,8 +1,7 @@
-import { useColorScheme as useSystemColorScheme } from 'react-native';
 import { colors, ThemeMode, ColorTokens, typography, spacing } from '@repo/shared';
 
 export function useTheme() {
-  const mode: ThemeMode = useSystemColorScheme() === 'dark' ? 'dark' : 'light';
+  const mode: ThemeMode = 'light';
   return {
     mode,
     colors: colors[mode],

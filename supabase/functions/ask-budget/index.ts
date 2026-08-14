@@ -71,6 +71,12 @@ Deno.serve(async (req) => {
 
   const supabase = getServiceClient();
 
+  const geminiApiKey = Deno.env.get('GEMINI_API_KEY');
+  const geminiModel = Deno.env.get('GEMINI_MODEL_LIGHT') ?? Deno.env.get('GEMINI_MODEL');
+  if (!geminiApiKey || !geminiModel) {
+    return jsonResponse({ ok: false, reason: 'config_error' }, 500);
+  }
+
   try {
     const questionEmbedding = await computeEmbedding(question);
 
@@ -96,15 +102,11 @@ Deno.serve(async (req) => {
       progressPercent: r.progress_percent,
     }));
 
-    const geminiApiKey = Deno.env.get('GEMINI_API_KEY');
-    if (!geminiApiKey) throw new Error('GEMINI_API_KEY is not set');
     // Jawaban RAG adalah tugas terstruktur ringan — pakai model "lite" bila
     // ada agar tetap cepat, sama seperti classify-report.
-    const geminiModel = Deno.env.get('GEMINI_MODEL_LIGHT') ?? Deno.env.get('GEMINI_MODEL');
-    if (!geminiModel) throw new Error('GEMINI_MODEL(_LIGHT) is not set');
-
     const prompt = buildBudgetRagPrompt(question, items);
     const raw = await callGeminiJson(prompt, geminiApiKey, geminiModel);
+
     const validItemIds = items.map((it) => it.id);
     const parsed = parseBudgetRagResponse(raw, validItemIds);
 

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { View, ScrollView, StyleSheet, Alert } from 'react-native';
+import { View, ScrollView, Image, StyleSheet, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams } from 'expo-router';
 import * as Linking from 'expo-linking';
@@ -22,6 +22,7 @@ export default function LayananDetailScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [downloading, setDownloading] = useState(false);
+  const [docPreviews, setDocPreviews] = useState<Record<string, string>>({});
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -40,6 +41,35 @@ export default function LayananDetailScreen() {
   useEffect(() => {
     load();
   }, [load]);
+
+  useEffect(() => {
+    if (!request) return;
+    const catalogEntry = SERVICE_CATALOG.find((entry) => entry.id === request.serviceType);
+    if (!catalogEntry) return;
+    let cancelled = false;
+
+    (async () => {
+      const entries = await Promise.all(
+        catalogEntry.requirements.map(async (req) => {
+          const path = request.formData[req.key];
+          if (typeof path !== 'string' || !path) return null;
+          try {
+            const url = await getServiceRequestSignedUrl(supabase, path, 300);
+            return [req.key, url] as const;
+          } catch (e) {
+            console.error('getServiceRequestSignedUrl error', e);
+            return null;
+          }
+        }),
+      );
+      if (cancelled) return;
+      setDocPreviews(Object.fromEntries(entries.filter((e): e is readonly [string, string] => e !== null)));
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [request]);
 
   const handleDownload = useCallback(async () => {
     if (!request?.outputPdfUrl) return;
@@ -112,6 +142,35 @@ export default function LayananDetailScreen() {
               ) : null}
             </View>
 
+            {catalogEntry && catalogEntry.requirements.length > 0 ? (
+              <View style={{ marginTop: spacing(6) }}>
+                <ThemedText variant="h2">Berkas terlampir</ThemedText>
+                <View style={{ gap: spacing(3), marginTop: spacing(3) }}>
+                  {catalogEntry.requirements.map((req) => {
+                    const previewUrl = docPreviews[req.key];
+                    return (
+                      <View
+                        key={req.key}
+                        style={[
+                          styles.docCard,
+                          { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: spacing(3) },
+                        ]}
+                      >
+                        {previewUrl ? (
+                          <Image source={{ uri: previewUrl }} style={styles.docThumb} />
+                        ) : (
+                          <View style={[styles.docThumb, styles.docThumbPlaceholder, { backgroundColor: colors.background, borderColor: colors.border }]} />
+                        )}
+                        <ThemedText variant="caption" color="secondary" style={{ flex: 1 }}>
+                          {req.label}
+                        </ThemedText>
+                      </View>
+                    );
+                  })}
+                </View>
+              </View>
+            ) : null}
+
             {request.status === 'rejected' && request.rejectionReason ? (
               <ThemedText variant="caption" color="danger" style={{ marginTop: spacing(3) }}>
                 Alasan penolakan: {request.rejectionReason}
@@ -149,5 +208,21 @@ const styles = StyleSheet.create({
   },
   stepLabelActive: {
     fontWeight: '700',
+  },
+  docCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    borderWidth: 1,
+    padding: 12,
+  },
+  docThumb: {
+    width: 48,
+    height: 48,
+    borderRadius: 8,
+  },
+  docThumbPlaceholder: {
+    borderWidth: 1,
+    borderStyle: 'dashed',
   },
 });

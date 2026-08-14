@@ -1,5 +1,5 @@
-import type { ComplaintStatus, Urgency, AspirationStatus, ServiceStatus, EmergencyStatus, PointReason } from '@repo/shared';
-import { EMERGENCY_TYPES } from '@repo/shared';
+import type { ComplaintStatus, Urgency, AspirationStatus, ServiceStatus, EmergencyStatus, PointReason, AnnouncementCategory } from '@repo/shared';
+import { EMERGENCY_TYPES, ANNOUNCEMENT_CATEGORIES } from '@repo/shared';
 
 /** Label tampilan berbahasa Indonesia untuk urgensi aduan (lihat constants.ts). */
 export const URGENCY_LABELS: Record<Urgency, string> = {
@@ -20,10 +20,10 @@ export const STATUS_LABELS: Record<ComplaintStatus, string> = {
 
 /** Label tampilan berbahasa Indonesia untuk status aspirasi. */
 export const ASPIRATION_STATUS_LABELS: Record<AspirationStatus, string> = {
-  voting: 'Voting',
-  musrenbang: 'Musrenbang',
+  voting: 'Voting terbuka',
+  musrenbang: 'Dibahas Musrenbang',
   approved: 'Disetujui',
-  budgeted: 'Dianggarkan',
+  budgeted: 'Sudah dianggarkan',
   realized: 'Terealisasi',
   rejected: 'Ditolak',
 };
@@ -74,3 +74,8 @@ export const POINT_REASON_LABELS: Record<PointReason, string> = {
   aspiration_musrenbang: 'Aspirasi lolos Musrenbang',
   report_false: 'Aduan ditolak (poin dibatalkan)',
 };
+
+/** Label tampilan berbahasa Indonesia untuk kategori pengumuman, dikumpulkan dari ANNOUNCEMENT_CATEGORIES. */
+export const ANNOUNCEMENT_CATEGORY_LABELS: Record<AnnouncementCategory, string> = Object.fromEntries(
+  ANNOUNCEMENT_CATEGORIES.map((c) => [c.id, c.label]),
+) as Record<AnnouncementCategory, string>;
