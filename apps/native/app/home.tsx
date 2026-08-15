@@ -305,9 +305,7 @@ export default function HomeScreen() {
             style={({ pressed }) => [
               styles.announcementCard,
               {
-                backgroundColor: colors.surface,
                 borderColor: colors.border,
-                borderLeftColor: colors.civicAmber,
                 opacity: pressed ? 0.95 : 1,
               },
             ]}
@@ -583,7 +581,6 @@ const styles = StyleSheet.create({
     marginTop: 16,
     padding: 16,
     borderWidth: 1,
-    borderLeftWidth: 4,
     borderRadius: 14,
   },
   iconBox: {

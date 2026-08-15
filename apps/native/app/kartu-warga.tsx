@@ -49,23 +49,12 @@ export default function KartuWargaScreen() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
       {/* Header */}
-      <View style={[styles.headerRow, { paddingHorizontal: spacing(4), paddingTop: spacing(2) }]}>
-        <Pressable onPress={() => router.back()}>
-          <Ionicons name="chevron-back" size={24} color={colors.textPrimary} />
-        </Pressable>
-        <ThemedText variant="h2">SIGAP</ThemedText>
-        <Pressable onPress={() => {}}>
-          <Ionicons name="ellipsis-horizontal" size={24} color={colors.textPrimary} />
-        </Pressable>
-      </View>
-
-      {/* Subheader */}
-      <View style={[styles.subheader, { backgroundColor: colors.primary }]}>
-        <Pressable onPress={() => router.back()}>
+      <View style={[styles.subheader, { backgroundColor: colors.primary, paddingHorizontal: spacing(4), paddingTop: spacing(2) }]}>
+        <Pressable onPress={() => router.back()} accessibilityRole="button" accessibilityLabel="Kembali" hitSlop={8}>
           <Ionicons name="chevron-back" size={24} color={colors.surface} />
         </Pressable>
         <ThemedText variant="h2" style={{ color: colors.surface }}>Kartu Warga</ThemedText>
-        <Pressable onPress={toggleToast} style={[styles.iconButton, { backgroundColor: colors.primaryPressed }]}>
+        <Pressable onPress={toggleToast} style={[styles.iconButton, { backgroundColor: colors.primaryPressed }]} accessibilityRole="button" accessibilityLabel="Info">
           <ThemedText style={{ color: colors.surface }}>?</ThemedText>
         </Pressable>
       </View>
@@ -146,11 +135,6 @@ export default function KartuWargaScreen() {
             <ThemedText style={{ color: colors.surface }}>• Tunjukkan layar ini ke petugas. Naikkan kecerahan bila kode sulit terbaca. Jangan bagikan tangkapan layar; kode kedaluwarsa dalam satu menit.</ThemedText>
         </View>
 
-        {/* Back Link */}
-        <Pressable onPress={() => router.back()} style={{ alignItems: 'center' }}>
-            <ThemedText style={{ color: colors.primary, fontWeight: '700' }}>Kembali ke Profil</ThemedText>
-        </Pressable>
-
         {/* Riwayat */}
         <ThemedText variant="h2">RIWAYAT PEMINDAIAN</ThemedText>
         <View style={{ gap: spacing(2) }}>
@@ -183,7 +167,6 @@ export default function KartuWargaScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
   subheader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 15 },
   card: { padding: 15, elevation: 3, shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.2, shadowRadius: 2 },
   divider: { height: 1, marginVertical: 10 },

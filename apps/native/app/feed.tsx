@@ -220,25 +220,7 @@ export default function FeedScreen() {
         pointerEvents="box-none"
       >
         <View style={styles.headerRow}>
-          <Pressable
-            onPress={() => router.back()}
-            style={[
-              styles.iconButton,
-              {
-                backgroundColor: colors.surface,
-                borderRadius: spacing(6),
-                shadowColor: colors.textPrimary,
-                shadowOffset: { width: 0, height: 2 },
-                shadowOpacity: 0.12,
-                shadowRadius: 6,
-                elevation: 3,
-              },
-            ]}
-            accessibilityRole="button"
-            accessibilityLabel="Kembali"
-          >
-            <Ionicons name="chevron-back" size={20} color={colors.textPrimary} />
-          </Pressable>
+          <ThemedText variant="h2">Feed</ThemedText>
           <Pressable
             onPress={() => console.log('feed menu pressed')}
             style={[

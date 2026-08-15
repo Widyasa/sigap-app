@@ -19,6 +19,7 @@ import { reverseGeocode } from './_lib/reverseGeocode';
 import { createComplaintSchema, statusColor, DINAS_LIST } from '@repo/shared';
 import { createComplaint, uploadComplaintPhoto, upvoteComplaint } from '@repo/supabase';
 import { ThemedText } from './_components/ThemedText';
+import { BottomNav } from './_components/BottomNav';
 import { Button } from './_components/Button';
 import { MapPreview } from './_components/MapPreview';
 import { useAuth } from './_components/AuthProvider';
@@ -246,18 +247,10 @@ export default function LaporScreen() {
         style={styles.keyboard}
       >
         <ScrollView
-          contentContainerStyle={[styles.scroll, { padding: spacing(4), gap: spacing(4) }]}
+          contentContainerStyle={[styles.scroll, { padding: spacing(4), paddingBottom: spacing(24), gap: spacing(4) }]}
           keyboardShouldPersistTaps="handled"
         >
-          <View style={styles.headerRow}>
-            <Pressable
-              onPress={() => router.back()}
-              style={[styles.iconButton, { backgroundColor: colors.surface, shadowColor: colors.textPrimary }]}
-              accessibilityRole="button"
-              accessibilityLabel="Kembali"
-            >
-              <Ionicons name="chevron-back" size={20} color={colors.textPrimary} />
-            </Pressable>
+          <View style={[styles.headerRow, { justifyContent: 'flex-end' }]}>
             <Pressable
               onPress={() => console.log('lapor menu pressed')}
               style={[styles.iconButton, { backgroundColor: colors.surface, shadowColor: colors.textPrimary }]}
@@ -410,6 +403,7 @@ export default function LaporScreen() {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+      <BottomNav />
     </SafeAreaView>
   );
 }

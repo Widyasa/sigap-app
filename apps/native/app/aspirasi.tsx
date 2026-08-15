@@ -124,14 +124,6 @@ export default function AspirasiScreen() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
       <View style={[styles.headerRow, { paddingHorizontal: spacing(4), paddingTop: spacing(2) }]}>
-        <Pressable
-          onPress={() => router.back()}
-          style={[styles.iconButton, { backgroundColor: colors.surface, borderRadius: spacing(6) }]}
-          accessibilityRole="button"
-          accessibilityLabel="Kembali"
-        >
-          <Ionicons name="chevron-back" size={20} color={colors.textPrimary} />
-        </Pressable>
         <ThemedText variant="h2">Aspirasi</ThemedText>
         <Pressable
           onPress={() => console.log('aspirasi menu pressed')}

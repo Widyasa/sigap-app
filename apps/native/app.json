@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "native",
-    "slug": "native",
+    "name": "SIGAP",
+    "slug": "sigap",
     "version": "1.0.0",
     "scheme": "sigap",
     "orientation": "portrait",
@@ -30,7 +30,7 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "white"
       },
-      "package": "com.turbo.example"
+      "package": "id.sigap.app"
     },
     "web": {
       "favicon": "./assets/favicon.png",

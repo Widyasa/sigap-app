@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
-import { View, FlatList, StyleSheet, RefreshControl } from 'react-native';
+import { useRouter } from 'expo-router';
+import { View, FlatList, StyleSheet, RefreshControl, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import {
   listAnnouncements,
   listLeaderboard,
@@ -27,6 +29,7 @@ type Section =
   | { kind: 'pointGroup'; entries: PointLedgerEntry[] };
 
 export default function InfoScreen() {
+  const router = useRouter();
   const { user } = useAuth();
   const { colors, spacing } = useTheme();
 
@@ -91,8 +94,17 @@ export default function InfoScreen() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
-      <View style={{ padding: spacing(4), paddingBottom: spacing(2) }}>
-        <ThemedText variant="h1">Info & Komunitas</ThemedText>
+      <View style={[styles.headerRow, { paddingHorizontal: spacing(4), paddingTop: spacing(2) }]}>
+        <Pressable
+          onPress={() => router.back()}
+          style={[styles.iconButton, { backgroundColor: colors.surface, borderRadius: spacing(6) }]}
+          accessibilityRole="button"
+          accessibilityLabel="Kembali"
+        >
+          <Ionicons name="chevron-back" size={20} color={colors.textPrimary} />
+        </Pressable>
+        <ThemedText variant="h2">Info & Komunitas</ThemedText>
+        <View style={styles.iconButton} />
       </View>
 
       {error ? (
@@ -154,9 +166,11 @@ function renderSection(
             { backgroundColor: colors.surface, borderColor: colors.border, padding: spacing(3), gap: spacing(1) },
           ]}
         >
-          <View style={styles.row}>
+          <View style={[styles.row, { alignItems: 'center', gap: spacing(1) }]}>
+            {a.isPinned ? (
+              <Ionicons name="pin" size={14} color={colors.civicAmber} />
+            ) : null}
             <ThemedText variant="body" style={{ fontWeight: '700', flex: 1 }} numberOfLines={2}>
-              {a.isPinned ? '📌 ' : ''}
               {a.title}
             </ThemedText>
           </View>
@@ -278,5 +292,16 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
+  },
+  headerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  iconButton: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });
