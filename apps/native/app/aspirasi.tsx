@@ -91,20 +91,32 @@ export default function AspirasiScreen() {
     [user, votedIds]
   );
 
-  const displayedPeriod = period ?? DUMMY_VOTING_PERIOD;
+  /**
+   * Periode voting contoh HANYA di build pengembangan.
+   *
+   * Dulu `period ?? DUMMY_VOTING_PERIOD` membuat spanduk tetap berbunyi
+   * "<nama> terbuka" lengkap dengan hitung mundur meski tidak ada periode
+   * yang benar-benar dibuka. Warga ikut memilih, RLS `votes_insert_own`
+   * menolaknya karena `vp.is_active` tidak terpenuhi, dan pesan galat yang
+   * muncul menyalahkan hal yang salah ("hanya bisa mendukung aspirasi di
+   * kelurahan sendiri saat periode voting aktif").
+   */
+  const displayedPeriod = period ?? (__DEV__ ? DUMMY_VOTING_PERIOD : null);
 
   const kelurahanItems = useMemo(
     () =>
-      [...kelurahanList, ...DUMMY_ASPIRATIONS.filter((a) => a.kelurahan === user?.kelurahan)].sort(
-        (a, b) => b.voteCount - a.voteCount
-      ),
+      [
+        ...kelurahanList,
+        ...(__DEV__ ? DUMMY_ASPIRATIONS.filter((a) => a.kelurahan === user?.kelurahan) : []),
+      ].sort((a, b) => b.voteCount - a.voteCount),
     [kelurahanList, user?.kelurahan]
   );
   const kecamatanItems = useMemo(
     () =>
-      [...kecamatanList, ...DUMMY_ASPIRATIONS.filter((a) => a.kecamatan === user?.kecamatan)].sort(
-        (a, b) => b.voteCount - a.voteCount
-      ),
+      [
+        ...kecamatanList,
+        ...(__DEV__ ? DUMMY_ASPIRATIONS.filter((a) => a.kecamatan === user?.kecamatan) : []),
+      ].sort((a, b) => b.voteCount - a.voteCount),
     [kecamatanList, user?.kecamatan]
   );
 
@@ -115,24 +127,17 @@ export default function AspirasiScreen() {
     tab === 'kelurahan'
       ? `Usulan di Kel. ${user?.kelurahan ?? '-'}, terurut suara`
       : `Usulan di Kec. ${user?.kecamatan ?? '-'}, terurut suara`;
-  const remaining = formatSlaCountdown(new Date(displayedPeriod.endsAt).getTime() - Date.now()).replace(' lagi', '');
-  const closesOn = new Date(displayedPeriod.endsAt).toLocaleDateString('id-ID', {
-    day: 'numeric',
-    month: 'long',
-  });
+  const remaining = displayedPeriod
+    ? formatSlaCountdown(new Date(displayedPeriod.endsAt).getTime() - Date.now()).replace(' lagi', '')
+    : null;
+  const closesOn = displayedPeriod
+    ? new Date(displayedPeriod.endsAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'long' })
+    : null;
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
       <View style={[styles.headerRow, { paddingHorizontal: spacing(4), paddingTop: spacing(2) }]}>
         <ThemedText variant="h2">Aspirasi</ThemedText>
-        <Pressable
-          onPress={() => console.log('aspirasi menu pressed')}
-          style={[styles.iconButton, { backgroundColor: colors.surface, borderRadius: spacing(6) }]}
-          accessibilityRole="button"
-          accessibilityLabel="Menu"
-        >
-          <Ionicons name="ellipsis-horizontal" size={20} color={colors.textPrimary} />
-        </Pressable>
       </View>
 
       {error ? (
@@ -164,11 +169,13 @@ export default function AspirasiScreen() {
                 <View style={[styles.bannerTitleRow, { gap: spacing(2) }]}>
                   <View style={[styles.dot, { backgroundColor: colors.accent }]} />
                   <ThemedText variant="body" style={{ color: colors.primary, fontWeight: '700', flex: 1 }}>
-                    {displayedPeriod.name} terbuka
+                    {displayedPeriod ? `${displayedPeriod.name} terbuka` : 'Belum ada periode voting'}
                   </ThemedText>
                 </View>
                 <ThemedText variant="caption" style={{ color: colors.primary, opacity: 0.85 }}>
-                  Tutup {closesOn} · {remaining}
+                  {displayedPeriod
+                    ? `Tutup ${closesOn} · ${remaining}`
+                    : 'Usulan tetap bisa dikirim; dukungan dibuka saat kelurahan membuka periode voting berikutnya.'}
                 </ThemedText>
               </View>
 

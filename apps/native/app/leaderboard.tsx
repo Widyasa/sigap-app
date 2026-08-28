@@ -119,14 +119,6 @@ export default function LeaderboardScreen() {
           <Ionicons name="chevron-back" size={20} color={colors.textPrimary} />
         </Pressable>
         <ThemedText variant="h2">SIGAP</ThemedText>
-        <Pressable
-          onPress={() => console.log('leaderboard menu pressed')}
-          style={[styles.iconButton, { backgroundColor: colors.surface, borderRadius: spacing(6) }]}
-          accessibilityRole="button"
-          accessibilityLabel="Menu"
-        >
-          <Ionicons name="ellipsis-horizontal" size={20} color={colors.textPrimary} />
-        </Pressable>
       </View>
 
       {!user?.kelurahan ? (

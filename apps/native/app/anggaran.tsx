@@ -86,14 +86,6 @@ export default function AnggaranScreen() {
           <Ionicons name="chevron-back" size={20} color={colors.textPrimary} />
         </Pressable>
         <ThemedText variant="h2">SIGAP</ThemedText>
-        <Pressable
-          onPress={() => console.log('anggaran menu pressed')}
-          style={[styles.iconButton, { backgroundColor: colors.surface, borderRadius: spacing(6) }]}
-          accessibilityRole="button"
-          accessibilityLabel="Menu"
-        >
-          <Ionicons name="ellipsis-horizontal" size={20} color={colors.textPrimary} />
-        </Pressable>
       </View>
 
       <ScrollView contentContainerStyle={{ paddingBottom: spacing(10) }}>

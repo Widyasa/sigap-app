@@ -235,14 +235,6 @@ export default function NewAspirationScreen() {
             <Ionicons name="chevron-back" size={24} color={colors.textPrimary} />
           </Pressable>
           <ThemedText variant="h2">Aspirasi</ThemedText>
-          <Pressable
-            onPress={() => console.log('aspirasi wizard menu pressed')}
-            accessibilityRole="button"
-            accessibilityLabel="Menu"
-            hitSlop={8}
-          >
-            <Ionicons name="ellipsis-horizontal" size={22} color={colors.textPrimary} />
-          </Pressable>
         </View>
 
         {/* Subheader */}

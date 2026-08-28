@@ -53,6 +53,16 @@ const TABS: {
   },
 ];
 
+/**
+ * Tab dianggap aktif juga untuk rute turunannya. `pathname === tab.route`
+ * gagal di `/aspirasi/new`, `/aduan/[id]`, dan `/layanan/[id]`, sehingga
+ * TIDAK ADA tab yang tampak terpilih di layar detail mana pun.
+ */
+function isTabActive(pathname: string, route: string): boolean {
+  if (route === '/home') return pathname === '/home' || pathname === '/';
+  return pathname === route || pathname.startsWith(`${route}/`);
+}
+
 export function BottomNav() {
   const { colors, spacing } = useTheme();
   const insets = useSafeAreaInsets();
@@ -72,7 +82,7 @@ export function BottomNav() {
     >
       <View style={styles.row}>
         {TABS.map((tab, index) => {
-          const active = pathname === tab.route;
+          const active = isTabActive(pathname, tab.route);
           const color = active ? colors.primary : colors.textMuted;
           const isCenter = index === 2;
 
@@ -80,7 +90,7 @@ export function BottomNav() {
             return (
               <View key={tab.id} style={styles.centerWrapper}>
                 <Pressable
-                  onPress={() => router.push(tab.route)}
+                  onPress={() => router.replace(tab.route)}
                   style={({ pressed }) => [
                     styles.centerButton,
                     {
@@ -115,7 +125,7 @@ export function BottomNav() {
           return (
             <Pressable
               key={tab.id}
-              onPress={() => router.push(tab.route)}
+              onPress={() => router.replace(tab.route)}
               style={({ pressed }) => [
                 styles.tab,
                 { opacity: pressed ? 0.7 : 1 },

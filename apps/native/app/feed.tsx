@@ -106,9 +106,22 @@ export default function FeedScreen() {
   }, [requestLocation]);
 
 
-  // Gabungkan aduan asli dengan aduan contoh supaya peta & daftar selalu
-  // punya isi walau belum ada aduan sungguhan di sekitar pengguna.
-  const merged = useMemo(() => [...complaints, ...DUMMY_COMPLAINTS], [complaints]);
+  /**
+   * Aduan contoh HANYA di build pengembangan.
+   *
+   * Dulu `DUMMY_COMPLAINTS` selalu digabungkan ke feed produksi supaya peta
+   * dan daftar "tidak pernah kosong". Akibatnya aduan karangan tampil
+   * berdampingan dengan aduan warga sungguhan tanpa penanda apa pun, ikut
+   * terhitung di "N aduan di sekitar", bisa difilter dan diurutkan, dan
+   * mengetuknya membuka `/aduan/<id-palsu>` yang tidak akan pernah termuat.
+   * Pada aplikasi pemerintah, data karangan yang tak bisa dibedakan dari
+   * data nyata adalah cacat, bukan fitur — feed kosong ditangani keadaan
+   * kosong di bawah.
+   */
+  const merged = useMemo(
+    () => (__DEV__ ? [...complaints, ...DUMMY_COMPLAINTS] : complaints),
+    [complaints],
+  );
 
   const distanceMeters = useCallback(
     (c: FeedComplaint) => (coords ? haversineMeters(coords.lat, coords.lng, c.locationLat, c.locationLng) : 0),
@@ -221,25 +234,6 @@ export default function FeedScreen() {
       >
         <View style={styles.headerRow}>
           <ThemedText variant="h2">Feed</ThemedText>
-          <Pressable
-            onPress={() => console.log('feed menu pressed')}
-            style={[
-              styles.iconButton,
-              {
-                backgroundColor: colors.surface,
-                borderRadius: spacing(6),
-                shadowColor: colors.textPrimary,
-                shadowOffset: { width: 0, height: 2 },
-                shadowOpacity: 0.12,
-                shadowRadius: 6,
-                elevation: 3,
-              },
-            ]}
-            accessibilityRole="button"
-            accessibilityLabel="Menu"
-          >
-            <Ionicons name="ellipsis-horizontal" size={20} color={colors.textPrimary} />
-          </Pressable>
         </View>
 
         <View style={[styles.searchRow, { gap: spacing(2) }]}>
@@ -263,7 +257,7 @@ export default function FeedScreen() {
             <TextInput
               value={query}
               onChangeText={setQuery}
-              placeholder="Cari di Kel. Dago"
+              placeholder={user?.kelurahan ? `Cari di Kel. ${user.kelurahan}` : 'Cari aduan'}
               placeholderTextColor={colors.textMuted}
               style={[
                 styles.searchInput,
@@ -271,25 +265,6 @@ export default function FeedScreen() {
               ]}
             />
           </View>
-          <Pressable
-            onPress={() => console.log('feed filter pressed')}
-            style={[
-              styles.iconButton,
-              {
-                backgroundColor: colors.surface,
-                borderRadius: spacing(6),
-                shadowColor: colors.textPrimary,
-                shadowOffset: { width: 0, height: 2 },
-                shadowOpacity: 0.12,
-                shadowRadius: 6,
-                elevation: 3,
-              },
-            ]}
-            accessibilityRole="button"
-            accessibilityLabel="Urutkan dan filter"
-          >
-            <Ionicons name="options" size={18} color={colors.textPrimary} />
-          </Pressable>
         </View>
 
         <ScrollView

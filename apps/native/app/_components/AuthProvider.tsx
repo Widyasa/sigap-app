@@ -6,7 +6,7 @@ import {
   ReactNode,
   useCallback,
 } from 'react';
-import { authReasonToMessage, requestOtp, verifyOtp } from './api';
+import { authReasonToMessage, requestOtp, verifyOtp, baseUrl } from './api';
 import { supabase } from './supabase';
 import { decodeJwtPayload } from './jwtDecode';
 import {
@@ -224,7 +224,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const refreshToken = (await loadTokens())?.refreshToken;
       if (refreshToken) {
-        await fetch(`${process.env.EXPO_PUBLIC_SUPABASE_URL}/functions/v1/auth-signout`, {
+        // Sama seperti session.ts: dulu ini menembak
+        // "undefined/functions/v1/auth-signout", jadi token lokal terhapus
+        // tapi `auth_sessions.revoked_at` tetap NULL — refresh token yang
+        // sudah "keluar" masih sah selama 30 hari.
+        await fetch(`${baseUrl}/functions/v1/auth-signout`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ refreshToken, all }),

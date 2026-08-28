@@ -251,14 +251,6 @@ export default function LaporScreen() {
           keyboardShouldPersistTaps="handled"
         >
           <View style={[styles.headerRow, { justifyContent: 'flex-end' }]}>
-            <Pressable
-              onPress={() => console.log('lapor menu pressed')}
-              style={[styles.iconButton, { backgroundColor: colors.surface, shadowColor: colors.textPrimary }]}
-              accessibilityRole="button"
-              accessibilityLabel="Menu"
-            >
-              <Ionicons name="ellipsis-horizontal" size={20} color={colors.textPrimary} />
-            </Pressable>
           </View>
 
           <ThemedText variant="display">Lapor</ThemedText>

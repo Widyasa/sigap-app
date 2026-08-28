@@ -62,14 +62,6 @@ export default function AspirationDetailScreen() {
         <Ionicons name="chevron-back" size={20} color={colors.textPrimary} />
       </Pressable>
       <ThemedText variant="h2">Aspirasi</ThemedText>
-      <Pressable
-        onPress={() => console.log('aspirasi detail menu pressed')}
-        style={[styles.iconButton, { backgroundColor: colors.surface, borderRadius: spacing(6) }]}
-        accessibilityRole="button"
-        accessibilityLabel="Menu"
-      >
-        <Ionicons name="ellipsis-horizontal" size={20} color={colors.textPrimary} />
-      </Pressable>
     </View>
   );
 
@@ -121,8 +113,10 @@ export default function AspirationDetailScreen() {
 
   const createdAt = new Date(aspiration.createdAt);
   const statusIndex = STATUS_ORDER.indexOf(aspiration.status);
-  const beneficiaries = aspiration.estimatedBeneficiaries ?? 480;
-  const cost = aspiration.estimatedCost ?? 640000000;
+  // Dulu `?? 480` dan `?? 640000000`: aspirasi yang dikirim tanpa estimasi
+  // menampilkan "Rp 640.000.000" seolah-olah warga memang mengetiknya.
+  const beneficiaries = aspiration.estimatedBeneficiaries;
+  const cost = aspiration.estimatedCost;
   const realized = aspiration.status === 'realized';
 
   const steps = [
@@ -147,7 +141,10 @@ export default function AspirationDetailScreen() {
     {
       title: 'Mata anggaran APBD',
       active: statusIndex >= 3,
-      description: `${formatRupiah(cost)} · Dinas PUPR · kode 1.03.11.2.01`,
+      // Nilai anggaran hanya ditampilkan kalau memang ada; nama dinas dan
+      // kode mata anggaran karangan dihapus — keduanya tidak pernah berasal
+      // dari data mana pun.
+      description: cost !== null ? formatRupiah(cost) : 'Nilai anggaran belum ditetapkan.',
       date: formatId(new Date(createdAt.getTime() + 117 * DAY_MS)),
     },
     {

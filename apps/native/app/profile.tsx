@@ -17,7 +17,7 @@ import { useTheme } from './_components/useTheme';
 import { BottomNav } from './_components/BottomNav';
 import { supabase } from './_components/supabase';
 
-const POINT_HISTORY_LIMIT = 5;
+const POINT_HISTORY_LIMIT = 50;
 
 /** Inisial dari dua kata pertama nama — sama pola dengan /leaderboard. */
 function getInitials(name: string | null): string {
@@ -160,14 +160,6 @@ export default function ProfileScreen() {
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
       <View style={[styles.headerRow, { paddingHorizontal: spacing(4), paddingTop: spacing(2) }]}>
         <ThemedText variant="h2">Profil</ThemedText>
-        <Pressable
-          onPress={() => console.log('profile menu pressed')}
-          style={[styles.iconButton, { backgroundColor: colors.surface, borderRadius: spacing(6) }]}
-          accessibilityRole="button"
-          accessibilityLabel="Menu"
-        >
-          <Ionicons name="ellipsis-horizontal" size={20} color={colors.textPrimary} />
-        </Pressable>
       </View>
 
       <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + spacing(28) }}>
@@ -340,11 +332,15 @@ export default function ProfileScreen() {
               ]}
             >
               <ThemedText variant="h2">Riwayat poin</ThemedText>
-              <Pressable onPress={() => console.log('lihat semua riwayat poin')}>
-                <ThemedText variant="caption" style={{ color: colors.primary, fontWeight: '700' }}>
-                  Lihat semua
-                </ThemedText>
-              </Pressable>
+              {/* Tautan "Lihat semua" DULU tidak menuju ke mana pun sementara
+                  daftarnya dipotong ke POINT_HISTORY_LIMIT, jadi warga tidak
+                  punya jalan sama sekali untuk mengaudit poinnya sendiri —
+                  padahal ledger yang bisa diaudit itu justru alasan tabelnya
+                  ada. Sampai layar riwayat penuh dibuat, batasnya dinaikkan
+                  dan tautan buntu ini dihapus. */}
+              <ThemedText variant="caption" color="secondary">
+                {ledger.length} entri terakhir
+              </ThemedText>
             </View>
 
             {ledger.length === 0 ? (

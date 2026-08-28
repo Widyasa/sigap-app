@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import type { ComponentProps } from 'react';
 import {
   View,
@@ -15,7 +15,14 @@ import { useAuth } from './_components/AuthProvider';
 import { useTheme } from './_components/useTheme';
 import { BottomNav } from './_components/BottomNav';
 
-import { getMyComplaintSummary, type ComplaintSummary } from '@repo/supabase';
+import {
+  getMyComplaintSummary,
+  listAnnouncements,
+  listLeaderboard,
+  type Announcement,
+  type ComplaintSummary,
+  type KelurahanLeaderboardEntry,
+} from '@repo/supabase';
 import { useEffect, useState } from 'react';
 import { supabase } from './_components/supabase';
 
@@ -82,19 +89,52 @@ const SHORTCUTS: {
 export default function HomeScreen() {
   const { user } = useAuth();
   const [summary, setSummary] = useState<ComplaintSummary | null>(null);
+  const [pinnedAnnouncement, setPinnedAnnouncement] = useState<Announcement | null>(null);
+  const [kelurahanRank, setKelurahanRank] = useState<{
+    rank: number;
+    total: number;
+    entry: KelurahanLeaderboardEntry;
+  } | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    if (!user) return;
+    setLoadError(null);
+    setLoading(true);
+    try {
+      // Dulu hanya `getMyComplaintSummary(...).then(setSummary)` — tanpa
+      // `.catch` dan tanpa keadaan memuat. Penolakan promise-nya tidak
+      // tertangani, dan sementara itu (juga selamanya, kalau gagal) kartu
+      // beranda menyatakan "0 diproses · 0 selesai · 0 menunggu" kepada
+      // warga yang punya lima laporan terbuka.
+      const [s, announcements, leaderboard] = await Promise.all([
+        getMyComplaintSummary(supabase, user.id),
+        listAnnouncements(supabase, user.kelurahan ?? null, user.id),
+        listLeaderboard(supabase),
+      ]);
+      setSummary(s);
+      setPinnedAnnouncement(announcements.find((a) => a.isPinned) ?? announcements[0] ?? null);
+
+      const index = leaderboard.findIndex((e) => e.kelurahan === user.kelurahan);
+      setKelurahanRank(
+        index >= 0 && leaderboard[index]
+          ? { rank: index + 1, total: leaderboard.length, entry: leaderboard[index] }
+          : null,
+      );
+    } catch (e) {
+      console.error('load home error', e);
+      setLoadError('Koneksi sedang terganggu. Tarik ke bawah atau coba lagi.');
+    } finally {
+      setLoading(false);
+    }
+  }, [user]);
 
   useEffect(() => {
-    if (user) {
-      getMyComplaintSummary(supabase, user.id).then(setSummary);
-    }
-  }, [supabase, user]);
+    void load();
+  }, [load]);
 
-  const reportData = summary ?? {
-    in_progress: 0,
-    resolved: 0,
-    pending: 0,
-    latest: null,
-  };
+  const reportData = summary;
 
   const { colors, spacing, mode } = useTheme();
   const router = useRouter();
@@ -235,7 +275,9 @@ export default function HomeScreen() {
                         fontVariant: ['tabular-nums'],
                       }}
                     >
-                    {reportData[key as keyof typeof COUNT_LABELS]}
+                      {/* "—" selama memuat/gagal, bukan "0": nol adalah
+                          pernyataan bahwa warga tidak punya laporan. */}
+                      {reportData ? reportData[key as keyof typeof COUNT_LABELS] : '—'}
                     </ThemedText>
                     <ThemedText
                       variant="micro"
@@ -252,7 +294,8 @@ export default function HomeScreen() {
             </View>
 
             <Pressable
-              onPress={() => reportData.latest && router.push(`/aduan/${reportData.latest.id}`)}
+              onPress={() => reportData?.latest && router.push(`/aduan/${reportData.latest.id}`)}
+              disabled={!reportData?.latest}
               style={({ pressed }) => [
                 styles.latestRow,
                 {
@@ -261,24 +304,17 @@ export default function HomeScreen() {
                 },
               ]}
               accessibilityRole="button"
-              accessibilityLabel={reportData.latest?.title ?? 'Lihat aduan terbaru'}
+              accessibilityLabel={reportData?.latest?.title ?? 'Belum ada laporan'}
             >
-              <View
-                style={[
-                  styles.urgencyPill,
-                  { backgroundColor: p1.bg },
-                ]}
-              >
-                <ThemedText
-                  variant="micro"
-                  style={{
-                    color: p1.fg,
-                    fontWeight: '700',
-                  }}
-                >
-                  P1 Penting
-                </ThemedText>
-              </View>
+              {/* Pil urgensi DULU dipatok "P1 Penting" untuk aduan apa pun,
+                  dan tetap dirender di samping "Belum ada laporan". */}
+              {reportData?.latest ? (
+                <View style={[styles.urgencyPill, { backgroundColor: p1.bg }]}>
+                  <ThemedText variant="micro" style={{ color: p1.fg, fontWeight: '700' }}>
+                    Terbaru
+                  </ThemedText>
+                </View>
+              ) : null}
               <ThemedText
                 variant="caption"
                 color="secondary"
@@ -288,13 +324,13 @@ export default function HomeScreen() {
                 }}
                 numberOfLines={1}
               >
-                {reportData.latest?.title ?? 'Belum ada laporan'}
+                {loading ? 'Memuat…' : reportData?.latest?.title ?? 'Belum ada laporan'}
               </ThemedText>
               <ThemedText
                 variant="micro"
                 style={{ color: p1.fg }}
               >
-                {reportData.latest?.time ?? '-'}
+                {reportData?.latest?.time ?? ''}
               </ThemedText>
             </Pressable>
           </View>
@@ -329,20 +365,25 @@ export default function HomeScreen() {
                 variant="micro"
                 style={{ color: colors.civicAmber }}
               >
-                Pengumuman disematkan
+                {pinnedAnnouncement?.isPinned ? 'Pengumuman disematkan' : 'Pengumuman terbaru'}
               </ThemedText>
               <ThemedText
                 variant="h2"
                 style={{ marginTop: spacing(1) }}
               >
-                Musrenbang kelurahan Dago dibuka sampai 24 Agustus
+                {/* Kartu ini DULU berisi teks tetap ("Musrenbang kelurahan
+                    Dago dibuka sampai 24 Agustus") yang tidak didukung query
+                    apa pun: setiap warga di setiap kelurahan melihat
+                    pengumuman karangan yang sama. */}
+                {pinnedAnnouncement?.title ?? 'Belum ada pengumuman'}
               </ThemedText>
               <ThemedText
                 variant="caption"
                 color="secondary"
                 style={{ marginTop: spacing(2) }}
+                numberOfLines={2}
               >
-                Usulan warga yang lolos masuk ke pembahasan APBD 2027.
+                {pinnedAnnouncement?.body ?? 'Kabar dari kelurahan akan muncul di sini.'}
               </ThemedText>
             </View>
           </Pressable>
@@ -402,68 +443,59 @@ export default function HomeScreen() {
               ]}
             >
               <View style={styles.leaderboardHeader}>
-                <ThemedText variant="h2">Peringkat Dago</ThemedText>
-                <View
-                  style={[
-                    styles.pointsPill,
-                    { backgroundColor: p1.bg },
-                  ]}
-                >
-                  <View
-                    style={[
-                      styles.pointsDot,
-                      { backgroundColor: colors.civicAmber },
-                    ]}
-                  />
+                <ThemedText variant="h2">
+                  {user?.kelurahan ? `Peringkat ${user.kelurahan}` : 'Peringkat kelurahan'}
+                </ThemedText>
+                <View style={[styles.pointsPill, { backgroundColor: p1.bg }]}>
+                  <View style={[styles.pointsDot, { backgroundColor: colors.civicAmber }]} />
                   <ThemedText
                     variant="micro"
-                    style={{
-                      color: colors.civicAmber,
-                      fontWeight: '600',
-                      marginLeft: spacing(1),
-                    }}
+                    style={{ color: colors.civicAmber, fontWeight: '600', marginLeft: spacing(1) }}
                   >
-                    1.248 poin
+                    {/* Seluruh kartu ini DULU dipatok: "1.248 poin", "#4",
+                        "dari 30 kelurahan · naik 2 peringkat pekan ini", bilah
+                        78%, dan "78% aduan Dago selesai dalam SLA" — statistik
+                        kinerja pemerintah karangan yang ditampilkan kepada
+                        setiap warga. Sekarang seluruhnya berasal dari
+                        `kelurahan_leaderboard`. */}
+                    {kelurahanRank
+                      ? `${kelurahanRank.entry.totalPoints.toLocaleString('id-ID')} poin`
+                      : '— poin'}
                   </ThemedText>
                 </View>
               </View>
               <View style={styles.rankRow}>
                 <ThemedText
                   variant="display"
-                  style={{
-                    color: colors.primary,
-                    fontVariant: ['tabular-nums'],
-                  }}
+                  style={{ color: colors.primary, fontVariant: ['tabular-nums'] }}
                 >
-                  #4
+                  {kelurahanRank ? `#${kelurahanRank.rank}` : '—'}
                 </ThemedText>
-                <ThemedText
-                  variant="caption"
-                  color="secondary"
-                  style={{ marginLeft: spacing(2) }}
-                >
-                  dari 30 kelurahan · naik 2 peringkat pekan ini
+                <ThemedText variant="caption" color="secondary" style={{ marginLeft: spacing(2) }}>
+                  {kelurahanRank
+                    ? `dari ${kelurahanRank.total} kelurahan`
+                    : loading
+                      ? 'Memuat peringkat…'
+                      : 'Peringkat belum tersedia untuk kelurahan Anda.'}
                 </ThemedText>
               </View>
-              <View
-                style={[
-                  styles.progressTrack,
-                  { backgroundColor: colors.primarySurface },
-                ]}
-              >
+              <View style={[styles.progressTrack, { backgroundColor: colors.primarySurface }]}>
                 <View
                   style={[
                     styles.progressFill,
-                    { width: '78%', backgroundColor: colors.accent },
+                    {
+                      width: kelurahanRank && kelurahanRank.entry.reportCount > 0
+                        ? `${Math.round((kelurahanRank.entry.resolvedCount / kelurahanRank.entry.reportCount) * 100)}%`
+                        : '0%',
+                      backgroundColor: colors.accent,
+                    },
                   ]}
                 />
               </View>
-              <ThemedText
-                variant="caption"
-                color="secondary"
-                style={{ marginTop: spacing(3) }}
-              >
-                78% aduan Dago selesai dalam SLA.
+              <ThemedText variant="caption" color="secondary" style={{ marginTop: spacing(3) }}>
+                {kelurahanRank && kelurahanRank.entry.reportCount > 0
+                  ? `${Math.round((kelurahanRank.entry.resolvedCount / kelurahanRank.entry.reportCount) * 100)}% aduan ${kelurahanRank.entry.kelurahan} sudah selesai ditangani.`
+                  : 'Belum ada aduan yang bisa dihitung untuk kelurahan ini.'}
               </ThemedText>
             </View>
           </View>

@@ -1,4 +1,5 @@
 import { decodeJwtPayload } from './jwtDecode';
+import { baseUrl } from './api';
 import {
   getItemAsync,
   setItemAsync,
@@ -101,7 +102,13 @@ async function doRefreshAccessToken(
   refreshToken: string,
 ): Promise<RefreshResult | null> {
   try {
-    const baseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL ?? '';
+    // URL Supabase HARUS diambil lewat `baseUrl` bersama, yang juga membaca
+    // `app.json -> expo.extra.supabaseUrl`. Berkas ini dulu hanya membaca
+    // `process.env.EXPO_PUBLIC_SUPABASE_URL`, dan tidak ada `.env` di
+    // apps/native maupun variabel itu di eas.json — jadi 55 menit setelah
+    // masuk (atau pada setiap start dingin dengan sisa token < 300 detik),
+    // refresh menembak URL kosong, gagal, dan `getAccessToken` menghapus
+    // token: warga terlempar keluar di tengah sesi tanpa sebab.
     const response = await fetch(`${baseUrl}/functions/v1/auth-refresh`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
