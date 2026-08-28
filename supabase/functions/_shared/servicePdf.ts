@@ -6,7 +6,22 @@
  * sendiri (npm:pdf-lib) tetap di index.ts karena butuh runtime Deno nyata.
  */
 
-export type ServiceType = 'domisili' | 'sktm' | 'pengantar_nikah' | 'izin_keramaian' | 'usaha';
+// Harus tetap sinkron dengan SERVICE_CATALOG (packages/shared/src/constants.ts)
+// dan dengan CHECK constraint `service_requests_service_type_check`
+// (20260810000004_modules.sql + 20260814000001_extend_service_catalog.sql).
+// `kelahiran` dan `kematian` ditambahkan ke katalog dan ke basis data tapi
+// tidak pernah sampai ke berkas ini, sehingga SERVICE_TITLES[service_type]
+// bernilai undefined dan penerbitan PDF-nya selalu gagal dengan
+// `generation_failed` — warga bisa mengajukan surat yang tidak akan pernah
+// bisa diterbitkan. Uji `servicePdf.test.ts` menjaga ketujuhnya tetap ada.
+export type ServiceType =
+  | 'domisili'
+  | 'sktm'
+  | 'pengantar_nikah'
+  | 'izin_keramaian'
+  | 'usaha'
+  | 'kelahiran'
+  | 'kematian';
 
 export const SERVICE_TITLES: Record<ServiceType, string> = {
   domisili: 'SURAT KETERANGAN DOMISILI',
@@ -14,6 +29,8 @@ export const SERVICE_TITLES: Record<ServiceType, string> = {
   pengantar_nikah: 'SURAT PENGANTAR NIKAH',
   izin_keramaian: 'SURAT IZIN KERAMAIAN',
   usaha: 'SURAT KETERANGAN USAHA',
+  kelahiran: 'SURAT KETERANGAN KELAHIRAN',
+  kematian: 'SURAT KETERANGAN KEMATIAN',
 };
 
 /**
@@ -60,6 +77,16 @@ const FIELD_LABELS: Record<ServiceType, Record<string, string>> = {
   usaha: {
     fullName: 'Nama Pemilik', nik: 'NIK', address: 'Alamat',
     businessName: 'Nama Usaha', businessType: 'Jenis Usaha',
+  },
+  kelahiran: {
+    fullName: 'Nama Pelapor', nik: 'NIK Pelapor', address: 'Alamat',
+    childName: 'Nama Anak', birthDate: 'Tanggal Lahir', birthPlace: 'Tempat Lahir',
+    motherName: 'Nama Ibu', fatherName: 'Nama Ayah',
+  },
+  kematian: {
+    fullName: 'Nama Pelapor', nik: 'NIK Pelapor', address: 'Alamat',
+    deceasedName: 'Nama Almarhum/Almarhumah', deceasedNik: 'NIK Almarhum/Almarhumah',
+    deathDate: 'Tanggal Meninggal', deathPlace: 'Tempat Meninggal', deathCause: 'Sebab Kematian',
   },
 };
 

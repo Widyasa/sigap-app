@@ -8,27 +8,23 @@ import {
 } from '@repo/supabase';
 import {
   CATEGORY_LIST,
+  COMPLAINT_STATUS_LABELS,
   DINAS_LIST,
+  URGENCY_LABELS,
   URGENCY_VALUES,
+  categoryLabel,
   colors,
   spacing,
   statusColor,
+  typography,
   type Urgency,
   type ComplaintStatus,
 } from '@repo/shared';
 import type { StaffProfile } from '../_lib/auth';
 import { supabase } from '../_lib/supabaseClient';
+import { AsyncSection, EmptyState, Modal, dangerButtonStyle, secondaryButtonStyle } from '../_lib/ui';
 
 const THEME = colors.light;
-
-const STATUS_LABELS: Record<ComplaintStatus, string> = {
-  pending_classification: 'Menunggu Klasifikasi AI',
-  pending: 'Menunggu Verifikasi',
-  verified: 'Terverifikasi',
-  in_progress: 'Ditindaklanjuti',
-  resolved: 'Selesai',
-  rejected: 'Ditolak',
-};
 
 interface EditState {
   title: string;
@@ -81,21 +77,37 @@ export function VerifikasiTab({ user }: { user: StaffProfile }) {
 
   return (
     <div>
-      <p style={{ fontSize: 13, color: THEME.textSecondary, margin: '0 0 12px' }}>
-        {complaints.length} aduan menunggu tindakan.
-      </p>
-      {error ? <p style={{ color: THEME.danger }}>{error}</p> : null}
-      {loading ? (
-        <p style={{ color: THEME.textSecondary }}>Memuat data…</p>
-      ) : complaints.length === 0 ? (
-        <p style={{ color: THEME.textSecondary }}>Tidak ada aduan yang perlu diverifikasi saat ini.</p>
-      ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: spacing(4) }}>
-          {complaints.map((c) => (
-            <ComplaintCard key={c.id} complaint={c} onChanged={load} />
-          ))}
-        </div>
-      )}
+      {/* Hitungan hanya ditampilkan setelah data benar-benar ada. Dulu baris
+          ini dirender di atas pemuat, jadi lukisan pertama SELALU berbunyi
+          "0 aduan menunggu tindakan" — dan tetap 0 setelah gagal memuat. */}
+      {!loading && !error ? (
+        <p style={{ fontSize: typography.caption.fontSize, color: THEME.textSecondary, margin: '0 0 12px' }}>
+          {complaints.length} aduan menunggu tindakan.
+        </p>
+      ) : null}
+
+      <AsyncSection
+        loading={loading}
+        error={error}
+        items={loading ? null : complaints}
+        onRetry={load}
+        loadingMessage="Memuat antrean verifikasi…"
+        empty={
+          <EmptyState
+            icon="✅"
+            title="Tidak ada aduan yang perlu diverifikasi"
+            message="Aduan baru dari warga akan muncul di sini setelah diklasifikasi otomatis."
+          />
+        }
+      >
+        {(items) => (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: spacing(4) }}>
+            {items.map((c) => (
+              <ComplaintCard key={c.id} complaint={c} onChanged={load} />
+            ))}
+          </div>
+        )}
+      </AsyncSection>
     </div>
   );
 }
@@ -108,6 +120,14 @@ function ComplaintCard({
   onChanged: () => void;
 }) {
   const [edit, setEdit] = useState<EditState>(() => editStateFor(complaint));
+
+  // Sinkronkan ulang saat barisnya berubah di server. Kartu ini di-`key` per
+  // `complaint.id`, jadi React memakai ulang komponennya setelah
+  // `onChanged()` memuat ulang daftar — tanpa efek ini, koreksi yang
+  // dilakukan verifikator lain pada aduan yang sama tidak pernah terlihat.
+  useEffect(() => {
+    setEdit(editStateFor(complaint));
+  }, [complaint]);
   const [saving, setSaving] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [rejectModalOpen, setRejectModalOpen] = useState(false);
@@ -167,6 +187,7 @@ function ComplaintCard({
         category: edit.category,
         assignedDinas: edit.assignedDinas,
         urgency: edit.urgency,
+        currentSlaDueAt: complaint.slaDueAt,
       });
       onChanged();
     } catch (e) {
@@ -221,7 +242,7 @@ function ComplaintCard({
             background: color.bg,
           }}
         >
-          {STATUS_LABELS[complaint.status]}
+          {COMPLAINT_STATUS_LABELS[complaint.status]}
         </span>
       </div>
 
@@ -233,39 +254,51 @@ function ComplaintCard({
       ) : null}
       {complaint.imageUrls.length > 0 ? (
         <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
-          {complaint.imageUrls.map((url) => (
+          {complaint.imageUrls.map((url, i) => (
+            // Dulu ketiga foto bukti diumumkan identik sebagai "Foto aduan",
+            // sehingga pengguna pembaca layar tidak bisa membedakannya
+            // padahal menilai foto itulah seluruh tugas di layar ini.
             // eslint-disable-next-line @next/next/no-img-element
-            <img key={url} src={url} alt="Foto aduan" style={{ width: 96, height: 96, objectFit: 'cover', borderRadius: 6 }} />
+            <img
+              key={url}
+              src={url}
+              alt={`Foto aduan ${i + 1} dari ${complaint.imageUrls.length}: ${complaint.title ?? 'tanpa judul'}`}
+              style={{ width: 96, height: 96, objectFit: 'cover', borderRadius: 6 }}
+            />
           ))}
         </div>
       ) : null}
 
       <div style={gridFormStyle}>
         <div>
-          <label style={labelStyle}>Judul</label>
+          <label htmlFor={`judul-${complaint.id}`} style={labelStyle}>Judul</label>
           <input
+            id={`judul-${complaint.id}`}
             style={inputStyle}
             value={edit.title}
             onChange={(e) => setEdit((s) => ({ ...s, title: e.target.value }))}
           />
         </div>
         <div>
-          <label style={labelStyle}>Kategori</label>
+          <label htmlFor={`kategori-${complaint.id}`} style={labelStyle}>Kategori</label>
           <select
+            id={`kategori-${complaint.id}`}
             style={inputStyle}
             value={edit.category}
             onChange={(e) => setEdit((s) => ({ ...s, category: e.target.value }))}
           >
+            {/* Dulu id mentah (`jalan_rusak`, `pkl_liar`) tampil apa adanya. */}
             {CATEGORY_LIST.map((cat) => (
               <option key={cat} value={cat}>
-                {cat}
+                {categoryLabel(cat)}
               </option>
             ))}
           </select>
         </div>
         <div>
-          <label style={labelStyle}>Dinas</label>
+          <label htmlFor={`dinas-${complaint.id}`} style={labelStyle}>Dinas</label>
           <select
+            id={`dinas-${complaint.id}`}
             style={inputStyle}
             value={edit.assignedDinas}
             onChange={(e) => setEdit((s) => ({ ...s, assignedDinas: e.target.value }))}
@@ -278,22 +311,26 @@ function ComplaintCard({
           </select>
         </div>
         <div>
-          <label style={labelStyle}>Urgensi</label>
+          <label htmlFor={`urgensi-${complaint.id}`} style={labelStyle}>Urgensi</label>
           <select
+            id={`urgensi-${complaint.id}`}
             style={inputStyle}
             value={edit.urgency}
             onChange={(e) => setEdit((s) => ({ ...s, urgency: e.target.value as Urgency }))}
           >
+            {/* Aplikasi warga menampilkan "Darurat/Penting/Normal";
+                dashboard dulu menampilkan "P0/P1/P2". */}
             {URGENCY_VALUES.map((u) => (
               <option key={u} value={u}>
-                {u}
+                {URGENCY_LABELS[u]} ({u})
               </option>
             ))}
           </select>
         </div>
         <div>
-          <label style={labelStyle}>Status (koreksi)</label>
+          <label htmlFor={`status-${complaint.id}`} style={labelStyle}>Status (koreksi)</label>
           <select
+            id={`status-${complaint.id}`}
             style={inputStyle}
             value={edit.status}
             onChange={(e) => setEdit((s) => ({ ...s, status: e.target.value as EditState['status'] }))}
@@ -332,11 +369,8 @@ function ComplaintCard({
   );
 }
 
-/**
- * Modal alasan penolakan — pengganti dialog konfirmasi bawaan browser
- * (tidak bisa distyle, tidak konsisten dengan sisa aplikasi). Dipakai ulang
- * oleh tombol "Tolak" dan "Koreksi Klasifikasi" (saat status = 'rejected').
- */
+/** Modal alasan penolakan memakai primitif `Modal` bersama (role="dialog",
+ * jebakan fokus, Escape, pengembalian fokus). */
 function RejectReasonModal({
   onCancel,
   onConfirm,
@@ -348,34 +382,34 @@ function RejectReasonModal({
   const trimmed = reason.trim();
 
   return (
-    <div style={modalOverlayStyle} onClick={onCancel}>
-      <div style={modalCardStyle} onClick={(e) => e.stopPropagation()}>
-        <h3 style={{ fontSize: 16, margin: '0 0 8px', color: THEME.textPrimary }}>Alasan Penolakan</h3>
-        <p style={{ fontSize: 13, color: THEME.textSecondary, margin: '0 0 12px' }}>
-          Jelaskan alasan penolakan aduan ini. Alasan wajib diisi.
-        </p>
-        <textarea
-          style={textareaStyle}
-          value={reason}
-          onChange={(e) => setReason(e.target.value)}
-          placeholder="Alasan penolakan (wajib diisi)…"
-          rows={4}
-          autoFocus
-        />
-        <div style={{ display: 'flex', gap: 8, marginTop: 16, justifyContent: 'flex-end' }}>
-          <button style={secondaryButtonStyle} onClick={onCancel}>
-            Batal
-          </button>
-          <button
-            style={{ ...buttonStyle, background: THEME.danger, opacity: trimmed ? 1 : 0.5 }}
-            disabled={!trimmed}
-            onClick={() => onConfirm(trimmed)}
-          >
-            Konfirmasi
-          </button>
-        </div>
+    <Modal title="Alasan Penolakan" onClose={onCancel}>
+      <p style={{ fontSize: typography.caption.fontSize, color: THEME.textSecondary, marginTop: 0 }}>
+        Jelaskan alasan penolakan aduan ini. Alasan wajib diisi dan ditampilkan ke pelapor.
+      </p>
+      <label htmlFor="alasan-tolak-aduan" style={{ display: 'block', fontSize: typography.caption.fontSize, marginBottom: 4 }}>
+        Alasan penolakan
+      </label>
+      <textarea
+        id="alasan-tolak-aduan"
+        style={textareaStyle}
+        value={reason}
+        onChange={(e) => setReason(e.target.value)}
+        rows={4}
+      />
+      <div style={{ display: 'flex', gap: 8, marginTop: 16, justifyContent: 'flex-end' }}>
+        <button type="button" style={secondaryButtonStyle} onClick={onCancel}>
+          Batal
+        </button>
+        <button
+          type="button"
+          style={{ ...dangerButtonStyle, opacity: trimmed ? 1 : 0.5 }}
+          disabled={!trimmed}
+          onClick={() => onConfirm(trimmed)}
+        >
+          Konfirmasi
+        </button>
       </div>
-    </div>
+    </Modal>
   );
 }
 
@@ -416,38 +450,8 @@ const buttonStyle: CSSProperties = {
   cursor: 'pointer',
 };
 
-const secondaryButtonStyle: CSSProperties = {
-  minHeight: 36,
-  padding: '0 14px',
-  borderRadius: 6,
-  border: `1px solid ${THEME.border}`,
-  background: THEME.surface,
-  color: THEME.textPrimary,
-  fontSize: 13,
-  fontWeight: 600,
-  cursor: 'pointer',
-};
 
-const modalOverlayStyle: CSSProperties = {
-  position: 'fixed',
-  inset: 0,
-  background: 'rgba(15, 23, 42, 0.5)',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  zIndex: 1000,
-  padding: 16,
-};
 
-const modalCardStyle: CSSProperties = {
-  background: THEME.surface,
-  border: `1px solid ${THEME.border}`,
-  borderRadius: 10,
-  padding: 20,
-  width: '100%',
-  maxWidth: 420,
-  boxSizing: 'border-box',
-};
 
 const textareaStyle: CSSProperties = {
   width: '100%',

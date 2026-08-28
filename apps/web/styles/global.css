@@ -44,7 +44,111 @@ textarea {
   font-size: inherit;
 }
 
+/* Cincin fokus.
+   `currentColor` tidak bisa dipakai di sini: setiap tombol utama memakai
+   `color: surface` (putih), jadi cincinnya jadi putih di atas latar halaman
+   putih — rasio 1,05:1, praktis tak terlihat. Warna tetap + halo putih
+   terbaca di atas latar terang MAUPUN di atas sidebar teal. Ini satu-satunya
+   tempat fokus bisa didefinisikan: seluruh komponen memakai inline style,
+   yang tidak bisa mengekspresikan `:focus`. */
 :focus-visible {
-  outline: 2px solid currentColor;
+  outline: 3px solid #0f4c5c;
   outline-offset: 2px;
+  box-shadow: 0 0 0 5px rgba(255, 255, 255, 0.9);
+  border-radius: 4px;
 }
+
+/* Lewati blok navigasi (WCAG 2.4.1). Sidebar merender sampai 10 tautan
+   sebelum <main> dalam urutan DOM, jadi pengguna papan ketik menempuh
+   sepuluh perhentian di SETIAP pemuatan halaman untuk mencapai isinya. */
+.sigap-skip-link {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  z-index: 2000;
+  padding: 12px 16px;
+  background: #0f4c5c;
+  color: #ffffff;
+  font-weight: 600;
+  border-radius: 0 0 8px 0;
+}
+.sigap-skip-link:focus {
+  left: 0;
+}
+
+/* Umpan balik tetikus — inline style tidak bisa mengekspresikan :hover,
+   sehingga seluruh tombol, baris tabel, dan tautan nav sebelumnya benar-benar
+   inert di bawah kursor. */
+button:not(:disabled):hover,
+.sigap-nav-link:hover {
+  filter: brightness(1.08);
+}
+button:not(:disabled) {
+  transition: filter 120ms ease;
+}
+
+/* ------------------------------------------------------------------
+   Responsif.
+   Dashboard sebelumnya tidak punya SATU pun media query: sidebar 232px
+   tetap + padding 24px membuat lebar isi = viewport - 280px, sementara
+   tabel terlebar butuh ~990px. Di 1024px seluruh dokumen bergulir mendatar
+   dan menyeret sidebar serta topbar keluar layar; di 375px kolom kiri grid
+   Ringkasan (`minmax(0, 2fr)`) menyusut sampai 0px sehingga tabel aduan —
+   isi utama halaman — hilang sepenuhnya.
+   Kelas-kelas ini dipasang berdampingan dengan inline style; token warna
+   tetap datang dari @repo/shared.
+   ------------------------------------------------------------------ */
+@media (max-width: 1180px) {
+  /* Sidebar dipersempit, bukan diciutkan jadi rel ikon: item nav di sini
+     hanya berupa teks, jadi rel ikon akan memotong labelnya
+     ("Kelola Penggu…"). */
+  .sigap-sidebar {
+    width: 184px !important;
+    padding-left: 12px !important;
+    padding-right: 12px !important;
+  }
+  .sigap-content {
+    padding: 20px !important;
+  }
+}
+
+@media (max-width: 820px) {
+  .sigap-shell {
+    flex-direction: column !important;
+  }
+  .sigap-sidebar {
+    width: 100% !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    overflow-x: auto;
+    gap: 8px;
+    padding: 8px 12px !important;
+  }
+  .sigap-sidebar-label {
+    display: block !important;
+  }
+  .sigap-nav-list {
+    flex-direction: row !important;
+    flex: 1 1 auto !important;
+    overflow-x: auto;
+  }
+  .sigap-nav-link {
+    white-space: nowrap;
+  }
+  .sigap-user-block {
+    border-top: none !important;
+    margin-top: 0 !important;
+    padding-top: 0 !important;
+    flex-shrink: 0;
+  }
+  .sigap-content {
+    padding: 16px !important;
+  }
+  .sigap-topbar {
+    padding: 12px 16px !important;
+  }
+  .sigap-topbar-search {
+    display: none !important;
+  }
+}
+

@@ -15,7 +15,11 @@ export type AnnouncementCategory =
 
 export interface ColorTokens {
   primary: string; primaryPressed: string; primarySurface: string;
-  accent: string; accentSurface: string; civicAmber: string;
+  accent: string; accentSurface: string;
+  /** Varian `accent` yang cukup gelap untuk dipakai sebagai WARNA TEKS di
+   *  atas `surface` (accent sendiri hanya 2,49:1 — gagal WCAG AA). */
+  accentText: string;
+  civicAmber: string;
   danger: string; dangerSurface: string; dangerPressed: string;
   textPrimary: string; textSecondary: string; textMuted: string;
   border: string; surface: string; background: string;
@@ -24,16 +28,16 @@ export interface ColorTokens {
 export const colors: Record<ThemeMode, ColorTokens> = {
   light: {
     primary: '#0F4C5C', primaryPressed: '#0A3644', primarySurface: '#E6F2F5',
-    accent: '#14B8A6', accentSurface: '#CCFBF1', civicAmber: '#F59E0B',
+    accent: '#14B8A6', accentSurface: '#CCFBF1', accentText: '#0F766E', civicAmber: '#F59E0B',
     danger: '#DC2626', dangerSurface: '#FEF2F2', dangerPressed: '#B91C1C',
-    textPrimary: '#0F172A', textSecondary: '#475569', textMuted: '#94A3B8',
+    textPrimary: '#0F172A', textSecondary: '#475569', textMuted: '#64748B',
     border: '#E2E8F0', surface: '#FFFFFF', background: '#F8FAFC',
   },
   dark: {
     primary: '#2DD4BF', primaryPressed: '#14B8A6', primarySurface: '#134E4A',
-    accent: '#5EEAD4', accentSurface: '#134E4A', civicAmber: '#FBBF24',
+    accent: '#5EEAD4', accentSurface: '#134E4A', accentText: '#5EEAD4', civicAmber: '#FBBF24',
     danger: '#F87171', dangerSurface: '#450A0A', dangerPressed: '#EF4444',
-    textPrimary: '#F1F5F9', textSecondary: '#94A3B8', textMuted: '#64748B',
+    textPrimary: '#F1F5F9', textSecondary: '#CBD5E1', textMuted: '#94A3B8',
     border: '#1E3441', surface: '#142430', background: '#0B1620',
   },
 };
@@ -41,42 +45,42 @@ export const colors: Record<ThemeMode, ColorTokens> = {
 interface Pair { fg: string; bg: string }
 
 const URGENCY: Record<Urgency, Record<ThemeMode, Pair>> = {
-  P0: { light: { fg: '#DC2626', bg: '#FEF2F2' }, dark: { fg: '#F87171', bg: '#3B1416' } },
-  P1: { light: { fg: '#EA580C', bg: '#FFF7ED' }, dark: { fg: '#FB923C', bg: '#3A1E0A' } },
-  P2: { light: { fg: '#0284C7', bg: '#EFF6FF' }, dark: { fg: '#60A5FA', bg: '#12253C' } },
+  P0: { light: { fg: '#B91C1C', bg: '#FEF2F2' }, dark: { fg: '#F87171', bg: '#3B1416' } },
+  P1: { light: { fg: '#9A3412', bg: '#FFF7ED' }, dark: { fg: '#FB923C', bg: '#3A1E0A' } },
+  P2: { light: { fg: '#0369A1', bg: '#EFF6FF' }, dark: { fg: '#60A5FA', bg: '#12253C' } },
 };
 
 const STATUS: Record<ComplaintStatus, Record<ThemeMode, Pair>> = {
   pending_classification: { light: { fg: '#64748B', bg: '#F8FAFC' }, dark: { fg: '#94A3B8', bg: '#1B2A36' } },
   pending:                { light: { fg: '#64748B', bg: '#F8FAFC' }, dark: { fg: '#94A3B8', bg: '#1B2A36' } },
-  verified:               { light: { fg: '#0284C7', bg: '#EFF6FF' }, dark: { fg: '#60A5FA', bg: '#12253C' } },
-  in_progress:            { light: { fg: '#CA8A04', bg: '#FEFCE8' }, dark: { fg: '#FACC15', bg: '#332A08' } },
-  resolved:               { light: { fg: '#16A34A', bg: '#F0FDF4' }, dark: { fg: '#4ADE80', bg: '#0C2A16' } },
+  verified:               { light: { fg: '#0369A1', bg: '#EFF6FF' }, dark: { fg: '#60A5FA', bg: '#12253C' } },
+  in_progress:            { light: { fg: '#854D0E', bg: '#FEFCE8' }, dark: { fg: '#FACC15', bg: '#332A08' } },
+  resolved:               { light: { fg: '#166534', bg: '#F0FDF4' }, dark: { fg: '#4ADE80', bg: '#0C2A16' } },
   rejected:               { light: { fg: '#64748B', bg: '#F8FAFC' }, dark: { fg: '#94A3B8', bg: '#1B2A36' } },
 };
 
 const ASPIRATION_STATUS: Record<AspirationStatus, Record<ThemeMode, Pair>> = {
-  voting:     { light: { fg: '#0284C7', bg: '#EFF6FF' }, dark: { fg: '#60A5FA', bg: '#12253C' } },
-  musrenbang: { light: { fg: '#CA8A04', bg: '#FEFCE8' }, dark: { fg: '#FACC15', bg: '#332A08' } },
+  voting:     { light: { fg: '#0369A1', bg: '#EFF6FF' }, dark: { fg: '#60A5FA', bg: '#12253C' } },
+  musrenbang: { light: { fg: '#854D0E', bg: '#FEFCE8' }, dark: { fg: '#FACC15', bg: '#332A08' } },
   approved:   { light: { fg: '#7C3AED', bg: '#F5F3FF' }, dark: { fg: '#A78BFA', bg: '#241B3D' } },
   budgeted:   { light: { fg: '#0F4C5C', bg: '#E6F2F5' }, dark: { fg: '#2DD4BF', bg: '#134E4A' } },
-  realized:   { light: { fg: '#16A34A', bg: '#F0FDF4' }, dark: { fg: '#4ADE80', bg: '#0C2A16' } },
+  realized:   { light: { fg: '#166534', bg: '#F0FDF4' }, dark: { fg: '#4ADE80', bg: '#0C2A16' } },
   rejected:   { light: { fg: '#64748B', bg: '#F8FAFC' }, dark: { fg: '#94A3B8', bg: '#1B2A36' } },
 };
 
 const SERVICE_STATUS: Record<ServiceStatus, Record<ThemeMode, Pair>> = {
   submitted:  { light: { fg: '#64748B', bg: '#F8FAFC' }, dark: { fg: '#94A3B8', bg: '#1B2A36' } },
-  verifying:  { light: { fg: '#0284C7', bg: '#EFF6FF' }, dark: { fg: '#60A5FA', bg: '#12253C' } },
-  signing:    { light: { fg: '#CA8A04', bg: '#FEFCE8' }, dark: { fg: '#FACC15', bg: '#332A08' } },
-  ready:      { light: { fg: '#16A34A', bg: '#F0FDF4' }, dark: { fg: '#4ADE80', bg: '#0C2A16' } },
-  rejected:   { light: { fg: '#DC2626', bg: '#FEF2F2' }, dark: { fg: '#F87171', bg: '#3B1416' } },
+  verifying:  { light: { fg: '#0369A1', bg: '#EFF6FF' }, dark: { fg: '#60A5FA', bg: '#12253C' } },
+  signing:    { light: { fg: '#854D0E', bg: '#FEFCE8' }, dark: { fg: '#FACC15', bg: '#332A08' } },
+  ready:      { light: { fg: '#166534', bg: '#F0FDF4' }, dark: { fg: '#4ADE80', bg: '#0C2A16' } },
+  rejected:   { light: { fg: '#B91C1C', bg: '#FEF2F2' }, dark: { fg: '#F87171', bg: '#3B1416' } },
   collected:  { light: { fg: '#7C3AED', bg: '#F5F3FF' }, dark: { fg: '#A78BFA', bg: '#241B3D' } },
 };
 
 const EMERGENCY_STATUS: Record<EmergencyStatus, Record<ThemeMode, Pair>> = {
-  active:      { light: { fg: '#DC2626', bg: '#FEF2F2' }, dark: { fg: '#F87171', bg: '#3B1416' } },
-  responding:  { light: { fg: '#CA8A04', bg: '#FEFCE8' }, dark: { fg: '#FACC15', bg: '#332A08' } },
-  resolved:    { light: { fg: '#16A34A', bg: '#F0FDF4' }, dark: { fg: '#4ADE80', bg: '#0C2A16' } },
+  active:      { light: { fg: '#B91C1C', bg: '#FEF2F2' }, dark: { fg: '#F87171', bg: '#3B1416' } },
+  responding:  { light: { fg: '#854D0E', bg: '#FEFCE8' }, dark: { fg: '#FACC15', bg: '#332A08' } },
+  resolved:    { light: { fg: '#166534', bg: '#F0FDF4' }, dark: { fg: '#4ADE80', bg: '#0C2A16' } },
   false_alarm: { light: { fg: '#64748B', bg: '#F8FAFC' }, dark: { fg: '#94A3B8', bg: '#1B2A36' } },
 };
 
@@ -114,7 +118,7 @@ export const budgetSectorColor = (s: BudgetSectorId, m: ThemeMode): Pair => {
     case 'infrastruktur': return ASPIRATION_STATUS.budgeted[m];
     case 'kesehatan': return STATUS.resolved[m];
     case 'pendidikan_pemuda': return ASPIRATION_STATUS.approved[m];
-    case 'lingkungan': return { fg: colors[m].accent, bg: colors[m].accentSurface };
+    case 'lingkungan': return { fg: colors[m].accentText, bg: colors[m].accentSurface };
     case 'pemerintahan_layanan': return URGENCY.P1[m];
   }
 };

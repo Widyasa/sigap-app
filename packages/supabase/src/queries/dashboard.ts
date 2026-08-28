@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { getComplaintCategoryGroup, type ComplaintCategoryGroupId } from '@repo/shared';
 import type { Database } from '../database.types';
+import { fetchAllRows } from './paginate';
 
 // Ringkasan (dashboard staf, PRD 8.3) — KPI, kepatuhan SLA harian, dan
 // antrean "perlu keputusan" gabungan aspirasi/layanan. `getRingkasanStats`
@@ -110,17 +111,21 @@ export async function getComplaintCategoryBreakdown(
   supabase: SupabaseClient<Database>,
   scope: RingkasanScope,
 ): Promise<ComplaintCategoryBreakdown[]> {
-  let query = supabase.from('complaints').select<string, { category: string | null }>('category');
-  if (scope.dinasId) {
-    query = query.eq('assigned_dinas', scope.dinasId);
-  } else if (scope.kelurahan) {
-    query = query.eq('kelurahan', scope.kelurahan);
-  }
-  const { data, error } = await query;
-  if (error) throw error;
+  // Dipaginasi: agregasi ini dihitung di klien, jadi tanpa `range` ia diam-
+  // diam berhenti di 1.000 baris (`db-max-rows`) begitu satu kelurahan
+  // melewati seribu aduan.
+  const rows = await fetchAllRows<{ category: string | null }>((from, to) => {
+    let query = supabase.from('complaints').select<string, { category: string | null }>('category');
+    if (scope.dinasId) {
+      query = query.eq('assigned_dinas', scope.dinasId);
+    } else if (scope.kelurahan) {
+      query = query.eq('kelurahan', scope.kelurahan);
+    }
+    return query.range(from, to);
+  });
 
   const counts = new Map<ComplaintCategoryGroupId, number>();
-  for (const row of data ?? []) {
+  for (const row of rows) {
     if (!row.category) continue;
     const groupId = getComplaintCategoryGroup(row.category);
     if (!groupId) continue;

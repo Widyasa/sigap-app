@@ -71,45 +71,35 @@ Deno.serve(async (req) => {
   const supabase = getServiceClient();
   const nowIso = new Date().toISOString();
 
-  const { data: rows, error: findError } = await supabase
-    .from("auth_otp_codes")
-    .select("*")
-    .eq("email", email)
-    .is("consumed_at", null)
-    .gt("expires_at", nowIso)
-    .order("created_at", { ascending: false })
-    .limit(1);
+  // Klaim satu percobaan secara ATOMIK. Pola baca-ubah-tulis sebelumnya
+  // membuat batas OTP_MAX_ATTEMPTS hanya berlaku untuk percobaan berurutan:
+  // permintaan paralel sama-sama membaca `attempts` yang lama, jadi ribuan
+  // tebakan serentak terhadap satu kode tidak pernah memicu penguncian.
+  // Lihat migrasi 20260816000003_otp_atomic_attempts.sql.
+  const { data: claimRows, error: claimError } = await supabase.rpc(
+    "claim_otp_attempt",
+    { p_email: email },
+  );
 
-  if (findError) {
-    console.error("find otp error", findError);
+  if (claimError) {
+    console.error("claim otp attempt error", claimError);
     return jsonResponse({ ok: false, reason: "server_error" }, 500);
   }
 
-  const row = rows?.[0];
+  const row = Array.isArray(claimRows) ? claimRows[0] : claimRows;
   if (!row) {
     return jsonResponse({ ok: false, reason: "invalid_code" }, 401);
   }
 
-  if (row.attempts >= OTP_MAX_ATTEMPTS) {
-    await supabase.from("auth_otp_codes").update({ consumed_at: nowIso }).eq(
-      "id",
-      row.id,
-    );
-    return jsonResponse({ ok: false, reason: "too_many_attempts" }, 429);
-  }
-
+  // `row.attempts` sudah berisi nilai SESUDAH kenaikan, dan percobaan
+  // ke-OTP_MAX_ATTEMPTS ini sendiri masih sah — jadi kode tetap diperiksa
+  // dulu, baru kehabisan kuota dilaporkan kalau kodenya memang salah.
   const valid = await verifyCode(rawCode, row.code_hash, pepper);
   if (!valid) {
-    const nextAttempts = row.attempts + 1;
-    const update: Record<string, unknown> = { attempts: nextAttempts };
-    if (nextAttempts >= OTP_MAX_ATTEMPTS) {
-      update.consumed_at = nowIso;
-    }
-    await supabase.from("auth_otp_codes").update(update).eq("id", row.id);
     return jsonResponse(
       {
         ok: false,
-        reason: nextAttempts >= OTP_MAX_ATTEMPTS
+        reason: row.attempts >= OTP_MAX_ATTEMPTS
           ? "too_many_attempts"
           : "invalid_code",
       },
@@ -119,7 +109,7 @@ Deno.serve(async (req) => {
 
   await supabase.from("auth_otp_codes").update({ consumed_at: nowIso }).eq(
     "id",
-    row.id,
+    row.otp_id,
   );
 
   const { data: userRows, error: userError } = await supabase.rpc(

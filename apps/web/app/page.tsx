@@ -19,6 +19,8 @@ import {
   type EmergencyAlertSummary,
 } from '@repo/supabase';
 import {
+  COMPLAINT_STATUS_LABELS,
+  categoryLabel,
   colors,
   spacing,
   typography,
@@ -31,6 +33,16 @@ import {
 import { useAuth, type StaffProfile } from './_lib/auth';
 import { supabase } from './_lib/supabaseClient';
 import { DashboardShell } from './_lib/DashboardShell';
+import {
+  EmptyState,
+  FlashMessage,
+  LoadingState,
+  Modal,
+  buttonStyle as sharedButtonStyle,
+  dangerButtonStyle,
+  secondaryButtonStyle,
+  useFlash,
+} from './_lib/ui';
 
 const THEME = colors.light;
 
@@ -43,9 +55,19 @@ const THEME = colors.light;
 // ---------------------------------------------------------------------
 function scopeFor(user: StaffProfile): { kelurahan?: string; dinasId?: string } {
   if (user.role === 'dinas_staff' || user.role === 'dinas_head') {
-    return { dinasId: user.dinasId ?? undefined };
+    // `?? undefined` DULU membuat cakupan kosong, yang berarti "tanpa
+    // filter" — staf dinas yang belum ditugaskan melihat SELURUH aduan kota
+    // di tabel, padahal KPI di atasnya (dihitung RPC dengan
+    // `assigned_dinas = NULL`) menunjukkan 0. Sentinel di bawah memastikan
+    // hasilnya konsisten kosong; halaman menampilkan pesan penugasan.
+    return { dinasId: user.dinasId ?? '__belum_ditugaskan__' };
   }
   return { kelurahan: user.kelurahan ?? undefined };
+}
+
+/** true bila peran dinas belum punya penugasan dinas sama sekali. */
+function isUnassignedDinas(user: StaffProfile): boolean {
+  return (user.role === 'dinas_staff' || user.role === 'dinas_head') && !user.dinasId;
 }
 
 const STATUS_CHIPS = [
@@ -56,15 +78,6 @@ const STATUS_CHIPS = [
   { id: 'selesai', label: 'Selesai', statuses: ['resolved'] as ComplaintStatus[] },
   { id: 'ditolak', label: 'Ditolak', statuses: ['rejected'] as ComplaintStatus[] },
 ] as const;
-
-const STATUS_LABELS: Record<ComplaintStatus, string> = {
-  pending_classification: 'Menunggu Klasifikasi',
-  pending: 'Menunggu Verifikasi',
-  verified: 'Terverifikasi',
-  in_progress: 'Ditindaklanjuti',
-  resolved: 'Selesai',
-  rejected: 'Ditolak',
-};
 
 /**
  * Lima pasangan warna yang SUDAH ADA di theme.ts, dirotasi untuk 5 grup
@@ -95,18 +108,48 @@ interface RingkasanData {
   complaints: RingkasanComplaintRow[];
 }
 
+/**
+ * Peran yang boleh membuka Ringkasan — persis daftar `roles` untuk `/` di
+ * `navItems.ts`.
+ *
+ * Halaman ini DULU satu-satunya yang hanya memeriksa `isAuthenticated`.
+ * Karena `find_or_create_user` membuatkan profil `citizen` untuk alamat
+ * email mana pun yang menyelesaikan OTP, dan `landingPathForRole`
+ * mengarahkan setiap peran non-operator ke `/`, warga biasa yang tahu URL
+ * dashboard mendarat di layar KPI, grafik SLA, dan tabel aduan lengkap
+ * dengan nama pelapor.
+ */
+const RINGKASAN_ROLES = ['verifier', 'dinas_staff', 'dinas_head', 'emergency_operator', 'admin'];
+
 export default function RingkasanPage() {
   const { isLoading, isAuthenticated, user } = useAuth();
   const router = useRouter();
 
+  const canAccess = !!user?.role && RINGKASAN_ROLES.includes(user.role);
+
   useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
+    if (isLoading) return;
+    if (!isAuthenticated) {
       router.replace('/login');
+      return;
     }
-  }, [isLoading, isAuthenticated, router]);
+    if (!canAccess) {
+      // Sudah masuk tapi bukan petugas: bukan masalah otentikasi, jadi
+      // jangan lempar ke /login (yang akan memantulkannya balik ke sini).
+      router.replace('/login?alasan=bukan_petugas');
+    }
+  }, [isLoading, isAuthenticated, canAccess, router]);
 
   if (isLoading || !isAuthenticated || !user) {
     return <div style={{ padding: 24 }}>Memuat…</div>;
+  }
+
+  if (!canAccess) {
+    return (
+      <div style={{ padding: 24 }}>
+        <p role="alert">Halaman ini hanya untuk petugas kelurahan.</p>
+      </div>
+    );
   }
 
   return <RingkasanContent user={user} />;
@@ -118,6 +161,7 @@ function RingkasanContent({ user }: { user: StaffProfile }) {
   const [alerts, setAlerts] = useState<EmergencyAlertSummary[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [chip, setChip] = useState<(typeof STATUS_CHIPS)[number]['id']>('semua');
+  const { flash, showSuccess } = useFlash();
 
   const load = useCallback(async () => {
     setError(null);
@@ -133,7 +177,11 @@ function RingkasanContent({ user }: { user: StaffProfile }) {
       setData({ stats, slaDaily, pendingDecisions, categoryBreakdown, complaints });
       setAlerts(activeAlerts);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Gagal memuat data Ringkasan.');
+      // Pesan mentah (`TypeError: Failed to fetch`, kode PostgREST) tidak
+      // berarti apa-apa bagi petugas — PRD 10.3 meminta "apa yang terjadi
+      // dan apa yang bisa dilakukan".
+      console.error('load ringkasan error', err);
+      setError('Koneksi sedang terganggu. Coba muat ulang halaman.');
     }
   }, [scope, user.kelurahan]);
 
@@ -148,27 +196,51 @@ function RingkasanContent({ user }: { user: StaffProfile }) {
     </>
   );
 
-  const handleDecision = useCallback(
-    async (decision: PendingDecision, approve: boolean) => {
+  // Menolak WAJIB disertai alasan. Dulu kartu ini memanggil
+  // `updateServiceRequestStatus` tanpa `rejectionReason`, dan lapisan query
+  // menulis `rejection_reason: null` — warga melihat "Ditolak" tanpa satu
+  // kata penjelasan, sementara tombol Tolak yang sama di /layanan dan
+  // /aduan mewajibkan alasan lewat modal.
+  const [pendingReject, setPendingReject] = useState<PendingDecision | null>(null);
+
+  const applyDecision = useCallback(
+    async (decision: PendingDecision, approve: boolean, reason?: string) => {
       if (!data) return;
-      // Optimis: hapus kartu dulu, lalu tulis ke DB dan segarkan di latar.
       setData({ ...data, pendingDecisions: data.pendingDecisions.filter((d) => d.refId !== decision.refId) });
       try {
         if (decision.source === 'aspirasi') {
-          await updateAspirationStatus(supabase, decision.refId, { status: approve ? 'approved' : 'rejected' });
+          await updateAspirationStatus(supabase, decision.refId, {
+            currentStatus: 'musrenbang',
+            status: approve ? 'approved' : 'rejected',
+          });
         } else {
           await updateServiceRequestStatus(supabase, decision.refId, {
+            currentStatus: 'verifying',
             status: approve ? 'signing' : 'rejected',
+            rejectionReason: reason,
             handledBy: user.id,
           });
         }
+        showSuccess(approve ? 'Keputusan tersimpan: disetujui.' : 'Keputusan tersimpan: ditolak.');
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Gagal memproses keputusan.');
+        console.error('handleDecision error', err);
+        setError('Gagal memproses keputusan. Coba lagi.');
       } finally {
         load();
       }
     },
-    [data, load, user.id],
+    [data, load, user.id, showSuccess],
+  );
+
+  const handleDecision = useCallback(
+    (decision: PendingDecision, approve: boolean) => {
+      if (!approve) {
+        setPendingReject(decision);
+        return;
+      }
+      void applyDecision(decision, true);
+    },
+    [applyDecision],
   );
 
   if (user.role === 'emergency_operator') {
@@ -188,15 +260,40 @@ function RingkasanContent({ user }: { user: StaffProfile }) {
     );
   }
 
+  if (isUnassignedDinas(user)) {
+    return (
+      <DashboardShell title="Ringkasan" subtitle={subtitle}>
+        <EmptyState
+          icon="🏛️"
+          title="Akun Anda belum ditugaskan ke dinas"
+          message="Ringkasan aduan dihitung per dinas. Hubungi admin untuk menetapkan dinas Anda lebih dulu."
+        />
+      </DashboardShell>
+    );
+  }
+
   return (
     <DashboardShell title="Ringkasan" subtitle={subtitle}>
+      <FlashMessage flash={flash} />
       {error ? <ErrorBox message={error} /> : null}
       <SosBanner alerts={alerts} />
+
+      {pendingReject ? (
+        <RejectDecisionModal
+          decision={pendingReject}
+          onCancel={() => setPendingReject(null)}
+          onConfirm={(reason) => {
+            const d = pendingReject;
+            setPendingReject(null);
+            void applyDecision(d, false, reason);
+          }}
+        />
+      ) : null}
 
       {!data ? (
         // Saat `load()` gagal, `data` tetap null — tanpa cek `error` di sini
         // pesan "Memuat…" akan tampil selamanya di bawah kotak galat.
-        error ? null : <p style={{ color: THEME.textSecondary }}>Memuat data Ringkasan…</p>
+        error ? null : <LoadingState message="Memuat data Ringkasan…" />
       ) : (
         <>
           <KpiRow stats={data.stats} />
@@ -235,9 +332,62 @@ function RingkasanContent({ user }: { user: StaffProfile }) {
   );
 }
 
+/** Modal alasan penolakan untuk kartu "Perlu keputusan". */
+function RejectDecisionModal({
+  decision,
+  onCancel,
+  onConfirm,
+}: {
+  decision: PendingDecision;
+  onCancel: () => void;
+  onConfirm: (reason: string) => void;
+}) {
+  const [reason, setReason] = useState('');
+  const trimmed = reason.trim();
+  return (
+    <Modal title="Alasan Penolakan" onClose={onCancel}>
+      <p style={{ fontSize: typography.caption.fontSize, color: THEME.textSecondary, marginTop: 0 }}>
+        {decision.title}
+      </p>
+      <label htmlFor="alasan-tolak-keputusan" style={{ display: 'block', fontSize: typography.caption.fontSize, marginBottom: spacing(1) }}>
+        Alasan penolakan (wajib diisi)
+      </label>
+      <textarea
+        id="alasan-tolak-keputusan"
+        value={reason}
+        onChange={(e) => setReason(e.target.value)}
+        rows={4}
+        style={{
+          width: '100%',
+          border: `1px solid ${THEME.border}`,
+          borderRadius: 8,
+          padding: spacing(2),
+          fontSize: typography.body.fontSize,
+          boxSizing: 'border-box',
+          resize: 'vertical',
+        }}
+      />
+      <div style={{ display: 'flex', gap: spacing(2), justifyContent: 'flex-end', marginTop: spacing(4) }}>
+        <button type="button" style={secondaryButtonStyle} onClick={onCancel}>
+          Batal
+        </button>
+        <button
+          type="button"
+          style={{ ...dangerButtonStyle, opacity: trimmed ? 1 : 0.5 }}
+          disabled={!trimmed}
+          onClick={() => onConfirm(trimmed)}
+        >
+          Tolak
+        </button>
+      </div>
+    </Modal>
+  );
+}
+
 function ErrorBox({ message }: { message: string }) {
   return (
     <div
+      role="alert"
       style={{
         background: THEME.dangerSurface,
         color: THEME.danger,
@@ -363,7 +513,7 @@ function ComplaintsTable({
                     {c.reporterName ?? 'Warga'} · {c.address ?? c.assignedDinasName ?? '—'}
                   </div>
                 </Td>
-                <Td>{c.category ?? '—'}</Td>
+                <Td>{categoryLabel(c.category)}</Td>
                 <Td>
                   <span
                     style={{
@@ -376,7 +526,7 @@ function ComplaintsTable({
                       background: status.bg,
                     }}
                   >
-                    {STATUS_LABELS[c.status as ComplaintStatus] ?? c.status}
+                    {COMPLAINT_STATUS_LABELS[c.status as ComplaintStatus] ?? c.status}
                   </span>
                 </Td>
                 <Td>
@@ -532,7 +682,9 @@ function PendingDecisionsPanel({
 }
 
 function Th({ children }: { children: React.ReactNode }) {
-  return <th style={thStyle}>{children}</th>;
+  // `scope="col"`: tanpanya hubungan header-sel diserahkan ke tebakan
+  // pembaca layar, dan tabel ini punya sel interaktif.
+  return <th scope="col" style={thStyle}>{children}</th>;
 }
 
 function Td({ children }: { children: React.ReactNode }) {
@@ -541,7 +693,11 @@ function Td({ children }: { children: React.ReactNode }) {
 
 const mainGridStyle: CSSProperties = {
   display: 'grid',
-  gridTemplateColumns: 'minmax(0, 2fr) minmax(280px, 1fr)',
+  // `minmax(0, 2fr)` DULU membuat kolom kiri boleh menyusut sampai 0px
+  // sementara kolom kanan punya lantai keras 280px: di lebar telepon tabel
+  // "Aduan masuk" — isi utama halaman ini — dirender selebar nol dan
+  // benar-benar hilang. `min(100%, …)` menghapus lantai keras itu.
+  gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 420px), 1fr))',
   gap: spacing(5),
   marginTop: spacing(5),
   alignItems: 'start',
@@ -598,7 +754,7 @@ const chipActiveStyle: CSSProperties = {
 
 const kpiRowStyle: CSSProperties = {
   display: 'grid',
-  gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+  gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 220px), 1fr))',
   gap: spacing(4),
 };
 

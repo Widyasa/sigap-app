@@ -24,6 +24,14 @@ BEGIN
     RAISE EXCEPTION 'audio_url wajib diisi.' USING ERRCODE = '22023';
   END IF;
 
+  -- Berkas harus berada di folder milik pemanggil sendiri, sama seperti
+  -- syarat kebijakan storage "warga unggah ke foldernya sendiri". Tanpa ini
+  -- warga bisa melampirkan rekaman milik orang lain ke SOS-nya dan merusak
+  -- rantai bukti kejadian darurat.
+  IF POSITION('/' || auth.uid()::text || '/' IN p_audio_url) = 0 THEN
+    RAISE EXCEPTION 'Berkas audio bukan milik pemanggil.' USING ERRCODE = '42501';
+  END IF;
+
   UPDATE emergency_alerts
   SET audio_url = p_audio_url
   WHERE id = p_alert_id

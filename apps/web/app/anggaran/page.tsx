@@ -9,16 +9,32 @@ import {
   importBudgetItems,
   type BudgetIndexStatus,
 } from '@repo/supabase';
-import { BUDGET_CSV_COLUMNS, colors, parseBudgetCsv, statusColor } from '@repo/shared';
+import { BUDGET_CSV_COLUMNS, colors, dinasName, parseBudgetCsv, statusColor } from '@repo/shared';
 import { useAuth } from '../_lib/auth';
 import { supabase } from '../_lib/supabaseClient';
 import { getAccessToken } from '../_lib/session';
 import { DashboardShell } from '../_lib/DashboardShell';
+import { EmptyState, ErrorState, LoadingState, visuallyHidden } from '../_lib/ui';
 
 const THEME = colors.light;
 
-const FISCAL_YEAR = 2026;
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? '';
+
+/**
+ * Tahun anggaran yang bisa dipilih admin.
+ *
+ * Dulu halaman ini dipatok `const FISCAL_YEAR = 2026`, sementara importir
+ * CSV menerima `fiscal_year` apa pun. Admin yang mengimpor APBD 2027
+ * melihat "12 item anggaran berhasil diimpor." lalu tabel yang sama sekali
+ * tidak berubah: barisnya ada tapi tak terlihat, tombol indeks ulang tak
+ * akan pernah mengindeksnya, dan karena itu ia juga tidak akan pernah
+ * muncul di jawaban "Tanya AI" warga. Sejak 1 Januari 2027 seluruh halaman
+ * akan menampilkan anggaran tahun lalu.
+ */
+function fiscalYearOptions(): number[] {
+  const now = new Date().getFullYear();
+  return [now - 1, now, now + 1];
+}
 
 export default function AnggaranAdminPage() {
   const { isLoading: authLoading, isAuthenticated, user } = useAuth();
@@ -37,12 +53,14 @@ export default function AnggaranAdminPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [reindexing, setReindexing] = useState(false);
-  const [reindexResult, setReindexResult] = useState<string | null>(null);
+  const [reindexResult, setReindexResult] = useState<{ kind: 'success' | 'error'; text: string } | null>(null);
+  const [fiscalYear, setFiscalYear] = useState(() => new Date().getFullYear());
 
   const load = useCallback(async () => {
     setError(null);
+    setLoading(true);
     try {
-      const rows = await listBudgetIndexStatus(supabase, FISCAL_YEAR);
+      const rows = await listBudgetIndexStatus(supabase, fiscalYear);
       setItems(rows);
     } catch (e) {
       console.error('listBudgetIndexStatus error', e);
@@ -50,7 +68,7 @@ export default function AnggaranAdminPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [fiscalYear]);
 
   useEffect(() => {
     if (canAccess) load();
@@ -62,13 +80,21 @@ export default function AnggaranAdminPage() {
     try {
       const token = await getAccessToken();
       if (!token) {
-        setReindexResult('Sesi habis. Masuk kembali.');
+        // Dulu berhenti di sini dengan pesan tanpa jalan keluar.
+        setReindexResult({ kind: 'error', text: 'Sesi habis. Mengalihkan ke halaman masuk…' });
+        router.replace('/login');
         return;
       }
       const pending = items.filter((it) => !it.isIndexed);
       let success = 0;
       let failed = 0;
-      for (const item of pending) {
+      for (let i = 0; i < pending.length; i++) {
+        const item = pending[i]!;
+        // PRD 11.3: proses lebih dari 3 detik wajib menjelaskan tahapannya.
+        // Pengindeksan berjalan satu permintaan jaringan per item, jadi 200
+        // item berarti halaman tampak membeku berbanding menit tanpa
+        // penanda apa pun.
+        setReindexResult({ kind: 'success', text: `Mengindeks ${i + 1} dari ${pending.length}…` });
         const text = budgetItemEmbeddingText(item);
         const result = await embedBudgetItemText(SUPABASE_URL, token, item.id, text);
         if (result.ok) success += 1;
@@ -76,13 +102,19 @@ export default function AnggaranAdminPage() {
       }
       setReindexResult(
         pending.length === 0
-          ? 'Semua item anggaran sudah terindeks.'
-          : `Selesai: ${success} berhasil diindeks, ${failed} gagal.`,
+          ? { kind: 'success', text: 'Semua item anggaran sudah terindeks.' }
+          : {
+              kind: failed > 0 ? 'error' : 'success',
+              text:
+                failed > 0
+                  ? `Selesai: ${success} berhasil diindeks, ${failed} gagal. Kegagalan biasanya berarti layanan AI sedang tidak tersedia.`
+                  : `Selesai: ${success} item berhasil diindeks.`,
+            },
       );
       await load();
     } catch (e) {
       console.error('reindex budget items error', e);
-      setReindexResult('Gagal mengindeks ulang anggaran. Coba lagi.');
+      setReindexResult({ kind: 'error', text: 'Gagal mengindeks ulang anggaran. Coba lagi.' });
     } finally {
       setReindexing(false);
     }
@@ -97,13 +129,39 @@ export default function AnggaranAdminPage() {
   return (
     <DashboardShell
       title="Dashboard Anggaran"
-      subtitle={`Masuk sebagai ${user?.fullName ?? user?.role}. Tahun anggaran ${FISCAL_YEAR}.`}
+      subtitle={`Masuk sebagai ${user?.fullName ?? user?.role}. Tahun anggaran ${fiscalYear}.`}
+      actions={
+        <>
+          <label htmlFor="tahun-anggaran" style={visuallyHidden}>
+            Tahun anggaran
+          </label>
+          <select
+            id="tahun-anggaran"
+            value={fiscalYear}
+            onChange={(e) => setFiscalYear(Number(e.target.value))}
+            style={{
+              minHeight: 40,
+              padding: '0 12px',
+              borderRadius: 8,
+              border: `1px solid ${THEME.border}`,
+              fontSize: 16,
+              background: THEME.surface,
+            }}
+          >
+            {fiscalYearOptions().map((y) => (
+              <option key={y} value={y}>
+                Tahun {y}
+              </option>
+            ))}
+          </select>
+        </>
+      }
     >
-      {error ? <p style={{ color: THEME.danger }}>{error}</p> : null}
+      {error ? <ErrorState message={error} onRetry={load} /> : null}
 
       {loading ? (
-        <p>Memuat data…</p>
-      ) : (
+        <LoadingState message="Memuat data anggaran…" />
+      ) : error ? null : (
         <>
           <section style={sectionStyle}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
@@ -118,7 +176,20 @@ export default function AnggaranAdminPage() {
                 {reindexing ? 'Mengindeks…' : 'Indeks ulang anggaran'}
               </button>
             </div>
-            {reindexResult ? <p style={{ fontSize: 13, color: THEME.primary }}>{reindexResult}</p> : null}
+            {reindexResult ? (
+              <p
+                role="status"
+                aria-live="polite"
+                style={{
+                  fontSize: 14,
+                  // Dulu pesan kegagalan ("Gagal mengimpor…") dirender dengan
+                  // warna primer yang sama dengan pesan sukses.
+                  color: reindexResult.kind === 'error' ? THEME.danger : THEME.primary,
+                }}
+              >
+                {reindexResult.text}
+              </p>
+            ) : null}
 
             <table style={tableStyle}>
               <thead>
@@ -132,14 +203,14 @@ export default function AnggaranAdminPage() {
                 {items.length === 0 ? (
                   <tr>
                     <td style={tdStyle} colSpan={3}>
-                      Belum ada item anggaran.
+                      Belum ada item anggaran untuk tahun ini. Tempel CSV di bawah untuk mengimpor.
                     </td>
                   </tr>
                 ) : (
                   items.map((item) => (
                     <tr key={item.id}>
                       <td style={tdStyle}>{item.programName}</td>
-                      <td style={tdStyle}>{item.dinasId ?? '-'}</td>
+                      <td style={tdStyle}>{dinasName(item.dinasId)}</td>
                       <td style={tdStyle}>
                         <span style={item.isIndexed ? indexedBadge : notIndexedBadge}>
                           {item.isIndexed ? 'Terindeks' : 'Belum Terindeks'}
@@ -179,7 +250,14 @@ function BudgetImportSection({ onImported }: { onImported: () => void }) {
     setResult(null);
     const { rows, errors: parseErrors } = parseBudgetCsv(csvText);
     setErrors(parseErrors);
-    if (rows.length === 0) return;
+    if (rows.length === 0) {
+      // Tempelan berisi header saja menghasilkan {rows: [], errors: []} —
+      // dulu klik tombolnya menghasilkan benar-benar nol umpan balik.
+      if (parseErrors.length === 0) {
+        setResult('Tidak ada baris data di bawah header. Tambahkan minimal satu baris.');
+      }
+      return;
+    }
     setImporting(true);
     try {
       const { inserted } = await importBudgetItems(supabase, rows);
@@ -201,12 +279,24 @@ function BudgetImportSection({ onImported }: { onImported: () => void }) {
         Tempel CSV dengan header: {BUDGET_CSV_COLUMNS.join(', ')}. Kolom wajib: fiscal_year, program_name,
         budget_allocated.
       </p>
+      <label htmlFor="csv-anggaran" style={visuallyHidden}>
+        Data CSV item anggaran
+      </label>
       <textarea
+        id="csv-anggaran"
+        // `wrap="off"` + `white-space: pre`: satu baris anggaran ~120 karakter,
+        // jadi dengan pembungkusan lunak kolomnya patah di tengah nilai dan
+        // admin yang memeriksa tempelan tidak bisa tahu nilai mana milik
+        // kolom mana — satu-satunya hal yang perlu ia lakukan di sini.
+        wrap="off"
+        spellCheck={false}
         style={{
           width: '100%',
-          minHeight: 140,
+          minHeight: 220,
           fontFamily: 'monospace',
-          fontSize: 12,
+          fontSize: 14,
+          whiteSpace: 'pre',
+          overflowX: 'auto',
           border: `1px solid ${THEME.border}`,
           borderRadius: 6,
           padding: 8,

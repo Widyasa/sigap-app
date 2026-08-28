@@ -7,6 +7,7 @@ import { colors, typography, spacing } from '@repo/shared';
 import { useAuth } from '../_lib/auth';
 import { supabase } from '../_lib/supabaseClient';
 import { DashboardShell } from '../_lib/DashboardShell';
+import { ErrorState, LoadingState } from '../_lib/ui';
 
 const THEME = colors.light;
 const WARGA_ROLES = ['verifier', 'dinas_head', 'admin'];
@@ -37,7 +38,9 @@ export default function WargaPage() {
       const data = await listCitizenLeaderboard(supabase, user.kelurahan, null, 'all');
       setEntries(data);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Gagal memuat direktori warga.');
+      // Pesan mentah PostgREST tidak berarti apa-apa bagi petugas.
+      console.error('listCitizenLeaderboard error', err);
+      setError('Koneksi sedang terganggu. Coba muat ulang direktori warga.');
     }
   }, [user?.kelurahan]);
 
@@ -69,27 +72,38 @@ export default function WargaPage() {
     search.trim() === '' ? true : (e.fullName ?? '').toLowerCase().includes(search.trim().toLowerCase()),
   );
 
-  return (
-    <DashboardShell title="Warga" subtitle={`Kelurahan ${user.kelurahan}`}>
-      {error ? <p style={{ color: THEME.danger }}>{error}</p> : null}
+  // Saat `error` terisi, DUA cabang pertama gagal dan eksekusi jatuh ke
+  // cabang terakhir — yang merender StatsBar dengan array kosong, sehingga
+  // "Total warga 0 · Total poin kumulatif 0" disajikan sebagai fakta di
+  // bawah pesan galat. Untuk produk transparansi warga itu kegagalan
+  // terburuk yang mungkin.
+  if (error) {
+    return (
+      <DashboardShell title="Warga" subtitle={`Kelurahan ${user.kelurahan}`}>
+        <ErrorState message={error} onRetry={load} />
+      </DashboardShell>
+    );
+  }
 
-      {entries === null && !error ? (
-        <p style={{ color: THEME.textSecondary }}>Memuat direktori warga…</p>
+  return (
+    <DashboardShell
+      title="Warga"
+      subtitle={`Kelurahan ${user.kelurahan}`}
+      search={{
+        value: search,
+        onChange: setSearch,
+        placeholder: 'Cari nama warga…',
+        label: 'Cari nama warga',
+      }}
+    >
+      {entries === null ? (
+        <LoadingState message="Memuat direktori warga…" />
       ) : entries !== null && entries.length === 0 ? (
         <EmptyState message="Belum ada warga terdaftar di kelurahan ini." />
       ) : (
         <>
           <StatsBar entries={entries ?? []} />
           <div style={cardStyle}>
-          <div style={{ padding: spacing(4), borderBottom: `1px solid ${THEME.border}` }}>
-            <input
-              type="text"
-              placeholder="Cari nama warga…"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              style={searchInputStyle}
-            />
-          </div>
           <table style={tableStyle}>
             <thead>
               <tr>
@@ -101,6 +115,13 @@ export default function WargaPage() {
               </tr>
             </thead>
             <tbody>
+              {filtered.length === 0 ? (
+                <tr>
+                  <Td colSpan={5}>
+                    {`Tidak ada warga bernama "${search.trim()}" di kelurahan ini.`}
+                  </Td>
+                </tr>
+              ) : null}
               {filtered.map((entry, idx) => {
                 const rank = (entries ?? []).findIndex((e) => e.userId === entry.userId) + 1;
                 return (
@@ -164,11 +185,19 @@ function StatCard({ label, value }: { label: string; value: string }) {
 }
 
 function Th({ children }: { children: React.ReactNode }) {
-  return <th style={thStyle}>{children}</th>;
+  return (
+    <th scope="col" style={thStyle}>
+      {children}
+    </th>
+  );
 }
 
-function Td({ children }: { children: React.ReactNode }) {
-  return <td style={tdStyle}>{children}</td>;
+function Td({ children, colSpan }: { children: React.ReactNode; colSpan?: number }) {
+  return (
+    <td colSpan={colSpan} style={tdStyle}>
+      {children}
+    </td>
+  );
 }
 
 const cardStyle: CSSProperties = {

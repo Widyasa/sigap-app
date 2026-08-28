@@ -46,6 +46,8 @@ export {
   listBudgetItemsForLinking,
   listAspirationsForReview,
   updateAspirationStatus,
+  isValidAspirationTransition,
+  nextAspirationStatuses,
 } from './queries/aspirations';
 export type {
   VotingPeriod,
@@ -90,6 +92,8 @@ export {
   generateServicePdf,
   listServiceRequestsForReview,
   updateServiceRequestStatus,
+  isValidServiceTransition,
+  nextServiceStatuses,
   verifyServiceDocument,
 } from './queries/services';
 export type {

@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { BUDGET_SECTORS, getBudgetSector, budgetSectorColor, type BudgetSectorId } from '@repo/shared';
 import type { Database } from '../database.types';
+import { fetchAllRows } from './paginate';
 
 // ---------------------------------------------------------------------
 // Budget summary per dinas (treemap)
@@ -32,13 +33,15 @@ export async function listBudgetSummaryByDinas(
   supabase: SupabaseClient<Database>,
   fiscalYear: number,
 ): Promise<BudgetSummaryByDinas[]> {
-  const { data, error } = await supabase
-    .from('budget_items')
-    .select<string, BudgetSummaryRow>('dinas_id, budget_allocated, budget_realized, dinas(name)')
-    .eq('fiscal_year', fiscalYear);
-  if (error) throw error;
-
-  const rows = (data ?? []) as BudgetSummaryRow[];
+  // Dipaginasi: tanpa `range`, PostgREST memotong di `db-max-rows` (1000)
+  // dan totalnya diam-diam salah untuk APBD sungguhan. Lihat paginate.ts.
+  const rows = await fetchAllRows<BudgetSummaryRow>((from, to) =>
+    supabase
+      .from('budget_items')
+      .select<string, BudgetSummaryRow>('dinas_id, budget_allocated, budget_realized, dinas(name)')
+      .eq('fiscal_year', fiscalYear)
+      .range(from, to),
+  );
   const byDinas = new Map<string, BudgetSummaryByDinas>();
   for (const row of rows) {
     if (!row.dinas_id) continue;
@@ -93,13 +96,13 @@ export async function listBudgetSummaryBySector(
   supabase: SupabaseClient<Database>,
   fiscalYear: number,
 ): Promise<BudgetSectorSummary[]> {
-  const { data, error } = await supabase
-    .from('budget_items')
-    .select<string, BudgetSectorRow>('dinas_id, budget_allocated, budget_realized, dinas!inner(categories)')
-    .eq('fiscal_year', fiscalYear);
-  if (error) throw error;
-
-  const rows = (data ?? []) as BudgetSectorRow[];
+  const rows = await fetchAllRows<BudgetSectorRow>((from, to) =>
+    supabase
+      .from('budget_items')
+      .select<string, BudgetSectorRow>('dinas_id, budget_allocated, budget_realized, dinas!inner(categories)')
+      .eq('fiscal_year', fiscalYear)
+      .range(from, to),
+  );
   const bySector = new Map<
     BudgetSectorId,
     { totalAllocated: number; totalRealized: number; itemCount: number; categories: Set<string> }
@@ -164,15 +167,15 @@ export async function getAspirationBudgetSummary(
   supabase: SupabaseClient<Database>,
   fiscalYear: number,
 ): Promise<AspirationBudgetSummary> {
-  const { data, error } = await supabase
-    .from('aspirations')
-    .select<string, AspirationBudgetRow>(
-      'linked_budget_item_id, budget_item:linked_budget_item_id ( id, budget_allocated, fiscal_year )',
-    )
-    .not('linked_budget_item_id', 'is', null);
-  if (error) throw error;
-
-  const rows = (data ?? []) as AspirationBudgetRow[];
+  const rows = await fetchAllRows<AspirationBudgetRow>((from, to) =>
+    supabase
+      .from('aspirations')
+      .select<string, AspirationBudgetRow>(
+        'linked_budget_item_id, budget_item:linked_budget_item_id ( id, budget_allocated, fiscal_year )',
+      )
+      .not('linked_budget_item_id', 'is', null)
+      .range(from, to),
+  );
   const seenItemIds = new Set<string>();
   let totalAllocated = 0;
   for (const row of rows) {

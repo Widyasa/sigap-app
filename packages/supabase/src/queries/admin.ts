@@ -64,10 +64,14 @@ export async function setUserDisabled(
 }
 
 /**
- * Admin mengubah peran/penugasan dinas pengguna lain. RLS `profiles_admin_all`
- * sudah mengizinkan admin menulis baris profiles siapa pun tanpa syarat
- * tambahan (berbeda dari `profiles_self_update` yang mengunci kolom role),
- * jadi ini UPDATE langsung, bukan RPC.
+ * Admin mengubah peran/penugasan dinas pengguna lain lewat RPC SECURITY
+ * DEFINER `set_user_role` (migrasi 20260816000002_security_hardening.sql).
+ *
+ * Dulu ini UPDATE langsung ke `profiles` lewat RLS `profiles_admin_all`.
+ * Masalahnya, peran ikut tercetak sebagai klaim `app_role` di access token
+ * dan dipercaya oleh Edge Function `generate-service-pdf`, sehingga
+ * penurunan peran tidak berlaku sampai token lama kedaluwarsa. RPC-nya
+ * mencabut seluruh sesi pengguna itu dalam transaksi yang sama.
  */
 export async function updateUserRole(
   supabase: SupabaseClient<Database>,
@@ -75,9 +79,10 @@ export async function updateUserRole(
   role: UserRole,
   dinasId: string | null,
 ): Promise<void> {
-  const { error } = await supabase
-    .from('profiles')
-    .update({ role, dinas_id: dinasId })
-    .eq('id', userId);
+  const { error } = await supabase.rpc('set_user_role', {
+    p_user_id: userId,
+    p_role: role,
+    p_dinas_id: dinasId,
+  });
   if (error) throw error;
 }

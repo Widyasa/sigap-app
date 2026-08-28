@@ -11,10 +11,18 @@ import {
   type EmergencyAlertSummary,
 } from '@repo/supabase';
 import type { Database } from '@repo/supabase';
-import { EMERGENCY_TYPES, formatTimeSince, type EmergencyStatus, colors, emergencyStatusColor } from '@repo/shared';
+import {
+  EMERGENCY_TYPES,
+  formatTimeSince,
+  type EmergencyStatus,
+  colors,
+  emergencyStatusColor,
+  urgencyColor,
+} from '@repo/shared';
 import { useAuth } from '../_lib/auth';
 import { supabase } from '../_lib/supabaseClient';
 import { DashboardShell } from '../_lib/DashboardShell';
+import { AsyncSection, EmptyState } from '../_lib/ui';
 import { ConfirmModal } from '../_lib/ConfirmModal';
 
 const THEME = colors.light;
@@ -67,6 +75,7 @@ export default function DaruratOperatorPage() {
 
   const [alerts, setAlerts] = useState<EmergencyAlertSummary[]>([]);
   const [loading, setLoading] = useState(true);
+  const [realtimeConnected, setRealtimeConnected] = useState(true);
   const [error, setError] = useState<string | null>(null);
   // Re-render setiap 30 detik supaya label "waktu sejak" (formatTimeSince)
   // tetap segar tanpa perlu refetch data.
@@ -128,12 +137,29 @@ export default function DaruratOperatorPage() {
           });
         },
       )
-      .subscribe();
+      .subscribe((status) => {
+        // Subtitle halaman menjanjikan "baris terbaru muncul otomatis tanpa
+        // reload". Kalau websocket putus (laptop tidur, wifi tersendat),
+        // operator menatap antrean basi yang tetap mengaku hidup — dan
+        // halaman ini tidak punya tombol muat ulang sama sekali.
+        setRealtimeConnected(status === 'SUBSCRIBED');
+      });
 
     return () => {
       supabase.removeChannel(channel);
     };
   }, [canAccess]);
+
+  // Muat ulang saat tab kembali terlihat: satu-satunya cara memulihkan
+  // antrean setelah koneksi realtime sempat putus.
+  useEffect(() => {
+    if (!canAccess) return;
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') void load();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, [canAccess, load]);
 
   if (authLoading || !isAuthenticated || !canAccess) {
     return <div style={{ padding: 24 }}>Memuat…</div>;
@@ -146,25 +172,69 @@ export default function DaruratOperatorPage() {
       title="Antrean Darurat SOS"
       subtitle={`Masuk sebagai ${user?.fullName ?? user?.role}. Baris terbaru muncul otomatis tanpa reload.`}
     >
-      {error ? <p style={{ color: THEME.danger }}>{error}</p> : null}
-      {loading ? (
-        <p>Memuat data…</p>
-      ) : sorted.length === 0 ? (
-        <p>Tidak ada SOS aktif saat ini.</p>
-      ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          {sorted.map((alert) => (
-            <AlertCard key={alert.id} alert={alert} operatorId={user!.id} />
-          ))}
+      {!realtimeConnected && !loading ? (
+        <div
+          role="status"
+          style={{
+            background: urgencyColor('P1', 'light').bg,
+            color: urgencyColor('P1', 'light').fg,
+            border: `1px solid ${urgencyColor('P1', 'light').fg}`,
+            borderRadius: 10,
+            padding: 12,
+            marginBottom: 16,
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            gap: 12,
+            flexWrap: 'wrap',
+            fontSize: 14,
+          }}
+        >
+          <span>Koneksi realtime terputus — antrean mungkin tidak mutakhir.</span>
+          <button type="button" style={smallButtonStyle} onClick={() => void load()}>
+            Muat Ulang
+          </button>
         </div>
-      )}
+      ) : null}
+
+      <AsyncSection
+        loading={loading}
+        error={error}
+        items={loading ? null : sorted}
+        onRetry={load}
+        loadingMessage="Memuat antrean SOS…"
+        empty={
+          <EmptyState
+            icon="🛟"
+            title="Tidak ada SOS aktif"
+            message="Laporan darurat baru akan muncul di sini secara otomatis begitu warga menekan tombol SOS."
+          />
+        }
+      >
+        {(items) => (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            {items.map((alert) => (
+              <AlertCard key={alert.id} alert={alert} operatorId={user!.id} onChanged={load} />
+            ))}
+          </div>
+        )}
+      </AsyncSection>
     </DashboardShell>
   );
 }
 
-function AlertCard({ alert, operatorId }: { alert: EmergencyAlertSummary; operatorId: string }) {
+function AlertCard({
+  alert,
+  operatorId,
+  onChanged,
+}: {
+  alert: EmergencyAlertSummary;
+  operatorId: string;
+  onChanged: () => void;
+}) {
   const [busy, setBusy] = useState(false);
   const [confirmingFalseAlarm, setConfirmingFalseAlarm] = useState(false);
+  const [confirmingResolve, setConfirmingResolve] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [loadingAudio, setLoadingAudio] = useState(false);
@@ -197,6 +267,12 @@ function AlertCard({ alert, operatorId }: { alert: EmergencyAlertSummary; operat
       setActionError('Gagal menyimpan perubahan. Coba lagi.');
     } finally {
       setBusy(false);
+      // Kartu ini DULU hanya mengandalkan event realtime untuk memperbarui
+      // dirinya. Kalau realtime tidak tersedia, operator mengeklik
+      // "Tanggapi", tombolnya berhenti berputar, tapi lencana tetap
+      // "Menunggu Operator" — jadi ia mengeklik lagi dan menimpa
+      // responded_by/responded_at operator lain.
+      onChanged();
     }
   };
 
@@ -258,11 +334,17 @@ function AlertCard({ alert, operatorId }: { alert: EmergencyAlertSummary; operat
           Tanggapi
         </button>
         <button
+          type="button"
           style={smallButtonStyle}
-          disabled={busy}
-          onClick={() => runAction(() => resolveEmergencyAlert(supabase, alert.id))}
+          // Menutup SOS sama tidak dapat dibatalkannya dengan menandainya
+          // alarm palsu (yang sudah punya konfirmasi), dan tombolnya hanya
+          // 8px dari "Tanggapi". Menyelesaikan juga menuntut SOS itu sudah
+          // ditanggapi lebih dulu.
+          disabled={busy || alert.status !== 'responding'}
+          title={alert.status !== 'responding' ? 'Tanggapi SOS ini lebih dulu' : undefined}
+          onClick={() => setConfirmingResolve(true)}
         >
-          Selesai
+          {busy ? 'Menyimpan…' : 'Selesai'}
         </button>
         <button
           style={{ ...smallButtonStyle, background: THEME.textMuted }}
@@ -272,6 +354,17 @@ function AlertCard({ alert, operatorId }: { alert: EmergencyAlertSummary; operat
           Tandai Palsu
         </button>
       </div>
+      {confirmingResolve ? (
+        <ConfirmModal
+          title="Tutup SOS"
+          message="SOS ini akan ditandai selesai dan hilang dari antrean. Tindakan ini tidak dapat dibatalkan."
+          onCancel={() => setConfirmingResolve(false)}
+          onConfirm={() => {
+            setConfirmingResolve(false);
+            runAction(() => resolveEmergencyAlert(supabase, alert.id));
+          }}
+        />
+      ) : null}
       {confirmingFalseAlarm ? (
         <ConfirmModal
           title="Tandai Alarm Palsu"

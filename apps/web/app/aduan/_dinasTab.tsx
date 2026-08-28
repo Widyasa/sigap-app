@@ -11,6 +11,7 @@ import {
 import { DINAS_LIST, colors, spacing, statusColor, type ComplaintStatus } from '@repo/shared';
 import type { StaffProfile } from '../_lib/auth';
 import { supabase } from '../_lib/supabaseClient';
+import { AsyncSection, EmptyState } from '../_lib/ui';
 
 const THEME = colors.light;
 
@@ -42,8 +43,14 @@ export function DinasTab({ user }: { user: StaffProfile }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Peran dinas tanpa penugasan tidak boleh memanggil query sama sekali:
+  // `listComplaintsForDinas(supabase, user.dinasId!)` meneruskan null lewat
+  // non-null assertion, sedangkan penjagaannya baru berjalan setelah efek.
+  const unassigned = user.role !== 'admin' && !user.dinasId;
+
   const load = useCallback(async () => {
     setError(null);
+    setLoading(true);
     try {
       const list =
         user.role === 'admin' && !user.dinasId
@@ -59,10 +66,11 @@ export function DinasTab({ user }: { user: StaffProfile }) {
   }, [user.role, user.dinasId]);
 
   useEffect(() => {
+    if (unassigned) return;
     load();
-  }, [load]);
+  }, [load, unassigned]);
 
-  if (user.role !== 'admin' && !user.dinasId) {
+  if (unassigned) {
     return (
       <p style={{ color: THEME.danger }}>
         Akun Anda belum ditugaskan ke dinas mana pun. Hubungi admin untuk penugasan dinas.
@@ -77,18 +85,28 @@ export function DinasTab({ user }: { user: StaffProfile }) {
       <p style={{ fontSize: 13, color: THEME.textSecondary, margin: '0 0 12px' }}>
         {isAdminWithoutDinas ? 'Menampilkan seluruh aduan aktif lintas dinas (mode admin).' : `Menampilkan aduan dinas ${dinasName}.`}
       </p>
-      {error ? <p style={{ color: THEME.danger }}>{error}</p> : null}
-      {loading ? (
-        <p style={{ color: THEME.textSecondary }}>Memuat data…</p>
-      ) : complaints.length === 0 ? (
-        <p style={{ color: THEME.textSecondary }}>Tidak ada aduan aktif saat ini.</p>
-      ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: spacing(4) }}>
-          {complaints.map((c) => (
-            <ComplaintCard key={c.id} complaint={c} actorId={user.id} onChanged={load} />
-          ))}
-        </div>
-      )}
+      <AsyncSection
+        loading={loading}
+        error={error}
+        items={loading ? null : complaints}
+        onRetry={load}
+        loadingMessage="Memuat antrean dinas…"
+        empty={
+          <EmptyState
+            icon="🛠️"
+            title="Tidak ada aduan aktif"
+            message="Aduan yang sudah lolos verifikasi dan ditujukan ke dinas ini akan muncul di sini."
+          />
+        }
+      >
+        {(items) => (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: spacing(4) }}>
+            {items.map((c) => (
+              <ComplaintCard key={c.id} complaint={c} actorId={user.id} onChanged={load} />
+            ))}
+          </div>
+        )}
+      </AsyncSection>
     </div>
   );
 }

@@ -34,10 +34,29 @@ function isValidEmail(email: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
 
+/**
+ * IP pemanggil untuk `check_otp_rate_limit`.
+ *
+ * Entri PALING KIRI di `X-Forwarded-For` berasal dari klien dan bisa diisi
+ * apa saja; memakainya berarti penyerang cukup mengganti header setiap
+ * permintaan agar batas 10/jam per-IP tidak pernah tercapai — dan lewat
+ * situ mengirimi alamat email korban mana pun sebanyak-banyaknya lewat akun
+ * Resend kita. Entri PALING KANAN adalah yang ditambahkan proxy terdekat
+ * dan tidak bisa dipalsukan klien.
+ */
 function getRequesterIp(req: Request): string {
   const forwarded = req.headers.get("x-forwarded-for");
-  if (forwarded) return forwarded.split(",")[0].trim();
+  if (forwarded) {
+    const parts = forwarded.split(",").map((p) => p.trim()).filter(Boolean);
+    const last = parts[parts.length - 1];
+    if (last && isValidIp(last)) return last;
+  }
   return "127.0.0.1";
+}
+
+/** `requester_ip` bertipe INET; nilai yang tidak valid membuat INSERT 500. */
+function isValidIp(value: string): boolean {
+  return /^(\d{1,3}\.){3}\d{1,3}$/.test(value) || /^[0-9a-fA-F:]+$/.test(value);
 }
 
 async function sendOtpEmail(email: string, code: string): Promise<boolean> {
@@ -131,6 +150,26 @@ Deno.serve(async (req) => {
   const code = generateCode();
   const codeHash = await hashCode(code, pepper);
   const expiresAt = new Date(Date.now() + OTP_TTL_MS).toISOString();
+
+  // Indeks parsial `auth_otp_one_active_idx` (20260810000002_identity.sql)
+  // memaksa maksimal SATU baris per email selama `consumed_at IS NULL`, dan
+  // kedaluwarsa TIDAK mengisi `consumed_at`. Tanpa pembatalan eksplisit di
+  // bawah, permintaan kode kedua untuk alamat yang sama melanggar indeks itu
+  // (23505), tertelan menjadi `server_error`, dan alamat tersebut TIDAK BISA
+  // login lagi sampai barisnya dipanen `purge_expired_auth_rows` — yang baru
+  // menghapus setelah lewat sehari dan hanya dengan peluang 1:20 per
+  // permintaan. Artinya: "kirim ulang kode" rusak untuk semua orang, dan
+  // siapa pun yang tahu email petugas bisa mengunci akun itu dari dashboard.
+  const { error: invalidateError } = await supabase
+    .from("auth_otp_codes")
+    .update({ consumed_at: new Date().toISOString() })
+    .eq("email", email)
+    .is("consumed_at", null);
+
+  if (invalidateError) {
+    console.error("invalidate previous otp error", invalidateError);
+    return jsonResponse({ ok: false, reason: "server_error" }, 500);
+  }
 
   const { data: insertData, error: insertError } = await supabase
     .from("auth_otp_codes")
