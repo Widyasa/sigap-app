@@ -35,6 +35,7 @@ export default function LoginPage() {
   }, [isAuthenticated, user, router]);
 
   const handleRequestOtp = async () => {
+    if (loading) return;
     setError(null);
     const parsed = emailSchema.safeParse(email);
     if (!parsed.success) {
@@ -55,6 +56,7 @@ export default function LoginPage() {
   };
 
   const handleVerify = async () => {
+    if (loading) return;
     setError(null);
     const parsed = otpCodeSchema.safeParse(code);
     if (!parsed.success) {
@@ -72,60 +74,108 @@ export default function LoginPage() {
   };
 
   return (
-    <div style={{ width: '100%', maxWidth: 380, padding: 24, fontFamily: 'inherit' }}>
-      <h1 style={{ fontSize: 22, marginBottom: 8 }}>Masuk Petugas SIGAP</h1>
-      <p style={{ color: '#475569', marginBottom: 24, fontSize: 14 }}>
-        Alat internal untuk mengelola periode voting dan tinjauan aspirasi. Bukan untuk warga.
-      </p>
+    <div style={pageStyle}>
+      <div style={cardStyle}>
+        <h1 style={{ fontSize: 22, marginBottom: 8 }}>Masuk Petugas SIGAP</h1>
+        <p style={{ color: '#475569', marginBottom: 24, fontSize: 14 }}>
+          Alat internal untuk mengelola periode voting dan tinjauan aspirasi. Bukan untuk warga.
+        </p>
 
-      {step === 'email' ? (
-        <>
-          <label style={labelStyle}>Email petugas</label>
-          <input
-            style={inputStyle}
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="admin@sigap.test"
-          />
-          {error ? <p style={errorStyle}>{error}</p> : null}
-          <button style={buttonStyle} disabled={loading} onClick={handleRequestOtp}>
-            {loading ? 'Mengirim…' : 'Kirim Kode OTP'}
-          </button>
-        </>
-      ) : (
-        <>
-          <p style={{ fontSize: 14, marginBottom: 12 }}>
-            Kode 6 digit telah dikirim ke {email}. Kode berlaku 10 menit.
-          </p>
-          <label style={labelStyle}>Kode OTP</label>
-          <input
-            style={inputStyle}
-            type="text"
-            inputMode="numeric"
-            maxLength={6}
-            value={code}
-            onChange={(e) => setCode(e.target.value)}
-            placeholder="000000"
-          />
-          {error ? <p style={errorStyle}>{error}</p> : null}
-          <button style={buttonStyle} disabled={loading} onClick={handleVerify}>
-            {loading ? 'Memverifikasi…' : 'Verifikasi'}
-          </button>
-          <button
-            style={{ ...buttonStyle, background: 'transparent', color: '#0F4C5C', border: '1px solid #0F4C5C' }}
-            onClick={() => {
-              setStep('email');
-              setError(null);
+        {/* Dibungkus <form> supaya menekan Enter di kolom input mengirim
+          formulir — tanpa ini tombol hanya bisa diklik dengan tetikus. */}
+        {step === 'email' ? (
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              handleRequestOtp();
             }}
           >
-            Ganti Email
-          </button>
-        </>
-      )}
+            <label htmlFor="login-email" style={labelStyle}>
+              Email petugas
+            </label>
+            <input
+              id="login-email"
+              name="email"
+              style={inputStyle}
+              type="email"
+              autoComplete="email"
+              autoFocus
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="admin@sigap.test"
+            />
+            {error ? <p style={errorStyle}>{error}</p> : null}
+            <button type="submit" style={buttonStyle} disabled={loading}>
+              {loading ? 'Mengirim…' : 'Kirim Kode OTP'}
+            </button>
+          </form>
+        ) : (
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              handleVerify();
+            }}
+          >
+            <p style={{ fontSize: 14, marginBottom: 12 }}>
+              Kode 6 digit telah dikirim ke {email}. Kode berlaku 10 menit.
+            </p>
+            <label htmlFor="login-otp" style={labelStyle}>
+              Kode OTP
+            </label>
+            <input
+              id="login-otp"
+              name="one-time-code"
+              style={inputStyle}
+              type="text"
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              autoFocus
+              maxLength={6}
+              value={code}
+              onChange={(e) => setCode(e.target.value)}
+              placeholder="000000"
+            />
+            {error ? <p style={errorStyle}>{error}</p> : null}
+            <button type="submit" style={buttonStyle} disabled={loading}>
+              {loading ? 'Memverifikasi…' : 'Verifikasi'}
+            </button>
+            <button
+              type="button"
+              style={{
+                ...buttonStyle,
+                background: 'transparent',
+                color: '#0F4C5C',
+                border: '1px solid #0F4C5C',
+              }}
+              disabled={loading}
+              onClick={() => {
+                setStep('email');
+                setCode('');
+                setError(null);
+              }}
+            >
+              Ganti Email
+            </button>
+          </form>
+        )}
+      </div>
     </div>
   );
 }
+
+const pageStyle: CSSProperties = {
+  minHeight: '100vh',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  padding: 24,
+  boxSizing: 'border-box',
+};
+
+const cardStyle: CSSProperties = {
+  width: '100%',
+  maxWidth: 380,
+};
 
 const labelStyle: CSSProperties = {
   display: 'block',

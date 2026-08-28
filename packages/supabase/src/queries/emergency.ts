@@ -235,6 +235,26 @@ export async function cancelEmergencyAlert(
   if (error) throw error;
 }
 
+/**
+ * Melampirkan rekaman audio ke SOS yang SUDAH terkirim.
+ *
+ * Audio bersifat best-effort dan direkam ~10 detik, jadi ia tidak boleh
+ * menahan INSERT alert (lihat migrasi 20260816000001). Layar SOS mengirim
+ * alert lebih dulu lalu memanggil fungsi ini begitu rekaman siap; kegagalan
+ * di sini tidak berpengaruh pada SOS yang sudah masuk ke antrean operator.
+ */
+export async function attachEmergencyAudio(
+  supabase: SupabaseClient<Database>,
+  alertId: string,
+  audioUrl: string,
+): Promise<void> {
+  const { error } = await supabase.rpc('attach_own_emergency_audio', {
+    p_alert_id: alertId,
+    p_audio_url: audioUrl,
+  });
+  if (error) throw error;
+}
+
 /** Warga mengirim lokasi terbaru selama SOS-nya masih active/responding. */
 export async function updateOwnEmergencyLocation(
   supabase: SupabaseClient<Database>,

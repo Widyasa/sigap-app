@@ -111,6 +111,7 @@ export {
   resolveEmergencyAlert,
   markFalseAlarm,
   cancelEmergencyAlert,
+  attachEmergencyAudio,
   updateOwnEmergencyLocation,
   findActiveOperatorContact,
 } from './queries/emergency';

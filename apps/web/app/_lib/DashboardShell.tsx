@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { colors, spacing, typography } from '@repo/shared';
 import { useAuth } from './auth';
-import { NAV_ITEMS } from './DashboardNav';
+import { NAV_ITEMS } from './navItems';
 
 const THEME = colors.light;
 
@@ -28,12 +28,11 @@ interface DashboardShellProps {
 }
 
 /**
- * Shell dashboard staf: sidebar teal gelap + topbar (PRD 8.3) — pengganti
- * `DashboardNav`'s thin top-nav-bar untuk halaman Ringkasan (`/`) dan Warga
- * (`/warga`). Halaman lain (`/verifikasi`, `/dinas`, dst.) TIDAK disentuh di
- * fase ini; masih memakai `DashboardNav` sampai Fase 2 memigrasikannya.
- * `NAV_ITEMS` di `DashboardNav.tsx` tetap satu-satunya sumber kebenaran
- * daftar nav, hanya cara render-nya yang berbeda di sini.
+ * Shell dashboard staf: sidebar teal gelap + topbar (PRD 8.3). Seluruh
+ * halaman staf memakai shell ini, jadi tidak ada lagi top-nav-bar terpisah
+ * di `app/layout.tsx` (dulu `DashboardNav`, yang membuat menu tampil dua
+ * kali berdampingan dengan sidebar). `NAV_ITEMS` di `navItems.ts` tetap
+ * satu-satunya sumber kebenaran daftar nav.
  */
 export function DashboardShell({ title, subtitle, actions, children }: DashboardShellProps) {
   const { user, signOut } = useAuth();

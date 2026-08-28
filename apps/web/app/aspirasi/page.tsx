@@ -113,6 +113,7 @@ function VotingPeriodsSection({
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [togglingId, setTogglingId] = useState<string | null>(null);
+  const [toggleError, setToggleError] = useState<string | null>(null);
 
   const handleCreate = async () => {
     setFormError(null);
@@ -142,12 +143,20 @@ function VotingPeriodsSection({
   };
 
   const handleToggle = async (period: VotingPeriod) => {
+    setToggleError(null);
     setTogglingId(period.id);
     try {
       await setVotingPeriodActive(supabase, period.id, !period.isActive);
       onChanged();
     } catch (e) {
+      // Sebelumnya galat ini hanya masuk console: tombol berhenti berputar
+      // dan status periode tidak berubah, tanpa penjelasan apa pun ke admin.
       console.error('setVotingPeriodActive error', e);
+      setToggleError(
+        period.isActive
+          ? 'Gagal menutup periode voting. Coba lagi.'
+          : 'Gagal mengaktifkan periode voting. Coba lagi.',
+      );
     } finally {
       setTogglingId(null);
     }
@@ -197,6 +206,7 @@ function VotingPeriodsSection({
           )}
         </tbody>
       </table>
+      {toggleError ? <p style={{ color: THEME.danger, fontSize: 13 }}>{toggleError}</p> : null}
 
       <h3 style={h3Style}>Buka Periode Baru</h3>
       <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'flex-end' }}>

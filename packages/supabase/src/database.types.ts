@@ -888,6 +888,10 @@ export type Database = {
       }
     }
     Functions: {
+      attach_own_emergency_audio: {
+        Args: { p_alert_id: string; p_audio_url: string }
+        Returns: undefined
+      }
       cancel_own_emergency_alert: {
         Args: { p_alert_id: string }
         Returns: undefined

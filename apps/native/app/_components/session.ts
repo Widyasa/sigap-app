@@ -52,6 +52,12 @@ export async function getAccessToken(): Promise<string | null> {
   if (tokens.accessTokenExp - now < 300) {
     const refreshed = await refreshAccessToken(tokens.refreshToken);
     if (refreshed) return refreshed.accessToken;
+    // Pemanggil paralel lain mungkin sudah menyegarkan sesi ini sementara
+    // kita menunggu; baca ulang sebelum menyimpulkan sesi benar-benar mati.
+    const latest = await loadTokens();
+    if (latest && latest.accessTokenExp - Math.floor(Date.now() / 1000) >= 300) {
+      return latest.accessToken;
+    }
     await clearTokens();
     return null;
   }
@@ -68,7 +74,30 @@ interface RefreshResult {
   accessTokenExp: number;
 }
 
-export async function refreshAccessToken(
+/**
+ * Satu permintaan refresh yang sedang berjalan, dibagi ke semua pemanggil.
+ *
+ * `auth-refresh` MEROTASI refresh token: token lama langsung di-`revoke`
+ * begitu yang baru diterbitkan. `getAccessToken` dipanggil supabase-js pada
+ * SETIAP permintaan, jadi satu layar yang memuat beberapa query sekaligus
+ * akan mengirim refresh token lama yang sama beberapa kali — hanya yang
+ * pertama berhasil, sisanya balik `session_expired`, memanggil
+ * `clearTokens()`, dan warga terlempar keluar tanpa sebab yang jelas.
+ */
+let inFlightRefresh: Promise<RefreshResult | null> | null = null;
+
+export function refreshAccessToken(
+  refreshToken: string,
+): Promise<RefreshResult | null> {
+  if (!inFlightRefresh) {
+    inFlightRefresh = doRefreshAccessToken(refreshToken).finally(() => {
+      inFlightRefresh = null;
+    });
+  }
+  return inFlightRefresh;
+}
+
+async function doRefreshAccessToken(
   refreshToken: string,
 ): Promise<RefreshResult | null> {
   try {

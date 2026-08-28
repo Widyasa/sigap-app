@@ -194,7 +194,9 @@ function RingkasanContent({ user }: { user: StaffProfile }) {
       <SosBanner alerts={alerts} />
 
       {!data ? (
-        <p style={{ color: THEME.textSecondary }}>Memuat data Ringkasan…</p>
+        // Saat `load()` gagal, `data` tetap null — tanpa cek `error` di sini
+        // pesan "Memuat…" akan tampil selamanya di bawah kotak galat.
+        error ? null : <p style={{ color: THEME.textSecondary }}>Memuat data Ringkasan…</p>
       ) : (
         <>
           <KpiRow stats={data.stats} />

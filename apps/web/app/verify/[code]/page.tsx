@@ -2,12 +2,31 @@
 
 import { use, useEffect, useState, type CSSProperties } from 'react';
 import { verifyServiceDocument, type VerifyServiceDocumentResult } from '@repo/supabase';
-import { SERVICE_CATALOG } from '@repo/shared';
+import { SERVICE_CATALOG, SERVICE_STATUSES, type ServiceStatus } from '@repo/shared';
 import { supabase } from '../../_lib/supabaseClient';
 
 function serviceTypeName(serviceType: string | null): string {
   if (!serviceType) return '-';
   return SERVICE_CATALOG.find((s) => s.id === serviceType)?.name ?? serviceType;
+}
+
+/** Halaman ini dibuka warga/petugas loket lewat pemindaian QR, jadi status
+ * harus berbahasa Indonesia — sebelumnya nilai enum mentah ("ready",
+ * "collected") tampil apa adanya. */
+const STATUS_LABELS: Record<ServiceStatus, string> = {
+  submitted: 'Diajukan',
+  verifying: 'Diverifikasi',
+  signing: 'Diproses Tanda Tangan',
+  ready: 'Siap Diunduh',
+  rejected: 'Ditolak',
+  collected: 'Sudah Diambil',
+};
+
+function statusLabel(status: string | null): string {
+  if (!status) return '-';
+  return SERVICE_STATUSES.includes(status as ServiceStatus)
+    ? STATUS_LABELS[status as ServiceStatus]
+    : status;
 }
 
 export default function VerifyDocumentPage({ params }: { params: Promise<{ code: string }> }) {
@@ -52,7 +71,7 @@ export default function VerifyDocumentPage({ params }: { params: Promise<{ code:
               <dt style={dtStyle}>Jenis Layanan</dt>
               <dd style={ddStyle}>{serviceTypeName(result.serviceType)}</dd>
               <dt style={dtStyle}>Status</dt>
-              <dd style={ddStyle}>{result.status ?? '-'}</dd>
+              <dd style={ddStyle}>{statusLabel(result.status)}</dd>
               <dt style={dtStyle}>Diterbitkan</dt>
               <dd style={ddStyle}>
                 {result.issuedAt ? new Date(result.issuedAt).toLocaleString('id-ID') : '-'}

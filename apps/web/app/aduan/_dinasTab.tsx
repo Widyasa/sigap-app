@@ -56,7 +56,6 @@ export function DinasTab({ user }: { user: StaffProfile }) {
     } finally {
       setLoading(false);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user.role, user.dinasId]);
 
   useEffect(() => {

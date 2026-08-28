@@ -17,6 +17,7 @@ import {
   type EmergencyStatus,
 } from '@repo/shared';
 import {
+  attachEmergencyAudio,
   createEmergencyAlert,
   uploadEmergencyAudio,
   getMyActiveEmergencyAlert,
@@ -58,7 +59,7 @@ export default function SosScreen() {
   const [address, setAddress] = useState<string | null>(null);
   const [locationError, setLocationError] = useState<string | null>(null);
   const [sendError, setSendError] = useState<string | null>(null);
-  const [statusNote, setStatusNote] = useState<string | null>(null);
+  const [recordingAudio, setRecordingAudio] = useState(false);
   const [alert, setAlert] = useState<EmergencyAlertSummary | null>(null);
 
   const holdProgress = useRef(new Animated.Value(0)).current;
@@ -174,7 +175,8 @@ export default function SosScreen() {
   // Merekam ~10 detik audio konteks (kriteria "10s audio"). Bersifat
   // best-effort SEPENUHNYA — izin ditolak, mikrofon tak tersedia, atau
   // kegagalan apa pun di sini TIDAK boleh memblokir pengiriman SOS, hanya
-  // membuat audio_url tetap null (lihat catatan issue #12).
+  // membuat audio_url tetap null (lihat catatan issue #12). Karena itu
+  // fungsi ini dipanggil SETELAH alert masuk, bukan sebelumnya.
   const recordAudioBestEffort = useCallback(async (): Promise<string | null> => {
     try {
       const perm = await requestRecordingPermissionsAsync();
@@ -214,45 +216,63 @@ export default function SosScreen() {
 
       setSendError(null);
       setStep('sending');
-      setStatusNote('Merekam konteks audio (10 detik)…');
 
-      const audioUrl = await recordAudioBestEffort();
-      setStatusNote(null);
-
+      let alertId: string;
       try {
         // Lokasi + jenis darurat SUDAH cukup untuk mengirim SOS — insert
         // langsung lewat PostgREST, TIDAK ada panggilan fungsi edge/AI apa
         // pun (kriteria "SOS sends successfully without calling any AI
         // function"), identik pola dengan createComplaint/createServiceRequest.
-        const { id } = await createEmergencyAlert(supabase, user.id, {
+        //
+        // Perekaman audio SENGAJA tidak ditunggu di sini: menunggunya menunda
+        // baris SOS masuk ke antrean operator selama ~10 detik penuh (lebih
+        // lama lagi kalau dialog izin mikrofon muncul), padahal audio hanya
+        // konteks tambahan. Audio menyusul lewat `attachEmergencyAudio`.
+        const created = await createEmergencyAlert(supabase, user.id, {
           emergencyType,
           locationLat: coords.lat,
           locationLng: coords.lng,
           locationAddress: address ?? undefined,
-          audioUrl: audioUrl ?? undefined,
         });
-
-        setAlert({
-          id,
-          userId: user.id,
-          emergencyType,
-          locationLat: coords.lat,
-          locationLng: coords.lng,
-          locationAddress: address ?? null,
-          audioUrl: audioUrl ?? null,
-          note: null,
-          status: 'active',
-          respondedBy: null,
-          respondedAt: null,
-          resolvedAt: null,
-          createdAt: new Date().toISOString(),
-        });
-        setStep('status');
+        alertId = created.id;
       } catch (e) {
         console.error('createEmergencyAlert error', e);
         setSendError('Gagal mengirim SOS. Periksa koneksi internet dan coba lagi.');
         setStep('pickType');
+        return;
       }
+
+      setAlert({
+        id: alertId,
+        userId: user.id,
+        emergencyType,
+        locationLat: coords.lat,
+        locationLng: coords.lng,
+        locationAddress: address ?? null,
+        audioUrl: null,
+        note: null,
+        status: 'active',
+        respondedBy: null,
+        respondedAt: null,
+        resolvedAt: null,
+        createdAt: new Date().toISOString(),
+      });
+      setStep('status');
+
+      // Best-effort, di latar: SOS sudah terkirim apa pun hasilnya.
+      void (async () => {
+        setRecordingAudio(true);
+        try {
+          const audioUrl = await recordAudioBestEffort();
+          if (!audioUrl) return;
+          await attachEmergencyAudio(supabase, alertId, audioUrl);
+          setAlert((prev) => (prev && prev.id === alertId ? { ...prev, audioUrl } : prev));
+        } catch (e) {
+          console.error('attachEmergencyAudio error (SOS tetap terkirim)', e);
+        } finally {
+          setRecordingAudio(false);
+        }
+      })();
     },
     [user, coords, address, locationError, recordAudioBestEffort],
   );
@@ -279,6 +299,11 @@ export default function SosScreen() {
           <ThemedText variant="body" color="secondary" style={{ marginBottom: spacing(4) }}>
             Lokasi: {alert.locationAddress ?? `${alert.locationLat.toFixed(5)}, ${alert.locationLng.toFixed(5)}`}
           </ThemedText>
+          {recordingAudio ? (
+            <ThemedText variant="caption" color="secondary" style={{ marginBottom: spacing(4) }}>
+              Merekam konteks audio 10 detik dan mengirimkannya menyusul — SOS Anda sudah masuk ke operator.
+            </ThemedText>
+          ) : null}
           <Button text="Kembali ke Beranda" variant="secondary" onPress={() => router.replace('/home')} />
         </ScrollView>
       </SafeAreaView>
@@ -292,11 +317,6 @@ export default function SosScreen() {
           <ThemedText variant="h1" align="center" style={{ marginBottom: spacing(2) }}>
             Mengirim SOS…
           </ThemedText>
-          {statusNote ? (
-            <ThemedText variant="body" color="secondary" align="center">
-              {statusNote}
-            </ThemedText>
-          ) : null}
         </View>
       </SafeAreaView>
     );
