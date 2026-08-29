@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { slaDueAtForDinas } from '@repo/shared';
 import type { CreateComplaintInput, ComplaintStatus, Urgency } from '@repo/shared';
 import type { Database } from '../database.types';
 
@@ -316,6 +317,8 @@ export interface VerifierComplaint {
   aiSummary: string | null;
   upvoteCount: number;
   createdAt: string;
+  /** Tenggat SLA — supaya koreksi klasifikasi manual tidak menimpanya. */
+  slaDueAt: string | null;
   /** Pelapor asli — verifier/dinas perlu tahu siapa yang mengajukan. */
   userId: string;
 }
@@ -339,13 +342,14 @@ interface StaffComplaintRow {
   ai_summary: string | null;
   upvote_count: number;
   created_at: string;
+  sla_due_at: string | null;
   user_id: string;
   dinas: { name: string } | null;
 }
 
 const STAFF_COMPLAINT_COLUMNS =
   'id, title, description, category, assigned_dinas, urgency, status, kelurahan, kecamatan, ' +
-  'image_urls, ai_summary, upvote_count, created_at, user_id, dinas:assigned_dinas ( name )';
+  'image_urls, ai_summary, upvote_count, created_at, sla_due_at, user_id, dinas:assigned_dinas ( name )';
 
 function rowToStaffComplaint(row: StaffComplaintRow): VerifierComplaint {
   return {
@@ -363,6 +367,7 @@ function rowToStaffComplaint(row: StaffComplaintRow): VerifierComplaint {
     aiSummary: row.ai_summary,
     upvoteCount: row.upvote_count,
     createdAt: row.created_at,
+    slaDueAt: row.sla_due_at,
     userId: row.user_id,
   };
 }
@@ -457,6 +462,10 @@ export interface UpdateComplaintClassificationInput {
   assignedDinas?: string | null;
   urgency?: Urgency;
   rejectionReason?: string | null;
+  /** `sla_due_at` baris saat ini — supaya tenggat yang sudah ada tidak ditimpa. */
+  currentSlaDueAt?: string | null;
+  /** Waktu acuan penghitungan tenggat; disuntik di uji. */
+  now?: Date;
 }
 
 /**
@@ -484,50 +493,56 @@ export async function updateComplaintClassification(
   if (input.urgency !== undefined) update.urgency = input.urgency;
   if (input.rejectionReason !== undefined) update.rejection_reason = input.rejectionReason;
 
+  // Tenggat SLA. `sla_due_at` sebelumnya HANYA pernah ditulis oleh Edge
+  // Function `classify-report`. Justru ketika AI tidak tersedia —
+  // satu-satunya alasan verifikator mengklasifikasi manual — kolom itu
+  // tetap NULL selamanya, sehingga aduannya tak pernah muncul di hitungan
+  // "mendekati batas SLA" dan hanya menambah penyebut grafik kepatuhan.
+  // Tenggat yang sudah ada tidak pernah ditimpa.
+  if (!input.currentSlaDueAt && input.assignedDinas && input.urgency) {
+    const slaDueAt = slaDueAtForDinas(input.assignedDinas, input.urgency, input.now ?? new Date());
+    if (slaDueAt) update.sla_due_at = slaDueAt;
+  }
+
   const { error } = await supabase.from('complaints').update(update).eq('id', complaintId);
   if (error) throw error;
 }
 
 export interface UpdateComplaintStatusInput {
   status: 'in_progress' | 'resolved';
-  actorId: string;
+  /** Tidak lagi dipakai — RPC memakai `auth.uid()`. Dipertahankan agar
+   *  pemanggil lama tetap kompatibel. */
+  actorId?: string;
   note?: string;
   photoUrls?: string[];
 }
 
-const DINAS_STATUS_EVENT: Record<UpdateComplaintStatusInput['status'], string> = {
-  in_progress: 'progress',
-  resolved: 'resolved',
-};
-
 /**
  * Dinas staff/head menindaklanjuti aduan (verified -> in_progress ->
- * resolved). RLS `complaints_dinas_update` (atau `complaints_verifier_update`
- * untuk admin) menegakkan siapa yang boleh menulis baris `complaints`.
- * Trigger `complaints_status_log` sudah mencatat perubahan status itu
- * sendiri ke `complaint_timeline` secara otomatis (tanpa catatan/foto);
- * insert kedua di sini menambahkan entri terpisah berisi catatan progres
- * dan foto lapangan dari petugas, yang tidak bisa ditangkap trigger generik.
+ * resolved) lewat RPC `dinas_update_complaint_status`
+ * (20260816000004_correctness_fixes.sql).
+ *
+ * Dulu ini dua panggilan terpisah: UPDATE `complaints` lalu INSERT
+ * `complaint_timeline`. Kalau yang kedua gagal, aduan sudah terlanjur
+ * ditutup — lengkap dengan `resolved_at` dan poin +50 untuk warga —
+ * sementara catatan dan foto lapangan petugas hilang, dan UI menampilkan
+ * "Gagal menyimpan status" sehingga petugas mengira tidak ada yang
+ * tersimpan lalu mengulanginya. RPC-nya menjalankan keduanya dalam satu
+ * transaksi dan sekaligus menegakkan urutan status, yang tidak dilakukan
+ * RLS `complaints_dinas_update` (ia hanya memeriksa siapa yang menulis).
  */
 export async function updateComplaintStatus(
   supabase: SupabaseClient<Database>,
   complaintId: string,
   input: UpdateComplaintStatusInput,
 ): Promise<void> {
-  const { error: updateError } = await supabase
-    .from('complaints')
-    .update({ status: input.status })
-    .eq('id', complaintId);
-  if (updateError) throw updateError;
-
-  const { error: timelineError } = await supabase.from('complaint_timeline').insert({
-    complaint_id: complaintId,
-    actor_id: input.actorId,
-    event_type: DINAS_STATUS_EVENT[input.status],
-    note: input.note ?? null,
-    photo_urls: input.photoUrls ?? [],
+  const { error } = await supabase.rpc('dinas_update_complaint_status', {
+    p_complaint_id: complaintId,
+    p_status: input.status,
+    p_note: input.note ?? null,
+    p_photo_urls: input.photoUrls ?? [],
   });
-  if (timelineError) throw timelineError;
+  if (error) throw error;
 }
 
 
@@ -535,6 +550,9 @@ export interface ComplaintSummary {
   in_progress: number;
   resolved: number;
   pending: number;
+  /** Aduan yang ditolak — dulu tidak masuk penghitung mana pun, sehingga
+   *  warga dengan satu aduan ditolak melihat 0/0/0 seolah tak pernah lapor. */
+  rejected: number;
   latest: {
     id: string;
     title: string;
@@ -557,6 +575,7 @@ export async function getMyComplaintSummary(
     in_progress: 0,
     resolved: 0,
     pending: 0,
+    rejected: 0,
     latest: null as { id: string; title: string; time: string } | null,
   };
 
@@ -564,6 +583,7 @@ export async function getMyComplaintSummary(
     counts.forEach((row) => {
       if (row.status === 'in_progress') summary.in_progress++;
       else if (row.status === 'resolved') summary.resolved++;
+      else if (row.status === 'rejected') summary.rejected++;
       else if (
         row.status === 'pending' ||
         row.status === 'pending_classification' ||
@@ -579,9 +599,13 @@ export async function getMyComplaintSummary(
     .eq('user_id', userId)
     .order('created_at', { ascending: false })
     .limit(1)
-    .single();
+    // `maybeSingle`: nol baris adalah keadaan normal untuk warga yang belum
+    // pernah melapor. `single()` mengubahnya menjadi galat PGRST116 yang
+    // lalu harus ditelan, dan penelanan itu ikut menyembunyikan galat asli.
+    .maybeSingle();
 
-  if (latest && !latestError) {
+  if (latestError) throw latestError;
+  if (latest) {
     summary.latest = {
       id: latest.id,
       title: latest.title ?? 'Aduan Tanpa Judul',

@@ -1,8 +1,154 @@
-body {
-  font-family: "SF Pro Text", "SF Pro Icons", "Helvetica Neue", "Helvetica",
-    "Arial", sans-serif;
-  display: flex;
-  height: 100vh;
-  align-items: center;
-  justify-content: center;
+/* Reset minimal + dasar tipografi untuk dashboard staf.
+   Sebelumnya berkas ini berisi sisa template Turborepo (flex + height:100vh
+   yang memusatkan seluruh halaman) dan TIDAK pernah diimpor sama sekali,
+   sehingga seluruh aplikasi jatuh ke font serif bawaan browser dan margin
+   body 8px. Token warna/ukuran tetap tinggal di `@repo/shared`; berkas ini
+   hanya mengatur hal-hal yang tidak bisa diatur lewat inline style. */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
 }
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--font-body), "Inter", -apple-system, BlinkMacSystemFont,
+    "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  /* PRD 6: ukuran teks isi tidak boleh di bawah 16px (pengguna lanjut usia). */
+  font-size: 16px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  /* Warna sengaja TIDAK diset di sini: token warna hanya boleh berasal dari
+     `@repo/shared` (lihat packages/shared/CONTEXT.md, "tidak ada hex
+     hard-coded di tempat lain"). `DashboardShell` yang mewarnai halaman. */
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-heading), var(--font-body), "Plus Jakarta Sans",
+    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+button,
+input,
+select,
+textarea {
+  font-family: inherit;
+  font-size: inherit;
+}
+
+/* Cincin fokus.
+   `currentColor` tidak bisa dipakai di sini: setiap tombol utama memakai
+   `color: surface` (putih), jadi cincinnya jadi putih di atas latar halaman
+   putih — rasio 1,05:1, praktis tak terlihat. Warna tetap + halo putih
+   terbaca di atas latar terang MAUPUN di atas sidebar teal. Ini satu-satunya
+   tempat fokus bisa didefinisikan: seluruh komponen memakai inline style,
+   yang tidak bisa mengekspresikan `:focus`. */
+:focus-visible {
+  outline: 3px solid #0f4c5c;
+  outline-offset: 2px;
+  box-shadow: 0 0 0 5px rgba(255, 255, 255, 0.9);
+  border-radius: 4px;
+}
+
+/* Lewati blok navigasi (WCAG 2.4.1). Sidebar merender sampai 10 tautan
+   sebelum <main> dalam urutan DOM, jadi pengguna papan ketik menempuh
+   sepuluh perhentian di SETIAP pemuatan halaman untuk mencapai isinya. */
+.sigap-skip-link {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  z-index: 2000;
+  padding: 12px 16px;
+  background: #0f4c5c;
+  color: #ffffff;
+  font-weight: 600;
+  border-radius: 0 0 8px 0;
+}
+.sigap-skip-link:focus {
+  left: 0;
+}
+
+/* Umpan balik tetikus — inline style tidak bisa mengekspresikan :hover,
+   sehingga seluruh tombol, baris tabel, dan tautan nav sebelumnya benar-benar
+   inert di bawah kursor. */
+button:not(:disabled):hover,
+.sigap-nav-link:hover {
+  filter: brightness(1.08);
+}
+button:not(:disabled) {
+  transition: filter 120ms ease;
+}
+
+/* ------------------------------------------------------------------
+   Responsif.
+   Dashboard sebelumnya tidak punya SATU pun media query: sidebar 232px
+   tetap + padding 24px membuat lebar isi = viewport - 280px, sementara
+   tabel terlebar butuh ~990px. Di 1024px seluruh dokumen bergulir mendatar
+   dan menyeret sidebar serta topbar keluar layar; di 375px kolom kiri grid
+   Ringkasan (`minmax(0, 2fr)`) menyusut sampai 0px sehingga tabel aduan —
+   isi utama halaman — hilang sepenuhnya.
+   Kelas-kelas ini dipasang berdampingan dengan inline style; token warna
+   tetap datang dari @repo/shared.
+   ------------------------------------------------------------------ */
+@media (max-width: 1180px) {
+  /* Sidebar dipersempit, bukan diciutkan jadi rel ikon: item nav di sini
+     hanya berupa teks, jadi rel ikon akan memotong labelnya
+     ("Kelola Penggu…"). */
+  .sigap-sidebar {
+    width: 184px !important;
+    padding-left: 12px !important;
+    padding-right: 12px !important;
+  }
+  .sigap-content {
+    padding: 20px !important;
+  }
+}
+
+@media (max-width: 820px) {
+  .sigap-shell {
+    flex-direction: column !important;
+  }
+  .sigap-sidebar {
+    width: 100% !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    overflow-x: auto;
+    gap: 8px;
+    padding: 8px 12px !important;
+  }
+  .sigap-sidebar-label {
+    display: block !important;
+  }
+  .sigap-nav-list {
+    flex-direction: row !important;
+    flex: 1 1 auto !important;
+    overflow-x: auto;
+  }
+  .sigap-nav-link {
+    white-space: nowrap;
+  }
+  .sigap-user-block {
+    border-top: none !important;
+    margin-top: 0 !important;
+    padding-top: 0 !important;
+    flex-shrink: 0;
+  }
+  .sigap-content {
+    padding: 16px !important;
+  }
+  .sigap-topbar {
+    padding: 12px 16px !important;
+  }
+  .sigap-topbar-search {
+    display: none !important;
+  }
+}
+

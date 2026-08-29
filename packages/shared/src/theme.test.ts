@@ -8,8 +8,11 @@ describe('theme', () => {
   });
 
   it('urgensi P0 memakai merah, bukan warna brand', () => {
+    // Merah digelapkan dari #DC2626 ke #B91C1C (varian `dangerPressed` yang
+    // sudah ada) supaya badge 12px lolos WCAG AA di atas #FEF2F2 — lihat
+    // contrast.test.ts.
     const p0 = urgencyColor('P0', 'light');
-    expect(p0.fg).toBe('#DC2626');
+    expect(p0.fg).toBe('#B91C1C');
     expect(p0.fg).not.toBe(colors.light.primary);
   });
 

@@ -91,14 +91,6 @@ export default function LayananScreen() {
           <Ionicons name="chevron-back" size={24} color={colors.textPrimary} />
         </Pressable>
         <ThemedText variant="h2">SIGAP</ThemedText>
-        <Pressable
-          onPress={() => console.log('layanan menu pressed')}
-          accessibilityRole="button"
-          accessibilityLabel="Menu"
-          hitSlop={8}
-        >
-          <Ionicons name="ellipsis-horizontal" size={22} color={colors.textPrimary} />
-        </Pressable>
       </View>
 
       <ScrollView contentContainerStyle={{ paddingBottom: spacing(10) }}>

@@ -406,9 +406,15 @@ export async function listBudgetItemsForLinking(
 // ---------------------------------------------------------------------
 
 /**
- * Aspirasi yang sedang direview admin: sudah lolos voting (`voting`) atau
- * sedang dibahas di Musrenbang, diurutkan suara terbanyak dulu supaya
+ * Aspirasi yang sedang direview admin, diurutkan suara terbanyak dulu supaya
  * prioritas warga terlihat langsung.
+ *
+ * `approved` dan `budgeted` ikut ditampilkan: alur PRD berlanjut sampai
+ * `budgeted`/`realized` dan penautan item anggaran, tapi dulu filternya
+ * berhenti di `['voting','musrenbang']` sehingga aspirasi HILANG dari tabel
+ * begitu admin menyetujuinya — tidak ada lagi layar mana pun untuk
+ * menaikkannya ke `budgeted` atau menautkan item anggaran, yang membuat
+ * "jejak dampak aspirasi -> anggaran" tidak mungkin dicapai.
  */
 export async function listAspirationsForReview(
   supabase: SupabaseClient<Database>,
@@ -416,29 +422,67 @@ export async function listAspirationsForReview(
   const { data, error } = await supabase
     .from('aspirations')
     .select<string, AspirationRow>(ASPIRATION_COLUMNS)
-    .in('status', ['voting', 'musrenbang'])
+    .in('status', ['voting', 'musrenbang', 'approved', 'budgeted'])
     .order('vote_count', { ascending: false });
   if (error) throw error;
   return (data ?? []).map(rowToAspiration);
 }
 
 export interface UpdateAspirationStatusInput {
+  /** Status baris saat ini — dipakai untuk memvalidasi transisi. */
+  currentStatus?: AspirationStatus;
   status: AspirationStatus;
   musrenbangRank?: number | null;
   linkedBudgetItemId?: string | null;
 }
 
 /**
+ * Transisi status aspirasi yang sah, mengikuti alur PRD
+ * voting -> musrenbang -> approved -> budgeted -> realized (atau -> rejected
+ * dari tahap mana pun sebelum realisasi). Fungsi murni, diuji tanpa DB.
+ *
+ * Sebelumnya tidak ada validasi sama sekali: dropdown admin menampilkan
+ * keenam status dan menulisnya apa adanya, sehingga aspirasi yang sudah
+ * `budgeted` bisa dikembalikan ke `voting` dan memicu ulang trigger poin
+ * Musrenbang.
+ */
+const ASPIRATION_TRANSITIONS: Record<AspirationStatus, AspirationStatus[]> = {
+  voting: ['voting', 'musrenbang', 'rejected'],
+  musrenbang: ['musrenbang', 'approved', 'rejected'],
+  approved: ['approved', 'budgeted', 'rejected'],
+  budgeted: ['budgeted', 'realized'],
+  realized: ['realized'],
+  rejected: ['rejected'],
+};
+
+export function isValidAspirationTransition(
+  from: AspirationStatus,
+  to: AspirationStatus,
+): boolean {
+  return ASPIRATION_TRANSITIONS[from]?.includes(to) ?? false;
+}
+
+/** Status berikutnya yang boleh dipilih admin dari dropdown. */
+export function nextAspirationStatuses(from: AspirationStatus): AspirationStatus[] {
+  return ASPIRATION_TRANSITIONS[from] ?? [from];
+}
+
+/**
  * Admin memajukan status aspirasi di sepanjang alur voting -> musrenbang ->
  * approved -> budgeted (dan opsional realized/rejected), sekaligus
  * menautkan item anggaran nyata saat tersedia. RLS `aspirations_admin_update`
- * adalah otoritas sebenarnya.
+ * adalah otoritas sebenarnya; validasi transisi di sini mencegah UI
+ * mengirim lompatan status yang tidak masuk akal.
  */
 export async function updateAspirationStatus(
   supabase: SupabaseClient<Database>,
   aspirationId: string,
   input: UpdateAspirationStatusInput,
 ): Promise<void> {
+  if (input.currentStatus && !isValidAspirationTransition(input.currentStatus, input.status)) {
+    throw new Error(`Transisi status tidak valid: ${input.currentStatus} -> ${input.status}`);
+  }
+
   const update: Database['public']['Tables']['aspirations']['Update'] = {
     status: input.status,
   };

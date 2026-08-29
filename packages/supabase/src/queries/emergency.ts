@@ -186,20 +186,34 @@ export async function listActiveEmergencyAlerts(
 }
 
 /** Operator menandai dirinya sedang menanggapi sebuah SOS. */
+/**
+ * Operator mengambil alih satu SOS.
+ *
+ * `.eq('status', 'active')` penting: tanpa itu UPDATE-nya tak bersyarat,
+ * sehingga dua operator yang sama-sama melihat SOS berstatus `active` dan
+ * sama-sama mengeklik "Tanggapi" akan saling menimpa `responded_by` —
+ * yang kedua menang, dan yang pertama tetap yakin dialah yang menangani.
+ * Baris yang terpengaruh nol berarti operator lain sudah lebih dulu.
+ */
 export async function respondToEmergencyAlert(
   supabase: SupabaseClient<Database>,
   id: string,
   operatorId: string,
 ): Promise<void> {
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from('emergency_alerts')
     .update({
       status: 'responding',
       responded_by: operatorId,
       responded_at: new Date().toISOString(),
     })
-    .eq('id', id);
+    .eq('id', id)
+    .eq('status', 'active')
+    .select('id');
   if (error) throw error;
+  if (!data || data.length === 0) {
+    throw new Error('SOS ini sudah ditanggapi operator lain.');
+  }
 }
 
 /** Operator menutup SOS setelah penanganan selesai. */
@@ -232,6 +246,26 @@ export async function cancelEmergencyAlert(
   alertId: string,
 ): Promise<void> {
   const { error } = await supabase.rpc('cancel_own_emergency_alert', { p_alert_id: alertId });
+  if (error) throw error;
+}
+
+/**
+ * Melampirkan rekaman audio ke SOS yang SUDAH terkirim.
+ *
+ * Audio bersifat best-effort dan direkam ~10 detik, jadi ia tidak boleh
+ * menahan INSERT alert (lihat migrasi 20260816000001). Layar SOS mengirim
+ * alert lebih dulu lalu memanggil fungsi ini begitu rekaman siap; kegagalan
+ * di sini tidak berpengaruh pada SOS yang sudah masuk ke antrean operator.
+ */
+export async function attachEmergencyAudio(
+  supabase: SupabaseClient<Database>,
+  alertId: string,
+  audioUrl: string,
+): Promise<void> {
+  const { error } = await supabase.rpc('attach_own_emergency_audio', {
+    p_alert_id: alertId,
+    p_audio_url: audioUrl,
+  });
   if (error) throw error;
 }
 

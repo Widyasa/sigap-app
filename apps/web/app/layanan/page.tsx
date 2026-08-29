@@ -5,32 +5,38 @@ import { useRouter } from 'next/navigation';
 import {
   listServiceRequestsForReview,
   getServiceRequestSignedUrl,
+  nextServiceStatuses,
   updateServiceRequestStatus,
   generateServicePdf,
   type ServiceRequestSummary,
 } from '@repo/supabase';
 import {
   SERVICE_CATALOG,
-  SERVICE_STATUSES,
+  SERVICE_STATUS_LABELS,
   colors,
   serviceStatusColor,
+  spacing,
+  typography,
   type ServiceStatus,
 } from '@repo/shared';
 import { useAuth } from '../_lib/auth';
 import { supabase } from '../_lib/supabaseClient';
 import { DashboardShell } from '../_lib/DashboardShell';
+import {
+  AsyncSection,
+  EmptyState,
+  FlashMessage,
+  Modal,
+  TableScroll,
+  Td,
+  Th,
+  dangerButtonStyle,
+  secondaryButtonStyle,
+  useFlash,
+} from '../_lib/ui';
 
 const THEME = colors.light;
 const STAFF_ROLES = ['verifier', 'dinas_staff', 'dinas_head', 'admin'];
-
-const STATUS_LABELS: Record<ServiceStatus, string> = {
-  submitted: 'Diajukan',
-  verifying: 'Diverifikasi',
-  signing: 'Ditandatangani',
-  ready: 'Siap Diambil',
-  rejected: 'Ditolak',
-  collected: 'Sudah Diambil',
-};
 
 function serviceTypeName(serviceType: string): string {
   return SERVICE_CATALOG.find((s) => s.id === serviceType)?.name ?? serviceType;
@@ -44,8 +50,15 @@ export default function LayananAdminPage() {
 
   useEffect(() => {
     if (authLoading) return;
-    if (!isAuthenticated || !canAccess) {
+    if (!isAuthenticated) {
       router.replace('/login');
+      return;
+    }
+    if (!canAccess) {
+      // Peran yang salah BUKAN masalah otentikasi. Melemparnya ke /login
+      // membuat petugas yang sudah masuk melihat layar masuk, lalu efek di
+      // LoginPage langsung memantulkannya kembali — kedip tak berujung.
+      router.replace('/');
     }
   }, [authLoading, isAuthenticated, canAccess, router]);
 
@@ -75,18 +88,34 @@ export default function LayananAdminPage() {
   }
 
   return (
-    <DashboardShell title="Tinjauan Layanan" subtitle={`Masuk sebagai ${user?.fullName ?? user?.role}.`}>
-      {error ? <p style={{ color: THEME.danger }}>{error}</p> : null}
-      {loading ? (
-        <p>Memuat data…</p>
-      ) : (
-        <ServiceReviewSection
-          requests={requests}
-          userId={user!.id}
-          getAccessToken={getAccessToken}
-          onChanged={load}
-        />
-      )}
+    <DashboardShell title="Layanan" subtitle={`Masuk sebagai ${user?.fullName ?? user?.role}.`}>
+      {/* Satu keadaan saja pada satu waktu. Dulu galat dan keadaan kosong
+          dirender bersamaan: saat pengambilan data gagal, petugas melihat
+          "Gagal memuat data" DAN "Tidak ada permohonan yang perlu
+          ditinjau." tepat di bawahnya. */}
+      <AsyncSection
+        loading={loading}
+        error={error}
+        items={loading ? null : requests}
+        onRetry={load}
+        loadingMessage="Memuat permohonan layanan…"
+        empty={
+          <EmptyState
+            icon="📄"
+            title="Tidak ada permohonan yang perlu ditinjau"
+            message="Permohonan baru dari warga akan muncul di sini begitu diajukan."
+          />
+        }
+      >
+        {(items) => (
+          <ServiceReviewSection
+            requests={items}
+            userId={user!.id}
+            getAccessToken={getAccessToken}
+            onChanged={load}
+          />
+        )}
+      </AsyncSection>
     </DashboardShell>
   );
 }
@@ -108,16 +137,28 @@ function ServiceReviewSection({
   const [generatingId, setGeneratingId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [rejectTarget, setRejectTarget] = useState<ServiceRequestSummary | null>(null);
+  const { flash, showSuccess } = useFlash();
 
+  const [documentLinks, setDocumentLinks] = useState<{ request: ServiceRequestSummary; urls: string[] } | null>(null);
+
+  /**
+   * Dulu ini `for (…) window.open(await sign(path))`. Hanya `window.open`
+   * PERTAMA yang masih membawa aktivasi pengguna; sisanya berjalan setelah
+   * `await` dan diblokir setiap peramban modern. Verifikator yang meninjau
+   * permohonan berisi 4 dokumen hanya melihat satu tab dan sebuah ikon
+   * popup-terblokir yang tidak akan ia sadari. Sekarang seluruh URL
+   * ditandatangani lebih dulu lalu ditampilkan sebagai daftar tautan, jadi
+   * setiap pembukaan adalah gestur pengguna sungguhan.
+   */
   const handleViewDocuments = async (request: ServiceRequestSummary) => {
     if (request.documentUrls.length === 0) return;
     setOpeningId(request.id);
     setActionError(null);
     try {
-      for (const path of request.documentUrls) {
-        const signedUrl = await getServiceRequestSignedUrl(supabase, path, 300);
-        window.open(signedUrl, '_blank');
-      }
+      const urls = await Promise.all(
+        request.documentUrls.map((path) => getServiceRequestSignedUrl(supabase, path, 300)),
+      );
+      setDocumentLinks({ request, urls });
     } catch (e) {
       console.error('getServiceRequestSignedUrl error', e);
       setActionError('Gagal membuka dokumen. Coba lagi.');
@@ -131,10 +172,19 @@ function ServiceReviewSection({
     setActionError(null);
     try {
       await updateServiceRequestStatus(supabase, request.id, {
+        currentStatus: request.status,
         status,
         rejectionReason,
         handledBy: userId,
       });
+      // Bersihkan status tertunda supaya dropdown kembali mencerminkan
+      // baris di basis data, bukan pilihan lokal yang mungkin gagal simpan.
+      setPendingStatus((prev) => {
+        const next = { ...prev };
+        delete next[request.id];
+        return next;
+      });
+      showSuccess(`Status permohonan diubah menjadi "${SERVICE_STATUS_LABELS[status]}".`);
       onChanged();
     } catch (e) {
       console.error('updateServiceRequestStatus error', e);
@@ -180,20 +230,23 @@ function ServiceReviewSection({
   return (
     <section style={sectionStyle}>
       <h2 style={h2Style}>Permohonan Perlu Ditindak</h2>
-      {actionError ? <p style={{ color: THEME.danger, fontSize: 13 }}>{actionError}</p> : null}
+      <FlashMessage flash={flash} />
+      {actionError ? (
+        <p role="alert" style={{ color: THEME.danger, fontSize: typography.caption.fontSize }}>
+          {actionError}
+        </p>
+      ) : null}
 
-      {requests.length === 0 ? (
-        <p>Tidak ada permohonan yang perlu ditinjau.</p>
-      ) : (
-        <table style={tableStyle}>
+      {(
+        <TableScroll caption="Daftar permohonan layanan yang perlu ditindak petugas">
           <thead>
             <tr>
-              <th style={thStyle}>Jenis Layanan</th>
-              <th style={thStyle}>Status</th>
-              <th style={thStyle}>Diajukan</th>
-              <th style={thStyle}>Dokumen</th>
-              <th style={thStyle}>Ubah Status</th>
-              <th style={thStyle}></th>
+              <Th>Jenis Layanan</Th>
+              <Th>Status</Th>
+              <Th>Diajukan</Th>
+              <Th>Dokumen</Th>
+              <Th>Ubah Status</Th>
+              <Th>Aksi</Th>
             </tr>
           </thead>
           <tbody>
@@ -201,8 +254,8 @@ function ServiceReviewSection({
               const color = serviceStatusColor(r.status, 'light');
               return (
                 <tr key={r.id}>
-                  <td style={tdStyle}>{serviceTypeName(r.serviceType)}</td>
-                  <td style={tdStyle}>
+                  <Td>{serviceTypeName(r.serviceType)}</Td>
+                  <Td>
                     <span
                       style={{
                         display: 'inline-block',
@@ -214,11 +267,11 @@ function ServiceReviewSection({
                         background: color.bg,
                       }}
                     >
-                      {STATUS_LABELS[r.status]}
+                      {SERVICE_STATUS_LABELS[r.status]}
                     </span>
-                  </td>
-                  <td style={tdStyle}>{new Date(r.createdAt).toLocaleString('id-ID')}</td>
-                  <td style={tdStyle}>
+                  </Td>
+                  <Td>{new Date(r.createdAt).toLocaleString('id-ID')}</Td>
+                  <Td>
                     <button
                       style={smallButtonStyle}
                       disabled={r.documentUrls.length === 0 || openingId === r.id}
@@ -226,8 +279,8 @@ function ServiceReviewSection({
                     >
                       {openingId === r.id ? 'Membuka…' : 'Lihat Dokumen'}
                     </button>
-                  </td>
-                  <td style={tdStyle}>
+                  </Td>
+                  <Td>
                     <select
                       style={selectStyle}
                       value={pendingStatus[r.id] ?? r.status}
@@ -235,14 +288,19 @@ function ServiceReviewSection({
                         setPendingStatus((prev) => ({ ...prev, [r.id]: e.target.value as ServiceStatus }))
                       }
                     >
-                      {SERVICE_STATUSES.map((s) => (
+                      {/* Hanya status penerus yang sah. Dulu keenam status
+                          selalu tampil, sehingga permohonan yang baru
+                          `submitted` bisa langsung dilompatkan ke `ready` —
+                          status yang berarti "surat siap diunduh" padahal
+                          output_pdf_url dan verification_code masih NULL. */}
+                      {nextServiceStatuses(r.status).map((s) => (
                         <option key={s} value={s}>
-                          {STATUS_LABELS[s]}
+                          {SERVICE_STATUS_LABELS[s]}
                         </option>
                       ))}
                     </select>
-                  </td>
-                  <td style={tdStyle}>
+                  </Td>
+                  <Td>
                     <div style={{ display: 'flex', gap: 8 }}>
                       <button
                         style={smallButtonStyle}
@@ -261,13 +319,35 @@ function ServiceReviewSection({
                         </button>
                       ) : null}
                     </div>
-                  </td>
+                  </Td>
                 </tr>
               );
             })}
           </tbody>
-        </table>
+        </TableScroll>
       )}
+
+      {documentLinks ? (
+        <Modal title="Dokumen Permohonan" onClose={() => setDocumentLinks(null)}>
+          <p style={{ fontSize: typography.caption.fontSize, color: THEME.textSecondary, marginTop: 0 }}>
+            {serviceTypeName(documentLinks.request.serviceType)} · tautan berlaku 5 menit.
+          </p>
+          <ul style={{ paddingLeft: spacing(5), margin: 0 }}>
+            {documentLinks.urls.map((url, i) => (
+              <li key={url} style={{ marginBottom: spacing(2) }}>
+                <a href={url} target="_blank" rel="noreferrer" style={{ color: THEME.primary }}>
+                  Dokumen {i + 1} dari {documentLinks.urls.length}
+                </a>
+              </li>
+            ))}
+          </ul>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: spacing(4) }}>
+            <button type="button" style={secondaryButtonStyle} onClick={() => setDocumentLinks(null)}>
+              Tutup
+            </button>
+          </div>
+        </Modal>
+      ) : null}
 
       {rejectTarget ? (
         <RejectReasonModal
@@ -283,10 +363,8 @@ function ServiceReviewSection({
   );
 }
 
-/**
- * Modal alasan penolakan — pengganti dialog konfirmasi bawaan browser
- * (tidak bisa distyle, tidak konsisten dengan sisa aplikasi).
- */
+/** Modal alasan penolakan, memakai primitif `Modal` yang punya
+ * role="dialog", jebakan fokus, Escape, dan pengembalian fokus. */
 function RejectReasonModal({
   onCancel,
   onConfirm,
@@ -298,47 +376,39 @@ function RejectReasonModal({
   const trimmed = reason.trim();
 
   return (
-    <div style={modalOverlayStyle} onClick={onCancel}>
-      <div style={modalCardStyle} onClick={(e) => e.stopPropagation()}>
-        <h3 style={{ fontSize: 16, margin: '0 0 8px', color: THEME.textPrimary }}>Alasan Penolakan</h3>
-        <p style={{ fontSize: 13, color: THEME.textSecondary, margin: '0 0 12px' }}>
-          Jelaskan alasan penolakan permohonan ini. Alasan wajib diisi.
-        </p>
-        <textarea
-          style={textareaStyle}
-          value={reason}
-          onChange={(e) => setReason(e.target.value)}
-          placeholder="Alasan penolakan (wajib diisi)…"
-          rows={4}
-          autoFocus
-        />
-        <div style={{ display: 'flex', gap: 8, marginTop: 16, justifyContent: 'flex-end' }}>
-          <button style={secondaryButtonStyle} onClick={onCancel}>
-            Batal
-          </button>
-          <button
-            style={{ ...smallButtonStyle, background: THEME.danger, opacity: trimmed ? 1 : 0.5 }}
-            disabled={!trimmed}
-            onClick={() => onConfirm(trimmed)}
-          >
-            Konfirmasi
-          </button>
-        </div>
+    <Modal title="Alasan Penolakan" onClose={onCancel}>
+      <p style={{ fontSize: typography.caption.fontSize, color: THEME.textSecondary, marginTop: 0 }}>
+        Jelaskan alasan penolakan permohonan ini. Alasan wajib diisi dan ditampilkan ke warga.
+      </p>
+      <label htmlFor="alasan-tolak-layanan" style={{ display: 'block', fontSize: typography.caption.fontSize, marginBottom: spacing(1) }}>
+        Alasan penolakan
+      </label>
+      <textarea
+        id="alasan-tolak-layanan"
+        style={textareaStyle}
+        value={reason}
+        onChange={(e) => setReason(e.target.value)}
+        rows={4}
+      />
+      <div style={{ display: 'flex', gap: spacing(2), justifyContent: 'flex-end', marginTop: spacing(4) }}>
+        <button type="button" style={secondaryButtonStyle} onClick={onCancel}>
+          Batal
+        </button>
+        <button
+          type="button"
+          style={{ ...dangerButtonStyle, opacity: trimmed ? 1 : 0.5 }}
+          disabled={!trimmed}
+          onClick={() => onConfirm(trimmed)}
+        >
+          Konfirmasi
+        </button>
       </div>
-    </div>
+    </Modal>
   );
 }
 
 const sectionStyle: CSSProperties = { marginBottom: 40 };
 const h2Style: CSSProperties = { fontSize: 18, marginBottom: 12 };
-const tableStyle: CSSProperties = { width: '100%', borderCollapse: 'collapse', fontSize: 14 };
-const thStyle: CSSProperties = {
-  textAlign: 'left',
-  borderBottom: `1px solid ${THEME.border}`,
-  padding: '8px 6px',
-  color: THEME.textSecondary,
-};
-const tdStyle: CSSProperties = { borderBottom: `1px solid ${THEME.border}`, padding: '8px 6px' };
 const selectStyle: CSSProperties = {
   minHeight: 32,
   border: `1px solid ${THEME.border}`,
@@ -358,38 +428,8 @@ const smallButtonStyle: CSSProperties = {
   cursor: 'pointer',
 };
 
-const secondaryButtonStyle: CSSProperties = {
-  minHeight: 36,
-  padding: '0 14px',
-  borderRadius: 6,
-  border: `1px solid ${THEME.border}`,
-  background: THEME.surface,
-  color: THEME.textPrimary,
-  fontSize: 13,
-  fontWeight: 600,
-  cursor: 'pointer',
-};
 
-const modalOverlayStyle: CSSProperties = {
-  position: 'fixed',
-  inset: 0,
-  background: 'rgba(15, 23, 42, 0.5)',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  zIndex: 1000,
-  padding: 16,
-};
 
-const modalCardStyle: CSSProperties = {
-  background: THEME.surface,
-  border: `1px solid ${THEME.border}`,
-  borderRadius: 10,
-  padding: 20,
-  width: '100%',
-  maxWidth: 420,
-  boxSizing: 'border-box',
-};
 
 const textareaStyle: CSSProperties = {
   width: '100%',

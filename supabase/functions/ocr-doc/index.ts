@@ -39,6 +39,8 @@ interface OcrRequestBody {
   documentType?: string;
 }
 
+const MAX_IMAGE_BASE64_LENGTH = 7_000_000;
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { status: 204, headers: corsHeaders() });
@@ -61,6 +63,12 @@ Deno.serve(async (req) => {
     !documentType || !DOCUMENT_TYPES.includes(documentType as DocumentType)
   ) {
     return jsonResponse({ ok: false, reason: 'invalid_request' }, 400);
+  }
+  // Sepadan dengan batas 5 MB unggahan berkas layanan (base64 ~4/3 kali
+  // ukuran biner). Tanpa batas, endpoint ini menjadi layanan OCR gratis
+  // di atas GEMINI_API_KEY proyek untuk siapa pun yang punya sesi.
+  if (imageBase64.length > MAX_IMAGE_BASE64_LENGTH) {
+    return jsonResponse({ ok: false, reason: 'image_too_large' }, 413);
   }
 
   const authHeader = req.headers.get('Authorization') ?? '';

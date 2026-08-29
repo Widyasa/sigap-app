@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { reverseGeocode } from './_lib/reverseGeocode';
-import { View, StyleSheet, Animated, Pressable, ScrollView, Platform } from 'react-native';
+import { View, StyleSheet, Animated, Linking, Pressable, ScrollView, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import * as Location from 'expo-location';
@@ -17,6 +17,8 @@ import {
   type EmergencyStatus,
 } from '@repo/shared';
 import {
+  attachEmergencyAudio,
+  cancelEmergencyAlert,
   createEmergencyAlert,
   uploadEmergencyAudio,
   getMyActiveEmergencyAlert,
@@ -58,7 +60,9 @@ export default function SosScreen() {
   const [address, setAddress] = useState<string | null>(null);
   const [locationError, setLocationError] = useState<string | null>(null);
   const [sendError, setSendError] = useState<string | null>(null);
-  const [statusNote, setStatusNote] = useState<string | null>(null);
+  const [recordingAudio, setRecordingAudio] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
+  const [cancelError, setCancelError] = useState<string | null>(null);
   const [alert, setAlert] = useState<EmergencyAlertSummary | null>(null);
 
   const holdProgress = useRef(new Animated.Value(0)).current;
@@ -89,31 +93,29 @@ export default function SosScreen() {
 
   // Lokasi diminta sedari awal (bukan menunggu warga memilih jenis darurat)
   // agar pengiriman SOS secepat mungkin — sama pola dengan lapor.tsx.
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      const perm = await Location.requestForegroundPermissionsAsync();
-      if (!perm.granted) {
-        if (!cancelled) setLocationError('Izin lokasi diperlukan agar SOS bisa ditandai.');
-        return;
-      }
-      try {
-        const position = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
-        if (cancelled) return;
-        setCoords({ lat: position.coords.latitude, lng: position.coords.longitude });
-        setAccuracy(position.coords.accuracy);
-        const resolved = await reverseGeocode(position.coords.latitude, position.coords.longitude);
-        if (!cancelled && resolved) {
-          setAddress(resolved);
-        }
-      } catch {
-        if (!cancelled) setLocationError('Gagal mendapatkan lokasi. Coba lagi.');
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
+  // Diekstrak jadi callback supaya tombol "Coba Lagi" bisa memanggilnya
+  // ulang setelah warga memberi izin lewat Pengaturan.
+  const requestLocation = useCallback(async () => {
+    setLocationError(null);
+    const perm = await Location.requestForegroundPermissionsAsync();
+    if (!perm.granted) {
+      setLocationError('Izin lokasi diperlukan agar SOS bisa ditandai.');
+      return;
+    }
+    try {
+      const position = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+      setCoords({ lat: position.coords.latitude, lng: position.coords.longitude });
+      setAccuracy(position.coords.accuracy);
+      const resolved = await reverseGeocode(position.coords.latitude, position.coords.longitude);
+      if (resolved) setAddress(resolved);
+    } catch {
+      setLocationError('Gagal mendapatkan lokasi. Coba lagi.');
+    }
   }, []);
+
+  useEffect(() => {
+    void requestLocation();
+  }, [requestLocation]);
 
   // Realtime: baris emergency_alerts berubah (operator menanggapi/menutup)
   // tanpa reload manual (issue #12, kriteria "Operator status changes appear
@@ -174,7 +176,8 @@ export default function SosScreen() {
   // Merekam ~10 detik audio konteks (kriteria "10s audio"). Bersifat
   // best-effort SEPENUHNYA — izin ditolak, mikrofon tak tersedia, atau
   // kegagalan apa pun di sini TIDAK boleh memblokir pengiriman SOS, hanya
-  // membuat audio_url tetap null (lihat catatan issue #12).
+  // membuat audio_url tetap null (lihat catatan issue #12). Karena itu
+  // fungsi ini dipanggil SETELAH alert masuk, bukan sebelumnya.
   const recordAudioBestEffort = useCallback(async (): Promise<string | null> => {
     try {
       const perm = await requestRecordingPermissionsAsync();
@@ -214,45 +217,63 @@ export default function SosScreen() {
 
       setSendError(null);
       setStep('sending');
-      setStatusNote('Merekam konteks audio (10 detik)…');
 
-      const audioUrl = await recordAudioBestEffort();
-      setStatusNote(null);
-
+      let alertId: string;
       try {
         // Lokasi + jenis darurat SUDAH cukup untuk mengirim SOS — insert
         // langsung lewat PostgREST, TIDAK ada panggilan fungsi edge/AI apa
         // pun (kriteria "SOS sends successfully without calling any AI
         // function"), identik pola dengan createComplaint/createServiceRequest.
-        const { id } = await createEmergencyAlert(supabase, user.id, {
+        //
+        // Perekaman audio SENGAJA tidak ditunggu di sini: menunggunya menunda
+        // baris SOS masuk ke antrean operator selama ~10 detik penuh (lebih
+        // lama lagi kalau dialog izin mikrofon muncul), padahal audio hanya
+        // konteks tambahan. Audio menyusul lewat `attachEmergencyAudio`.
+        const created = await createEmergencyAlert(supabase, user.id, {
           emergencyType,
           locationLat: coords.lat,
           locationLng: coords.lng,
           locationAddress: address ?? undefined,
-          audioUrl: audioUrl ?? undefined,
         });
-
-        setAlert({
-          id,
-          userId: user.id,
-          emergencyType,
-          locationLat: coords.lat,
-          locationLng: coords.lng,
-          locationAddress: address ?? null,
-          audioUrl: audioUrl ?? null,
-          note: null,
-          status: 'active',
-          respondedBy: null,
-          respondedAt: null,
-          resolvedAt: null,
-          createdAt: new Date().toISOString(),
-        });
-        setStep('status');
+        alertId = created.id;
       } catch (e) {
         console.error('createEmergencyAlert error', e);
         setSendError('Gagal mengirim SOS. Periksa koneksi internet dan coba lagi.');
         setStep('pickType');
+        return;
       }
+
+      setAlert({
+        id: alertId,
+        userId: user.id,
+        emergencyType,
+        locationLat: coords.lat,
+        locationLng: coords.lng,
+        locationAddress: address ?? null,
+        audioUrl: null,
+        note: null,
+        status: 'active',
+        respondedBy: null,
+        respondedAt: null,
+        resolvedAt: null,
+        createdAt: new Date().toISOString(),
+      });
+      setStep('status');
+
+      // Best-effort, di latar: SOS sudah terkirim apa pun hasilnya.
+      void (async () => {
+        setRecordingAudio(true);
+        try {
+          const audioUrl = await recordAudioBestEffort();
+          if (!audioUrl) return;
+          await attachEmergencyAudio(supabase, alertId, audioUrl);
+          setAlert((prev) => (prev && prev.id === alertId ? { ...prev, audioUrl } : prev));
+        } catch (e) {
+          console.error('attachEmergencyAudio error (SOS tetap terkirim)', e);
+        } finally {
+          setRecordingAudio(false);
+        }
+      })();
     },
     [user, coords, address, locationError, recordAudioBestEffort],
   );
@@ -279,6 +300,41 @@ export default function SosScreen() {
           <ThemedText variant="body" color="secondary" style={{ marginBottom: spacing(4) }}>
             Lokasi: {alert.locationAddress ?? `${alert.locationLat.toFixed(5)}, ${alert.locationLng.toFixed(5)}`}
           </ThemedText>
+          {recordingAudio ? (
+            <ThemedText variant="caption" color="secondary" style={{ marginBottom: spacing(4) }}>
+              Merekam konteks audio 10 detik dan mengirimkannya menyusul — SOS Anda sudah masuk ke operator.
+            </ThemedText>
+          ) : null}
+          {/* Warga yang salah tekan DULU tidak punya cara membatalkan SOS-nya
+              sama sekali — hanya operator yang bisa menandainya alarm palsu,
+              padahal RPC `cancel_own_emergency_alert` sudah ada sejak
+              20260813000001 justru untuk jendela "salah tekan" ini. */}
+          {alert.status === 'active' ? (
+            <Button
+              text={cancelling ? 'Membatalkan…' : 'Batalkan SOS (salah tekan)'}
+              variant="secondary"
+              disabled={cancelling}
+              onPress={async () => {
+                setCancelling(true);
+                setCancelError(null);
+                try {
+                  await cancelEmergencyAlert(supabase, alert.id);
+                  router.replace('/home');
+                } catch (e) {
+                  console.error('cancelEmergencyAlert error', e);
+                  setCancelError('SOS sudah ditanggapi operator, jadi tidak bisa dibatalkan.');
+                } finally {
+                  setCancelling(false);
+                }
+              }}
+              containerStyle={{ marginBottom: spacing(3) }}
+            />
+          ) : null}
+          {cancelError ? (
+            <ThemedText variant="caption" color="danger" style={{ marginBottom: spacing(3) }}>
+              {cancelError}
+            </ThemedText>
+          ) : null}
           <Button text="Kembali ke Beranda" variant="secondary" onPress={() => router.replace('/home')} />
         </ScrollView>
       </SafeAreaView>
@@ -292,11 +348,6 @@ export default function SosScreen() {
           <ThemedText variant="h1" align="center" style={{ marginBottom: spacing(2) }}>
             Mengirim SOS…
           </ThemedText>
-          {statusNote ? (
-            <ThemedText variant="body" color="secondary" align="center">
-              {statusNote}
-            </ThemedText>
-          ) : null}
         </View>
       </SafeAreaView>
     );
@@ -363,18 +414,44 @@ export default function SosScreen() {
         </ThemedText>
 
         {locationError ? (
-          <ThemedText variant="caption" color="danger" align="center" style={{ marginBottom: spacing(3) }}>
-            {locationError}
-          </ThemedText>
+          <View style={{ marginBottom: spacing(4), alignItems: 'center' }}>
+            <ThemedText variant="caption" color="danger" align="center">
+              {locationError}
+            </ThemedText>
+            {/* `emergency_alerts.location_lat/lng` NOT NULL, jadi SOS memang
+                tidak bisa dikirim tanpa koordinat. Yang salah dulu bukan
+                syaratnya, melainkan jalan buntunya: tombol sekadar
+                dinonaktifkan dengan opasitas 0,5 tanpa tombol coba lagi dan
+                tanpa tautan ke Pengaturan, sehingga penolakan izin tidak bisa
+                dipulihkan tanpa keluar dari aplikasi — pada alur paling
+                kritis yang ada. */}
+            <ThemedText variant="caption" color="secondary" align="center" style={{ marginTop: spacing(1) }}>
+              Izinkan akses lokasi agar operator tahu ke mana harus menuju.
+            </ThemedText>
+            <View style={{ flexDirection: 'row', gap: spacing(2), marginTop: spacing(3) }}>
+              <Button text="Coba Lagi" variant="secondary" onPress={() => void requestLocation()} />
+              <Button text="Buka Pengaturan" variant="ghost" onPress={() => void Linking.openSettings()} />
+            </View>
+          </View>
         ) : null}
 
         <Pressable
           onPressIn={startHold}
           onPressOut={cancelHold}
-          disabled={!!locationError}
+          // Pembaca layar menyintesiskan KETUKAN, bukan tekanan berkelanjutan:
+          // `onPressIn`/`onPressOut` terpicu beruntun dalam hitungan milidetik,
+          // animasinya dibatalkan, dan `setStep('pickType')` TIDAK PERNAH
+          // berjalan. Tanpa jalur ini, pengguna tunanetra benar-benar tidak
+          // bisa mengirim SOS — sementara labelnya justru menyuruh mereka
+          // melakukan satu-satunya hal yang tidak bisa mereka lakukan.
+          onAccessibilityTap={() => {
+            if (coords) setStep('pickType');
+          }}
+          disabled={!coords}
           accessibilityRole="button"
-          accessibilityLabel="Tombol SOS, tekan dan tahan untuk mengirim"
-          style={[styles.sosButton, { borderColor: colors.danger, opacity: locationError ? 0.5 : 1 }]}
+          accessibilityLabel="Tombol SOS"
+          accessibilityHint={`Tekan dan tahan ${Math.round(SOS_HOLD_DURATION_MS / 1000)} detik, atau ketuk dua kali untuk langsung memilih jenis darurat`}
+          style={[styles.sosButton, { borderColor: colors.danger, opacity: coords ? 1 : 0.5 }]}
         >
           <Animated.View
             pointerEvents="none"

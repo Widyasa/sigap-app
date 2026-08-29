@@ -5,10 +5,17 @@ const TEXT_ENCODER = new TextEncoder();
 
 /** Generate a zero-padded six-digit OTP code using CSPRNG. */
 export function generateCode(): string {
+  // Rejection sampling. `buf[0] % 1_000_000` menghasilkan bias modulo: 2^32
+  // bukan kelipatan 1.000.000, sehingga kode di bawah 967.296 sedikit lebih
+  // sering muncul. Tidak ada serangan praktis dari selisih ~0,02%, tapi
+  // pembangkit kode masuk tidak seharusnya punya distribusi miring sama
+  // sekali. Batas di bawah adalah kelipatan 1.000.000 terbesar yang muat.
+  const LIMIT = 4_294_000_000;
   const buf = new Uint32Array(1);
-  crypto.getRandomValues(buf);
-  const num = buf[0] % 1_000_000;
-  return String(num).padStart(6, "0");
+  do {
+    crypto.getRandomValues(buf);
+  } while (buf[0]! >= LIMIT);
+  return String(buf[0]! % 1_000_000).padStart(6, "0");
 }
 
 /** SHA-256 hex digest of (code + pepper). */

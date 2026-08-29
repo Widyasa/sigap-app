@@ -20,6 +20,9 @@ import { ConfirmModal } from '../_lib/ConfirmModal';
 
 const THEME = colors.light;
 
+/** Sepadan dengan batas unggahan bucket lampiran pengumuman. */
+const MAX_ATTACHMENT_BYTES = 5 * 1024 * 1024;
+
 export default function PengumumanAdminPage() {
   const { isLoading: authLoading, isAuthenticated, user } = useAuth();
   const router = useRouter();
@@ -28,8 +31,15 @@ export default function PengumumanAdminPage() {
 
   useEffect(() => {
     if (authLoading) return;
-    if (!isAuthenticated || !canAccess) {
+    if (!isAuthenticated) {
       router.replace('/login');
+      return;
+    }
+    if (!canAccess) {
+      // Peran yang salah BUKAN masalah otentikasi. Melemparnya ke /login
+      // membuat petugas yang sudah masuk melihat layar masuk, lalu efek di
+      // LoginPage langsung memantulkannya kembali — kedip tak berujung.
+      router.replace('/');
     }
   }, [authLoading, isAuthenticated, canAccess, router]);
 
@@ -64,8 +74,8 @@ export default function PengumumanAdminPage() {
   }
 
   return (
-    <DashboardShell title="Info & Komunitas" subtitle={`Masuk sebagai ${user?.fullName ?? user?.role}.`}>
-      {error ? <p style={{ color: THEME.danger }}>{error}</p> : null}
+    <DashboardShell title="Pengumuman" subtitle={`Masuk sebagai ${user?.fullName ?? user?.role}.`}>
+      {error ? <p role="alert" style={{ color: THEME.danger }}>{error}</p> : null}
       {loading ? (
         <p>Memuat data…</p>
       ) : (
@@ -127,14 +137,36 @@ function AnnouncementsSection({
   };
 
   const handleEditSave = async (id: string, a: Announcement) => {
-    setEditSubmitting(true);
     setEditError(null);
-    if (!user?.id) return;
+    // Penjagaan HARUS di atas `setEditSubmitting(true)`. Dulu ia di bawah
+    // dan `return` tanpa mereset flag, sehingga tombol Simpan terkunci
+    // selamanya pada "Menyimpan…" dan satu-satunya jalan keluar adalah
+    // memuat ulang halaman — yang membuang seluruh suntingan.
+    if (!user?.id) {
+      setEditError('Sesi Anda berakhir. Silakan masuk kembali.');
+      return;
+    }
+    setEditSubmitting(true);
 
-    let attachmentUrl = editRemoveAttachment ? undefined : a.attachmentUrl;
-    let attachmentName = editRemoveAttachment ? undefined : a.attachmentName;
+    // B: `attachmentUrl` bertipe `string | null` di `Announcement`, sedangkan
+    // `createAnnouncementSchema.attachmentUrl` adalah `z.string().optional()`
+    // yang MENOLAK null. Akibatnya menyunting pengumuman apa pun yang tidak
+    // punya lampiran — kasus paling umum — selalu gagal dengan "Data
+    // pengumuman tidak valid.".
+    let attachmentUrl = editRemoveAttachment ? undefined : a.attachmentUrl ?? undefined;
+    let attachmentName = editRemoveAttachment ? undefined : a.attachmentName ?? undefined;
 
     if (editAttachmentFile) {
+      if (editAttachmentFile.type !== 'application/pdf') {
+        setEditError('Lampiran harus berkas PDF.');
+        setEditSubmitting(false);
+        return;
+      }
+      if (editAttachmentFile.size > MAX_ATTACHMENT_BYTES) {
+        setEditError('Ukuran lampiran maksimal 5 MB.');
+        setEditSubmitting(false);
+        return;
+      }
       try {
         const path = `${user.id}/${crypto.randomUUID()}.pdf`;
         const { error: uploadError } = await supabase.storage
@@ -167,7 +199,16 @@ function AnnouncementsSection({
     }
 
     try {
-      await updateAnnouncement(supabase, id, parsed.data);
+      // `dinasId`, `imageUrl`, dan `expiresAt` sengaja diteruskan apa
+      // adanya: `updateAnnouncement` menulis `?? null` untuk setiap field
+      // yang hilang, sehingga menyunting judul saja DULU menghapus dinas,
+      // gambar, dan tanggal kedaluwarsa pengumuman itu.
+      await updateAnnouncement(supabase, id, {
+        ...parsed.data,
+        dinasId: a.dinasId ?? undefined,
+        imageUrl: a.imageUrl ?? undefined,
+        expiresAt: a.expiresAt ?? undefined,
+      });
       handleEditCancel();
       onChanged();
     } catch (e) {
@@ -181,11 +222,25 @@ function AnnouncementsSection({
 
   const handleCreate = async () => {
     setFormError(null);
-    if (!user?.id) return;
+    if (!user?.id) {
+      setFormError('Sesi Anda berakhir. Silakan masuk kembali.');
+      return;
+    }
 
     let attachmentUrl: string | undefined;
     let attachmentName: string | undefined;
     if (attachmentFile) {
+      // `accept="application/pdf"` hanya menyaring dialog berkas; seret-lepas
+      // atau "All Files" melewatinya, dan berkas apa pun akan tersimpan serta
+      // disajikan sebagai PDF di bucket publik.
+      if (attachmentFile.type !== 'application/pdf') {
+        setFormError('Lampiran harus berkas PDF.');
+        return;
+      }
+      if (attachmentFile.size > MAX_ATTACHMENT_BYTES) {
+        setFormError('Ukuran lampiran maksimal 5 MB.');
+        return;
+      }
       setSubmitting(true);
       try {
         const path = `${user.id}/${crypto.randomUUID()}.pdf`;
@@ -267,7 +322,7 @@ function AnnouncementsSection({
         <tbody>
           {announcements.length === 0 ? (
             <tr>
-            <td style={tdStyle} colSpan={8}>
+            <td style={tdStyle} colSpan={7}>
                 Belum ada pengumuman.
               </td>
             </tr>
@@ -291,7 +346,8 @@ function AnnouncementsSection({
                   </td>
                   <td style={tdStyle}>{a.isPinned ? 'Ya' : '-'}</td>
                   <td style={tdStyle}>{new Date(a.publishedAt).toLocaleString('id-ID')}</td>
-                  <td style={{ ...tdStyle, display: 'flex', gap: 4 }}>
+                  <td style={tdStyle}>
+                  <div style={{ display: 'flex', gap: 4 }}>
                     <button style={smallButtonStyle} onClick={() => handleEditStart(a)}>
                       Ubah
                     </button>
@@ -302,19 +358,25 @@ function AnnouncementsSection({
                     >
                       Hapus
                     </button>
+                  </div>
                   </td>
                 </tr>
                 {editingId === a.id && (
                   <tr>
-                    <td style={tdStyle} colSpan={8}>
+                    <td style={tdStyle} colSpan={7}>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: '12px 0' }}>
-                        <input style={inputStyle} value={editTitle} onChange={(e) => setEditTitle(e.target.value)} />
+                        <input
+                      aria-label="Judul pengumuman"
+                      style={inputStyle}
+                      value={editTitle} onChange={(e) => setEditTitle(e.target.value)} />
                         <textarea
-                          style={{ ...inputStyle, minHeight: 80 }}
+                      aria-label="Isi pengumuman"
+                      style={{ ...inputStyle, minHeight: 80 }}
                           value={editBody}
                           onChange={(e) => setEditBody(e.target.value)}
                         />
                         <select
+                          aria-label="Target pengumuman"
                           style={selectStyle}
                           value={editTarget}
                           onChange={(e) => setEditTarget(e.target.value as 'all' | 'kelurahan')}
@@ -323,9 +385,19 @@ function AnnouncementsSection({
                           <option value="kelurahan">Kelurahan tertentu</option>
                         </select>
                         {editTarget === 'kelurahan' && (
-                          <input style={inputStyle} value={editKelurahan} onChange={(e) => setEditKelurahan(e.target.value)} />
+                          <input
+                            aria-label="Nama kelurahan tujuan"
+                            style={inputStyle}
+                            value={editKelurahan}
+                            onChange={(e) => setEditKelurahan(e.target.value)}
+                          />
                         )}
-                        <select style={selectStyle} value={editCategory} onChange={(e) => setEditCategory(e.target.value)}>
+                        <select
+                          aria-label="Kategori pengumuman"
+                          style={selectStyle}
+                          value={editCategory}
+                          onChange={(e) => setEditCategory(e.target.value)}
+                        >
                           <option value="">Tanpa kategori</option>
                           {ANNOUNCEMENT_CATEGORIES.map((c) => (
                             <option key={c.id} value={c.id}>{c.label}</option>
@@ -353,7 +425,7 @@ function AnnouncementsSection({
                           </button>
                           <button style={smallButtonStyle} onClick={handleEditCancel}>Batal</button>
                         </div>
-                        {editError && <p style={{ color: THEME.danger, fontSize: 13 }}>{editError}</p>}
+                        {editError && <p role="alert" style={{ color: THEME.danger, fontSize: 13 }}>{editError}</p>}
                       </div>
                     </td>
                   </tr>
@@ -422,7 +494,7 @@ function AnnouncementsSection({
           {submitting ? 'Menyimpan…' : 'Buat Pengumuman'}
         </button>
       </div>
-      {formError ? <p style={{ color: THEME.danger, fontSize: 13 }}>{formError}</p> : null}
+      {formError ? <p role="alert" style={{ color: THEME.danger, fontSize: 13 }}>{formError}</p> : null}
       {confirmingDeleteId ? (
         <ConfirmModal
           title="Hapus Pengumuman"
@@ -470,7 +542,7 @@ function LeaderboardSection({
       <button style={{ ...smallButtonStyle, marginBottom: 12 }} disabled={refreshing} onClick={handleRefresh}>
         {refreshing ? 'Menyegarkan…' : 'Segarkan Sekarang'}
       </button>
-      {refreshError ? <p style={{ color: THEME.danger, fontSize: 13 }}>{refreshError}</p> : null}
+      {refreshError ? <p role="alert" style={{ color: THEME.danger, fontSize: 13 }}>{refreshError}</p> : null}
 
       <table style={tableStyle}>
         <thead>

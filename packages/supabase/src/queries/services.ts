@@ -236,13 +236,54 @@ export async function listServiceRequestsForReview(
     .from('service_requests')
     .select<string, ServiceRequestRow>(SERVICE_REQUEST_COLUMNS)
     .order('created_at', { ascending: true });
-  query = statusFilter ? query.eq('status', statusFilter) : query.in('status', ['submitted', 'verifying', 'signing']);
+  // `ready` HARUS ikut default: begitu PDF terbit statusnya menjadi `ready`,
+  // dan halaman /layanan adalah satu-satunya layar petugas — tanpa ini
+  // barisnya lenyap dari antrean dan tidak ada lagi cara menandainya
+  // `collected` saat warga mengambil suratnya di loket.
+  query = statusFilter
+    ? query.eq('status', statusFilter)
+    : query.in('status', ['submitted', 'verifying', 'signing', 'ready']);
   const { data, error } = await query;
   if (error) throw error;
   return (data ?? []).map(rowToServiceRequest);
 }
 
+/**
+ * Transisi status permohonan layanan yang sah. Fungsi murni (tanpa I/O),
+ * sepadan dengan `isValidClassificationTransition` untuk aduan.
+ *
+ * Sebelumnya tidak ada validasi di lapisan mana pun: dropdown petugas
+ * menampilkan keenam status sekaligus dan `updateServiceRequestStatus`
+ * menulisnya apa adanya, sehingga permohonan yang baru `submitted` bisa
+ * langsung diloncatkan ke `ready` — status yang berarti "surat siap
+ * diunduh" padahal `output_pdf_url` dan `verification_code` masih NULL,
+ * jadi warga melihat "Siap Diunduh" tanpa berkas dan QR-nya tidak
+ * memverifikasi apa pun.
+ *
+ * Setiap status juga memetakan ke dirinya sendiri supaya menyimpan
+ * perubahan lain tanpa memindahkan status bukan dianggap transisi tak sah.
+ */
+const SERVICE_TRANSITIONS: Record<ServiceStatus, ServiceStatus[]> = {
+  submitted: ['submitted', 'verifying', 'rejected'],
+  verifying: ['verifying', 'signing', 'rejected'],
+  // `ready` dicapai oleh Edge Function generate-service-pdf, bukan dropdown.
+  signing: ['signing', 'ready', 'rejected'],
+  ready: ['ready', 'collected'],
+  collected: ['collected'],
+  rejected: ['rejected'],
+};
+
+export function isValidServiceTransition(from: ServiceStatus, to: ServiceStatus): boolean {
+  return SERVICE_TRANSITIONS[from]?.includes(to) ?? false;
+}
+
+/** Status berikutnya yang boleh dipilih petugas dari dropdown. */
+export function nextServiceStatuses(from: ServiceStatus): ServiceStatus[] {
+  return SERVICE_TRANSITIONS[from] ?? [from];
+}
+
 export interface UpdateServiceRequestStatusInput {
+  currentStatus: ServiceStatus;
   status: ServiceStatus;
   rejectionReason?: string;
   handledBy: string;
@@ -250,22 +291,31 @@ export interface UpdateServiceRequestStatusInput {
 
 /**
  * Petugas memajukan status permohonan (submitted -> verifying -> signing ->
- * ready/rejected -> collected). RLS `service_staff_update` menegakkan siapa
- * yang boleh menulis; ini hanya membangun payload UPDATE yang konsisten.
+ * ready -> collected, atau -> rejected). RLS `service_staff_update`
+ * menegakkan SIAPA yang boleh menulis; validasi di sini mencegah UI
+ * mengirim lompatan status yang tidak masuk akal.
  */
 export async function updateServiceRequestStatus(
   supabase: SupabaseClient<Database>,
   id: string,
   input: UpdateServiceRequestStatusInput,
 ): Promise<void> {
-  const { error } = await supabase
-    .from('service_requests')
-    .update({
-      status: input.status,
-      rejection_reason: input.rejectionReason ?? null,
-      handled_by: input.handledBy,
-    })
-    .eq('id', id);
+  if (!isValidServiceTransition(input.currentStatus, input.status)) {
+    throw new Error(`Transisi status tidak valid: ${input.currentStatus} -> ${input.status}`);
+  }
+
+  const update: Database['public']['Tables']['service_requests']['Update'] = {
+    status: input.status,
+    handled_by: input.handledBy,
+  };
+  // Hanya ditulis saat menolak. Dulu baris ini selalu `?? null`, sehingga
+  // setiap perubahan status berikutnya MENGHAPUS alasan penolakan yang
+  // sudah terlanjur ditampilkan ke warga.
+  if (input.status === 'rejected') {
+    update.rejection_reason = input.rejectionReason ?? null;
+  }
+
+  const { error } = await supabase.from('service_requests').update(update).eq('id', id);
   if (error) throw error;
 }
 

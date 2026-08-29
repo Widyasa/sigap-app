@@ -54,7 +54,8 @@ export default function KartuWargaScreen() {
           <Ionicons name="chevron-back" size={24} color={colors.surface} />
         </Pressable>
         <ThemedText variant="h2" style={{ color: colors.surface }}>Kartu Warga</ThemedText>
-        <Pressable onPress={toggleToast} style={[styles.iconButton, { backgroundColor: colors.primaryPressed }]} accessibilityRole="button" accessibilityLabel="Info">
+        <Pressable
+          hitSlop={8} onPress={toggleToast} style={[styles.iconButton, { backgroundColor: colors.primaryPressed }]} accessibilityRole="button" accessibilityLabel="Info">
           <ThemedText style={{ color: colors.surface }}>?</ThemedText>
         </Pressable>
       </View>

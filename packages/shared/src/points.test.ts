@@ -62,3 +62,26 @@ describe('groupPointLedgerByRef', () => {
     expect(groups.map((g) => g.key)).toEqual(['complaints:c2', 'complaints:c1']);
   });
 });
+
+describe('hasReversal', () => {
+  it('false untuk siklus hidup aduan yang normal', () => {
+    // Ketiga baris ini berbagi refTable/refId yang sama dan semuanya positif.
+    const groups = groupPointLedgerByRef([
+      { id: 1, points: 10, reason: 'report_created', refTable: 'complaints', refId: 'c1', createdAt: '2026-01-01T00:00:00Z' },
+      { id: 2, points: 20, reason: 'report_verified', refTable: 'complaints', refId: 'c1', createdAt: '2026-01-02T00:00:00Z' },
+      { id: 3, points: 50, reason: 'report_resolved', refTable: 'complaints', refId: 'c1', createdAt: '2026-01-03T00:00:00Z' },
+    ]);
+    expect(groups).toHaveLength(1);
+    expect(groups[0]!.hasReversal).toBe(false);
+    expect(groups[0]!.netPoints).toBe(80);
+  });
+
+  it('true hanya kalau ada baris bernilai negatif', () => {
+    const groups = groupPointLedgerByRef([
+      { id: 1, points: 10, reason: 'report_created', refTable: 'complaints', refId: 'c1', createdAt: '2026-01-01T00:00:00Z' },
+      { id: 2, points: -35, reason: 'report_false', refTable: 'complaints', refId: 'c1', createdAt: '2026-01-04T00:00:00Z' },
+    ]);
+    expect(groups[0]!.hasReversal).toBe(true);
+    expect(groups[0]!.netPoints).toBe(-25);
+  });
+});

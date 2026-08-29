@@ -6,7 +6,7 @@ import {
   ReactNode,
   useCallback,
 } from 'react';
-import { authReasonToMessage, requestOtp, verifyOtp } from './api';
+import { authReasonToMessage, requestOtp, verifyOtp, baseUrl } from './api';
 import { supabase } from './supabase';
 import { decodeJwtPayload } from './jwtDecode';
 import {
@@ -61,6 +61,15 @@ export interface OnboardingInput {
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 const PROFILE_KEY = 'sigap_user_profile';
+
+/** Rapikan spasi ganda dan seragamkan kapitalisasi nama wilayah. */
+function normalizePlaceName(value: string): string {
+  return value
+    .trim()
+    .replace(/\s+/g, ' ')
+    .toLowerCase()
+    .replace(/(^|\s)\S/g, (c) => c.toUpperCase());
+}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AuthState>({
@@ -187,12 +196,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return { ok: false, message: 'Sesi tidak ditemukan. Masuk kembali.' };
         }
         const userId = getUserIdFromToken(accessToken);
+        // Kelurahan dinormalkan sebelum disimpan.
+        //
+        // Nilai ini dibandingkan PERSIS (string equality) oleh
+        // `votes_insert_own` dan oleh setiap query yang discope per
+        // kelurahan. Tanpa normalisasi, warga yang mengetik "sukamaju" atau
+        // "Suka  Maju" diam-diam melihat daftar aspirasi kosong dan tidak
+        // akan pernah bisa memilih, tanpa satu pun penjelasan di layar.
         const { error } = await supabase
           .from('profiles')
           .update({
-            full_name: fullName.trim(),
-            kecamatan: kecamatan.trim(),
-            kelurahan: kelurahan.trim(),
+            full_name: fullName.trim().replace(/\s+/g, ' '),
+            kecamatan: normalizePlaceName(kecamatan),
+            kelurahan: normalizePlaceName(kelurahan),
           })
           .eq('id', userId);
         if (error) {
@@ -224,7 +240,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const refreshToken = (await loadTokens())?.refreshToken;
       if (refreshToken) {
-        await fetch(`${process.env.EXPO_PUBLIC_SUPABASE_URL}/functions/v1/auth-signout`, {
+        // Sama seperti session.ts: dulu ini menembak
+        // "undefined/functions/v1/auth-signout", jadi token lokal terhapus
+        // tapi `auth_sessions.revoked_at` tetap NULL — refresh token yang
+        // sudah "keluar" masih sah selama 30 hari.
+        await fetch(`${baseUrl}/functions/v1/auth-signout`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ refreshToken, all }),

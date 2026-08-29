@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { View, Pressable, ScrollView, FlatList, StyleSheet, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import {
   listAnnouncements,
@@ -63,9 +63,14 @@ export default function PengumumanScreen() {
     }
   }, [user]);
 
-  useEffect(() => {
-    load();
-  }, [load]);
+  // Muat ulang setiap kali layar kembali difokuskan: membuka detail
+  // memanggil `markAnnouncementAsRead`, tapi tanpa ini titik "belum dibaca"
+  // masih menempel sampai pengguna menarik-untuk-menyegarkan.
+  useFocusEffect(
+    useCallback(() => {
+      void load();
+    }, [load]),
+  );
 
   const handleMarkAllRead = useCallback(async () => {
     if (!user) return;
@@ -105,14 +110,6 @@ export default function PengumumanScreen() {
           <Ionicons name="chevron-back" size={20} color={colors.textPrimary} />
         </Pressable>
         <ThemedText variant="h2">SIGAP</ThemedText>
-        <Pressable
-          onPress={() => console.log('pengumuman menu pressed')}
-          style={[styles.iconButton, { backgroundColor: colors.surface, borderRadius: spacing(6) }]}
-          accessibilityRole="button"
-          accessibilityLabel="Menu"
-        >
-          <Ionicons name="ellipsis-horizontal" size={20} color={colors.textPrimary} />
-        </Pressable>
       </View>
 
       {error ? (
@@ -336,7 +333,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   markReadButton: {
-    minHeight: 32,
+    minHeight: 44,
     alignItems: 'center',
     justifyContent: 'center',
   },

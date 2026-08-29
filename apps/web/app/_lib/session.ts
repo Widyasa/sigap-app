@@ -17,12 +17,16 @@ export interface StoredTokens {
 }
 
 export function saveTokens(tokens: StoredTokens): void {
+  if (typeof window === 'undefined') return;
   localStorage.setItem(ACCESS_TOKEN_KEY, tokens.accessToken);
   localStorage.setItem(REFRESH_TOKEN_KEY, tokens.refreshToken);
   localStorage.setItem(ACCESS_TOKEN_EXP_KEY, String(tokens.accessTokenExp));
 }
 
 export function loadTokens(): StoredTokens | null {
+  // Dipanggil dari modul yang juga diimpor saat prerender Next.js, di mana
+  // `localStorage` tidak ada.
+  if (typeof window === 'undefined') return null;
   const accessToken = localStorage.getItem(ACCESS_TOKEN_KEY);
   const refreshToken = localStorage.getItem(REFRESH_TOKEN_KEY);
   const expStr = localStorage.getItem(ACCESS_TOKEN_EXP_KEY);
@@ -33,6 +37,7 @@ export function loadTokens(): StoredTokens | null {
 }
 
 export function clearTokens(): void {
+  if (typeof window === 'undefined') return;
   localStorage.removeItem(ACCESS_TOKEN_KEY);
   localStorage.removeItem(REFRESH_TOKEN_KEY);
   localStorage.removeItem(ACCESS_TOKEN_EXP_KEY);
@@ -49,7 +54,28 @@ interface RefreshResult {
   accessTokenExp: number;
 }
 
-async function refreshAccessToken(refreshToken: string): Promise<RefreshResult | null> {
+/**
+ * Satu permintaan refresh yang sedang berjalan, dibagi ke semua pemanggil.
+ *
+ * `auth-refresh` MEROTASI refresh token: token lama langsung di-`revoke`
+ * begitu yang baru diterbitkan. Tanpa penguncian ini, satu halaman dashboard
+ * yang menembak beberapa query paralel akan memanggil `getAccessToken()`
+ * beberapa kali sekaligus, semuanya membawa refresh token lama yang sama —
+ * hanya yang pertama berhasil, sisanya balik `session_expired`, memanggil
+ * `clearTokens()`, dan petugas terlempar keluar di tengah pekerjaan.
+ */
+let inFlightRefresh: Promise<RefreshResult | null> | null = null;
+
+function refreshAccessToken(refreshToken: string): Promise<RefreshResult | null> {
+  if (!inFlightRefresh) {
+    inFlightRefresh = doRefreshAccessToken(refreshToken).finally(() => {
+      inFlightRefresh = null;
+    });
+  }
+  return inFlightRefresh;
+}
+
+async function doRefreshAccessToken(refreshToken: string): Promise<RefreshResult | null> {
   try {
     const response = await fetch(`${SUPABASE_URL}/functions/v1/auth-refresh`, {
       method: 'POST',
@@ -83,6 +109,12 @@ export async function getAccessToken(): Promise<string | null> {
   if (tokens.accessTokenExp - now < 300) {
     const refreshed = await refreshAccessToken(tokens.refreshToken);
     if (refreshed) return refreshed.accessToken;
+    // Bisa jadi pemanggil paralel lain sudah menyegarkan sesi ini sementara
+    // kita menunggu; baca ulang sebelum memutuskan sesi benar-benar mati.
+    const latest = loadTokens();
+    if (latest && latest.accessTokenExp - Math.floor(Date.now() / 1000) >= 300) {
+      return latest.accessToken;
+    }
     clearTokens();
     return null;
   }

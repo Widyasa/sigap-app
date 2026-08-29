@@ -72,10 +72,55 @@ Deno.serve(async (req) => {
     .limit(1);
 
   if (findError || !rows || rows.length === 0) {
+    // Deteksi pemakaian ulang: kalau hash-nya ADA tapi sudah dicabut karena
+    // rotasi, artinya token lama dipakai untuk kedua kalinya — entah oleh
+    // penyerang yang mencurinya, entah oleh perangkat sah yang tokennya
+    // dicuri. Keduanya berarti satu keluarga sesi tidak lagi tepercaya,
+    // jadi seluruh sesi pengguna itu dicabut. Kolom `revoked_reason`
+    // memang sudah menyediakan nilai 'reuse_detected' sejak
+    // 20260810000002_identity.sql, tapi sebelumnya tidak pernah ditulis.
+    const { data: reused } = await supabase
+      .from("auth_sessions")
+      .select("user_id")
+      .eq("refresh_token_hash", refreshHash)
+      .not("revoked_at", "is", null)
+      .limit(1);
+
+    if (reused && reused.length > 0) {
+      console.error("refresh token reuse detected", { userId: reused[0].user_id });
+      await supabase.from("auth_sessions").update({
+        revoked_at: nowIso,
+        revoked_reason: "reuse_detected",
+      }).eq("user_id", reused[0].user_id).is("revoked_at", null);
+    }
     return jsonResponse({ ok: false, reason: "session_expired" }, 401);
   }
 
   const session = rows[0];
+
+  // Akun yang dinonaktifkan admin harus langsung kehilangan aksesnya.
+  // `disabled_at` sebelumnya hanya diperiksa di auth-verify-otp, padahal
+  // perangkat yang sudah masuk tidak pernah mengulang OTP — ia cukup
+  // merotasi refresh token setiap jam, sehingga operator yang sudah
+  // dinonaktifkan tetap memegang akses sampai SESSION_TTL 30 hari habis.
+  const { data: userRow, error: userError } = await supabase
+    .from("users")
+    .select("disabled_at, email")
+    .eq("id", session.user_id)
+    .single();
+
+  if (userError || !userRow) {
+    console.error("user lookup error", userError);
+    return jsonResponse({ ok: false, reason: "server_error" }, 500);
+  }
+
+  if (userRow.disabled_at) {
+    await supabase.from("auth_sessions").update({
+      revoked_at: nowIso,
+      revoked_reason: "account_disabled",
+    }).eq("user_id", session.user_id).is("revoked_at", null);
+    return jsonResponse({ ok: false, reason: "account_disabled" }, 403);
+  }
 
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
@@ -114,12 +159,16 @@ Deno.serve(async (req) => {
     return jsonResponse({ ok: false, reason: "server_error" }, 500);
   }
 
-  const accessToken = await createAccessToken(session.user_id, {
-    role: profile.role,
-    dinas_id: profile.dinas_id,
-    kelurahan: profile.kelurahan,
-    kecamatan: profile.kecamatan,
-  });
+  const accessToken = await createAccessToken(
+    session.user_id,
+    {
+      role: profile.role,
+      dinas_id: profile.dinas_id,
+      kelurahan: profile.kelurahan,
+      kecamatan: profile.kecamatan,
+    },
+    userRow.email as string | undefined,
+  );
 
   return jsonResponse({ ok: true, accessToken, refreshToken: newRefreshToken });
 });

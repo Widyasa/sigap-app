@@ -53,7 +53,11 @@ export function groupPointLedgerByRef<T extends PointLedgerEntryLike>(
       key,
       entries: sorted,
       netPoints: sorted.reduce((sum, e) => sum + e.points, 0),
-      hasReversal: sorted.length > 1,
+      // `sorted.length > 1` salah: `report_created`, `report_verified`, dan
+      // `report_resolved` semuanya memakai refTable/refId yang sama, jadi
+      // aduan yang berjalan normal pun ditandai "ada pembatalan". Pembatalan
+      // yang sesungguhnya adalah baris BERNILAI NEGATIF (mis. report_false).
+      hasReversal: sorted.some((e) => e.points < 0),
     };
   });
 

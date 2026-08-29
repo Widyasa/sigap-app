@@ -251,14 +251,6 @@ export default function LaporScreen() {
           keyboardShouldPersistTaps="handled"
         >
           <View style={[styles.headerRow, { justifyContent: 'flex-end' }]}>
-            <Pressable
-              onPress={() => console.log('lapor menu pressed')}
-              style={[styles.iconButton, { backgroundColor: colors.surface, shadowColor: colors.textPrimary }]}
-              accessibilityRole="button"
-              accessibilityLabel="Menu"
-            >
-              <Ionicons name="ellipsis-horizontal" size={20} color={colors.textPrimary} />
-            </Pressable>
           </View>
 
           <ThemedText variant="display">Lapor</ThemedText>
@@ -312,7 +304,7 @@ export default function LaporScreen() {
                     ]}
                   >
                     <ThemedText variant="micro" style={{ color: colors.surface }}>
-                      terunggah
+                      dipilih
                     </ThemedText>
                   </View>
                 </Pressable>
@@ -395,7 +387,8 @@ export default function LaporScreen() {
             ) : null}
 
             <View>
-              <Button text="Kirim Laporan" loading={submitting} disabled={!canSubmit} onPress={handleSubmit} />
+              <Button text="Kirim Laporan"
+          loadingText="Mengirim laporan Anda…" loading={submitting} disabled={!canSubmit} onPress={handleSubmit} />
               <ThemedText variant="caption" color="muted" style={{ marginTop: spacing(2), textAlign: 'center' }}>
                 Perlu 1 foto, 20 karakter, dan lokasi.
               </ThemedText>
@@ -463,7 +456,7 @@ const styles = StyleSheet.create({
   textArea: {
     minHeight: 120,
     borderWidth: 1,
-    fontSize: 15,
+    fontSize: 16,
   },
   counterRow: {
     flexDirection: 'row',

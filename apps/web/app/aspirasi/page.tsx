@@ -7,6 +7,7 @@ import {
   createVotingPeriod,
   setVotingPeriodActive,
   listAspirationsForReview,
+  nextAspirationStatuses,
   updateAspirationStatus,
   listBudgetItemsForLinking,
   type VotingPeriod,
@@ -14,25 +15,27 @@ import {
   type BudgetItemOption,
 } from '@repo/supabase';
 import {
+  ASPIRATION_STATUS_LABELS as STATUS_LABELS,
   createVotingPeriodSchema,
-  ASPIRATION_STATUSES,
   type AspirationStatus,
   colors,
 } from '@repo/shared';
 import { useAuth } from '../_lib/auth';
 import { supabase } from '../_lib/supabaseClient';
 import { DashboardShell } from '../_lib/DashboardShell';
+import {
+  AsyncSection,
+  EmptyState,
+  FlashMessage,
+  TableScroll,
+  Td,
+  Th,
+  useFlash,
+  visuallyHidden,
+} from '../_lib/ui';
 
 const THEME = colors.light;
 
-const STATUS_LABELS: Record<AspirationStatus, string> = {
-  voting: 'Voting',
-  musrenbang: 'Musrenbang',
-  approved: 'Disetujui',
-  budgeted: 'Dianggarkan',
-  realized: 'Terealisasi',
-  rejected: 'Ditolak',
-};
 
 export default function AspirasiAdminPage() {
   const { isLoading: authLoading, isAuthenticated, user } = useAuth();
@@ -42,8 +45,15 @@ export default function AspirasiAdminPage() {
 
   useEffect(() => {
     if (authLoading) return;
-    if (!isAuthenticated || !canAccess) {
+    if (!isAuthenticated) {
       router.replace('/login');
+      return;
+    }
+    if (!canAccess) {
+      // Peran yang salah BUKAN masalah otentikasi. Melemparnya ke /login
+      // membuat petugas yang sudah masuk melihat layar masuk, lalu efek di
+      // LoginPage langsung memantulkannya kembali — kedip tak berujung.
+      router.replace('/');
     }
   }, [authLoading, isAuthenticated, canAccess, router]);
 
@@ -81,20 +91,33 @@ export default function AspirasiAdminPage() {
   }
 
   return (
-    <DashboardShell title="Dashboard Aspirasi" subtitle={`Masuk sebagai ${user?.fullName ?? user?.role}.`}>
-      {error ? <p style={{ color: THEME.danger }}>{error}</p> : null}
-      {loading ? (
-        <p>Memuat data…</p>
-      ) : (
-        <>
-          <VotingPeriodsSection periods={periods} onChanged={load} />
-          <AspirationReviewSection
-            aspirations={aspirations}
-            budgetOptions={budgetOptions}
-            onChanged={load}
-          />
-        </>
-      )}
+    <DashboardShell title="Aspirasi" subtitle={`Masuk sebagai ${user?.fullName ?? user?.role}.`}>
+      <AsyncSection
+        loading={loading}
+        error={error}
+        items={loading ? null : [1]}
+        onRetry={load}
+        loadingMessage="Memuat data aspirasi…"
+        empty={null}
+      >
+        {() => (
+          <>
+            {/* Periode voting adalah tulis-ADMIN (`periods_admin` di
+                20260810000006_rls.sql). Dulu bagian ini dirender untuk
+                `dinas_head` juga, sehingga setiap klik "Buka Periode" atau
+                "Tutup" hanya bisa berakhir dengan 42501 dan pesan galat
+                yang membingungkan. */}
+            {user?.role === 'admin' ? (
+              <VotingPeriodsSection periods={periods} onChanged={load} />
+            ) : null}
+            <AspirationReviewSection
+              aspirations={aspirations}
+              budgetOptions={budgetOptions}
+              onChanged={load}
+            />
+          </>
+        )}
+      </AsyncSection>
     </DashboardShell>
   );
 }
@@ -113,6 +136,7 @@ function VotingPeriodsSection({
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [togglingId, setTogglingId] = useState<string | null>(null);
+  const [toggleError, setToggleError] = useState<string | null>(null);
 
   const handleCreate = async () => {
     setFormError(null);
@@ -142,12 +166,20 @@ function VotingPeriodsSection({
   };
 
   const handleToggle = async (period: VotingPeriod) => {
+    setToggleError(null);
     setTogglingId(period.id);
     try {
       await setVotingPeriodActive(supabase, period.id, !period.isActive);
       onChanged();
     } catch (e) {
+      // Sebelumnya galat ini hanya masuk console: tombol berhenti berputar
+      // dan status periode tidak berubah, tanpa penjelasan apa pun ke admin.
       console.error('setVotingPeriodActive error', e);
+      setToggleError(
+        period.isActive
+          ? 'Gagal menutup periode voting. Coba lagi.'
+          : 'Gagal mengaktifkan periode voting. Coba lagi.',
+      );
     } finally {
       setTogglingId(null);
     }
@@ -157,33 +189,33 @@ function VotingPeriodsSection({
     <section style={sectionStyle}>
       <h2 style={h2Style}>Periode Voting</h2>
 
-      <table style={tableStyle}>
+      <TableScroll caption="Daftar periode voting">
         <thead>
           <tr>
-            <th style={thStyle}>Nama</th>
-            <th style={thStyle}>Tahun Anggaran</th>
-            <th style={thStyle}>Mulai</th>
-            <th style={thStyle}>Selesai</th>
-            <th style={thStyle}>Status</th>
-            <th style={thStyle}></th>
+            <Th>Nama</Th>
+            <Th>Tahun Anggaran</Th>
+            <Th>Mulai</Th>
+            <Th>Selesai</Th>
+            <Th>Status</Th>
+            <Th></Th>
           </tr>
         </thead>
         <tbody>
           {periods.length === 0 ? (
             <tr>
-              <td style={tdStyle} colSpan={6}>
+              <Td colSpan={6}>
                 Belum ada periode voting.
-              </td>
+              </Td>
             </tr>
           ) : (
             periods.map((p) => (
               <tr key={p.id}>
-                <td style={tdStyle}>{p.name}</td>
-                <td style={tdStyle}>{p.fiscalYear}</td>
-                <td style={tdStyle}>{new Date(p.startsAt).toLocaleString('id-ID')}</td>
-                <td style={tdStyle}>{new Date(p.endsAt).toLocaleString('id-ID')}</td>
-                <td style={tdStyle}>{p.isActive ? 'Aktif' : 'Ditutup'}</td>
-                <td style={tdStyle}>
+                <Td>{p.name}</Td>
+                <Td>{p.fiscalYear}</Td>
+                <Td>{new Date(p.startsAt).toLocaleString('id-ID')}</Td>
+                <Td>{new Date(p.endsAt).toLocaleString('id-ID')}</Td>
+                <Td>{p.isActive ? 'Aktif' : 'Ditutup'}</Td>
+                <Td>
                   <button
                     style={smallButtonStyle}
                     disabled={togglingId === p.id}
@@ -191,22 +223,32 @@ function VotingPeriodsSection({
                   >
                     {p.isActive ? 'Tutup' : 'Buka'}
                   </button>
-                </td>
+                </Td>
               </tr>
             ))
           )}
         </tbody>
-      </table>
+      </TableScroll>
+      {toggleError ? <p style={{ color: THEME.danger, fontSize: 13 }}>{toggleError}</p> : null}
 
       <h3 style={h3Style}>Buka Periode Baru</h3>
-      <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'flex-end' }}>
+      {/* Dibungkus <form>: sebagai <div> polos, menekan Enter di kolom "Nama"
+          tidak melakukan apa pun. */}
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          void handleCreate();
+        }}
+        style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'flex-end' }}
+      >
         <div>
-          <label style={labelStyle}>Nama</label>
-          <input style={inputStyle} value={name} onChange={(e) => setName(e.target.value)} />
+          <label htmlFor="periode-nama" style={labelStyle}>Nama</label>
+          <input id="periode-nama" style={inputStyle} value={name} onChange={(e) => setName(e.target.value)} />
         </div>
         <div>
-          <label style={labelStyle}>Tahun Anggaran</label>
+          <label htmlFor="periode-tahun" style={labelStyle}>Tahun Anggaran</label>
           <input
+            id="periode-tahun"
             style={{ ...inputStyle, width: 100 }}
             type="number"
             value={fiscalYear}
@@ -214,8 +256,9 @@ function VotingPeriodsSection({
           />
         </div>
         <div>
-          <label style={labelStyle}>Mulai</label>
+          <label htmlFor="periode-mulai" style={labelStyle}>Mulai</label>
           <input
+            id="periode-mulai"
             style={inputStyle}
             type="datetime-local"
             value={startsAt}
@@ -223,19 +266,30 @@ function VotingPeriodsSection({
           />
         </div>
         <div>
-          <label style={labelStyle}>Selesai</label>
+          <label htmlFor="periode-selesai" style={labelStyle}>Selesai</label>
           <input
+            id="periode-selesai"
             style={inputStyle}
             type="datetime-local"
             value={endsAt}
             onChange={(e) => setEndsAt(e.target.value)}
           />
         </div>
-        <button style={smallButtonStyle} disabled={submitting} onClick={handleCreate}>
+        <button type="submit" style={smallButtonStyle} disabled={submitting}>
           {submitting ? 'Menyimpan…' : 'Buka Periode'}
         </button>
-      </div>
-      {formError ? <p style={{ color: THEME.danger, fontSize: 13 }}>{formError}</p> : null}
+      </form>
+      {/* Zona waktu diumumkan eksplisit: `datetime-local` memakai zona
+          perangkat, jadi admin di WITA menyetel jam yang dibaca berbeda oleh
+          warga di WIB tanpa satu pun petunjuk di layar. */}
+      <p style={{ color: THEME.textSecondary, fontSize: 13, marginTop: 8 }}>
+        Waktu mengikuti zona perangkat Anda ({Intl.DateTimeFormat().resolvedOptions().timeZone}).
+      </p>
+      {formError ? (
+        <p role="alert" style={{ color: THEME.danger, fontSize: 13 }}>
+          {formError}
+        </p>
+      ) : null}
     </section>
   );
 }
@@ -252,22 +306,49 @@ function AspirationReviewSection({
   const [pendingStatus, setPendingStatus] = useState<Record<string, AspirationStatus>>({});
   const [pendingBudget, setPendingBudget] = useState<Record<string, string>>({});
   const [savingId, setSavingId] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const { flash, showSuccess } = useFlash();
 
   const handleSave = async (aspiration: AspirationSummary) => {
     const status = pendingStatus[aspiration.id] ?? aspiration.status;
     const linkedBudgetItemId = pendingBudget[aspiration.id];
     setSavingId(aspiration.id);
+    setSaveError(null);
     try {
       await updateAspirationStatus(supabase, aspiration.id, {
+        currentStatus: aspiration.status,
         status,
         linkedBudgetItemId:
           linkedBudgetItemId !== undefined
             ? linkedBudgetItemId || null
             : undefined,
       });
+      // Bersihkan pilihan lokal supaya dropdown kembali mencerminkan baris
+      // di basis data. Dulu nilainya tidak pernah dibersihkan, jadi setelah
+      // penyimpanan GAGAL (yang juga senyap) dropdown tetap menampilkan
+      // pilihan admin dan UI mengklaim keadaan yang tidak ada di DB.
+      setPendingStatus((prev) => {
+        const next = { ...prev };
+        delete next[aspiration.id];
+        return next;
+      });
+      setPendingBudget((prev) => {
+        const next = { ...prev };
+        delete next[aspiration.id];
+        return next;
+      });
+      showSuccess('Perubahan aspirasi tersimpan.');
       onChanged();
     } catch (e) {
+      // Dulu galat ini hanya masuk console: tombol berhenti berputar,
+      // dropdown tetap menampilkan nilai baru, dan admin mengira keputusan
+      // Musrenbang sudah tercatat.
       console.error('updateAspirationStatus error', e);
+      setSaveError(
+        e instanceof Error && e.message.startsWith('Transisi status tidak valid')
+          ? 'Perubahan status itu tidak sesuai alur (voting → musrenbang → disetujui → dianggarkan → terealisasi).'
+          : 'Gagal menyimpan perubahan aspirasi. Coba lagi.',
+      );
     } finally {
       setSavingId(null);
     }
@@ -282,43 +363,66 @@ function AspirationReviewSection({
         melihat jejak dampaknya.
       </p>
 
+      <FlashMessage flash={flash} />
+      {saveError ? (
+        <p role="alert" style={{ color: THEME.danger, fontSize: 13 }}>
+          {saveError}
+        </p>
+      ) : null}
+
       {aspirations.length === 0 ? (
-        <p>Belum ada aspirasi yang perlu ditinjau.</p>
+        <EmptyState
+          icon="🗳️"
+          title="Belum ada aspirasi yang perlu ditinjau"
+          message="Usulan warga muncul di sini setelah masuk masa voting. Buka periode voting baru di atas untuk mulai mengumpulkannya."
+        />
       ) : (
-        <table style={tableStyle}>
+        <TableScroll caption="Daftar aspirasi warga untuk ditinjau">
           <thead>
             <tr>
-              <th style={thStyle}>Judul</th>
-              <th style={thStyle}>Kelurahan</th>
-              <th style={thStyle}>Suara</th>
-              <th style={thStyle}>Status</th>
-              <th style={thStyle}>Item Anggaran</th>
-              <th style={thStyle}></th>
+              <Th>Judul</Th>
+              <Th>Kelurahan</Th>
+              <Th>Suara</Th>
+              <Th>Status</Th>
+              <Th>Item Anggaran</Th>
+              <Th></Th>
             </tr>
           </thead>
           <tbody>
             {aspirations.map((a) => (
               <tr key={a.id}>
-                <td style={tdStyle}>{a.title}</td>
-                <td style={tdStyle}>{a.kelurahan}</td>
-                <td style={tdStyle}>{a.voteCount}</td>
-                <td style={tdStyle}>
+                <Td>{a.title}</Td>
+                <Td>{a.kelurahan}</Td>
+                <Td>{a.voteCount}</Td>
+                <Td>
+                  <label htmlFor={`status-aspirasi-${a.id}`} style={visuallyHidden}>
+                    Status aspirasi {a.title}
+                  </label>
                   <select
+                    id={`status-aspirasi-${a.id}`}
                     style={selectStyle}
                     value={pendingStatus[a.id] ?? a.status}
                     onChange={(e) =>
                       setPendingStatus((prev) => ({ ...prev, [a.id]: e.target.value as AspirationStatus }))
                     }
                   >
-                    {ASPIRATION_STATUSES.map((s) => (
+                    {/* Hanya penerus yang sah — dulu keenam status tampil,
+                        sehingga aspirasi yang sudah `budgeted` bisa
+                        dikembalikan ke `voting` dan memicu ulang trigger
+                        poin Musrenbang. */}
+                    {nextAspirationStatuses(a.status).map((s) => (
                       <option key={s} value={s}>
                         {STATUS_LABELS[s]}
                       </option>
                     ))}
                   </select>
-                </td>
-                <td style={tdStyle}>
+                </Td>
+                <Td>
+                  <label htmlFor={`anggaran-aspirasi-${a.id}`} style={visuallyHidden}>
+                    Item anggaran tertaut untuk {a.title}
+                  </label>
                   <select
+                    id={`anggaran-aspirasi-${a.id}`}
                     style={selectStyle}
                     value={pendingBudget[a.id] ?? a.linkedBudgetItemId ?? ''}
                     onChange={(e) =>
@@ -332,8 +436,8 @@ function AspirationReviewSection({
                       </option>
                     ))}
                   </select>
-                </td>
-                <td style={tdStyle}>
+                </Td>
+                <Td>
                   <button
                     style={smallButtonStyle}
                     disabled={savingId === a.id}
@@ -341,11 +445,11 @@ function AspirationReviewSection({
                   >
                     {savingId === a.id ? 'Menyimpan…' : 'Simpan'}
                   </button>
-                </td>
+                </Td>
               </tr>
             ))}
           </tbody>
-        </table>
+        </TableScroll>
       )}
     </section>
   );
@@ -354,14 +458,6 @@ function AspirationReviewSection({
 const sectionStyle: CSSProperties = { marginBottom: 40 };
 const h2Style: CSSProperties = { fontSize: 18, marginBottom: 12 };
 const h3Style: CSSProperties = { fontSize: 15, marginTop: 20, marginBottom: 8 };
-const tableStyle: CSSProperties = { width: '100%', borderCollapse: 'collapse', fontSize: 14 };
-const thStyle: CSSProperties = {
-  textAlign: 'left',
-  borderBottom: `1px solid ${THEME.border}`,
-  padding: '8px 6px',
-  color: THEME.textSecondary,
-};
-const tdStyle: CSSProperties = { borderBottom: `1px solid ${THEME.border}`, padding: '8px 6px' };
 const labelStyle: CSSProperties = { display: 'block', fontSize: 12, color: THEME.textSecondary, marginBottom: 4 };
 const inputStyle: CSSProperties = {
   minHeight: 36,

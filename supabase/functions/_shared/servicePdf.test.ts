@@ -41,9 +41,29 @@ Deno.test('formatLetterFields mengabaikan value non-string (mis. angka) sebagai 
   assertEquals(fields.find((f) => f.label === 'Nama')?.value, '-');
 });
 
-Deno.test('SERVICE_TITLES mencakup seluruh 5 service_type dari CHECK constraint DB', () => {
+Deno.test('SERVICE_TITLES mencakup seluruh 7 service_type dari CHECK constraint DB', () => {
+  // Daftar ini harus persis sama dengan SERVICE_CATALOG
+  // (packages/shared/src/constants.ts) dan CHECK constraint
+  // `service_requests_service_type_check` sesudah
+  // 20260814000001_extend_service_catalog.sql.
   const keys = Object.keys(SERVICE_TITLES).sort();
-  assertEquals(keys, ['domisili', 'izin_keramaian', 'pengantar_nikah', 'sktm', 'usaha']);
+  assertEquals(keys, [
+    'domisili',
+    'izin_keramaian',
+    'kelahiran',
+    'kematian',
+    'pengantar_nikah',
+    'sktm',
+    'usaha',
+  ]);
+});
+
+Deno.test('formatLetterFields tidak melempar untuk kelahiran/kematian', () => {
+  for (const t of ['kelahiran', 'kematian'] as const) {
+    const fields = formatLetterFields(t, {});
+    assertEquals(fields.length > 0, true);
+    assertEquals(fields.every((f) => f.value === '-'), true);
+  }
 });
 
 

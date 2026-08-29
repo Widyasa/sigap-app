@@ -41,6 +41,8 @@ interface SearchBudgetItemRow {
 
 const MATCH_COUNT = 8;
 
+const MAX_QUESTION_LENGTH = 500;
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { status: 204, headers: corsHeaders() });
@@ -59,6 +61,13 @@ Deno.serve(async (req) => {
   const question = body.question;
   if (!question || typeof question !== 'string' || !question.trim()) {
     return jsonResponse({ ok: false, reason: 'invalid_request' }, 400);
+  }
+  // Pertanyaan warga tidak pernah sepanjang ini. Tanpa batas, satu akun
+  // bisa mengirim prompt raksasa berulang kali dan menghabiskan kuota AI
+  // proyek (fungsi ini memanggil penyedia berbayar dua kali: embedding +
+  // penyusunan jawaban).
+  if (question.length > MAX_QUESTION_LENGTH) {
+    return jsonResponse({ ok: false, reason: 'question_too_long' }, 413);
   }
 
   const authHeader = req.headers.get('Authorization') ?? '';

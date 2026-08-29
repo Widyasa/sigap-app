@@ -1,4 +1,5 @@
 import { decodeJwtPayload } from './jwtDecode';
+import { baseUrl } from './api';
 import {
   getItemAsync,
   setItemAsync,
@@ -52,6 +53,12 @@ export async function getAccessToken(): Promise<string | null> {
   if (tokens.accessTokenExp - now < 300) {
     const refreshed = await refreshAccessToken(tokens.refreshToken);
     if (refreshed) return refreshed.accessToken;
+    // Pemanggil paralel lain mungkin sudah menyegarkan sesi ini sementara
+    // kita menunggu; baca ulang sebelum menyimpulkan sesi benar-benar mati.
+    const latest = await loadTokens();
+    if (latest && latest.accessTokenExp - Math.floor(Date.now() / 1000) >= 300) {
+      return latest.accessToken;
+    }
     await clearTokens();
     return null;
   }
@@ -68,11 +75,40 @@ interface RefreshResult {
   accessTokenExp: number;
 }
 
-export async function refreshAccessToken(
+/**
+ * Satu permintaan refresh yang sedang berjalan, dibagi ke semua pemanggil.
+ *
+ * `auth-refresh` MEROTASI refresh token: token lama langsung di-`revoke`
+ * begitu yang baru diterbitkan. `getAccessToken` dipanggil supabase-js pada
+ * SETIAP permintaan, jadi satu layar yang memuat beberapa query sekaligus
+ * akan mengirim refresh token lama yang sama beberapa kali — hanya yang
+ * pertama berhasil, sisanya balik `session_expired`, memanggil
+ * `clearTokens()`, dan warga terlempar keluar tanpa sebab yang jelas.
+ */
+let inFlightRefresh: Promise<RefreshResult | null> | null = null;
+
+export function refreshAccessToken(
+  refreshToken: string,
+): Promise<RefreshResult | null> {
+  if (!inFlightRefresh) {
+    inFlightRefresh = doRefreshAccessToken(refreshToken).finally(() => {
+      inFlightRefresh = null;
+    });
+  }
+  return inFlightRefresh;
+}
+
+async function doRefreshAccessToken(
   refreshToken: string,
 ): Promise<RefreshResult | null> {
   try {
-    const baseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL ?? '';
+    // URL Supabase HARUS diambil lewat `baseUrl` bersama, yang juga membaca
+    // `app.json -> expo.extra.supabaseUrl`. Berkas ini dulu hanya membaca
+    // `process.env.EXPO_PUBLIC_SUPABASE_URL`, dan tidak ada `.env` di
+    // apps/native maupun variabel itu di eas.json — jadi 55 menit setelah
+    // masuk (atau pada setiap start dingin dengan sisa token < 300 detik),
+    // refresh menembak URL kosong, gagal, dan `getAccessToken` menghapus
+    // token: warga terlempar keluar di tengah sesi tanpa sebab.
     const response = await fetch(`${baseUrl}/functions/v1/auth-refresh`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

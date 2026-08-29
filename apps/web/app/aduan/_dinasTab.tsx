@@ -11,6 +11,7 @@ import {
 import { DINAS_LIST, colors, spacing, statusColor, type ComplaintStatus } from '@repo/shared';
 import type { StaffProfile } from '../_lib/auth';
 import { supabase } from '../_lib/supabaseClient';
+import { AsyncSection, EmptyState } from '../_lib/ui';
 
 const THEME = colors.light;
 
@@ -42,8 +43,14 @@ export function DinasTab({ user }: { user: StaffProfile }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Peran dinas tanpa penugasan tidak boleh memanggil query sama sekali:
+  // `listComplaintsForDinas(supabase, user.dinasId!)` meneruskan null lewat
+  // non-null assertion, sedangkan penjagaannya baru berjalan setelah efek.
+  const unassigned = user.role !== 'admin' && !user.dinasId;
+
   const load = useCallback(async () => {
     setError(null);
+    setLoading(true);
     try {
       const list =
         user.role === 'admin' && !user.dinasId
@@ -56,14 +63,14 @@ export function DinasTab({ user }: { user: StaffProfile }) {
     } finally {
       setLoading(false);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user.role, user.dinasId]);
 
   useEffect(() => {
+    if (unassigned) return;
     load();
-  }, [load]);
+  }, [load, unassigned]);
 
-  if (user.role !== 'admin' && !user.dinasId) {
+  if (unassigned) {
     return (
       <p style={{ color: THEME.danger }}>
         Akun Anda belum ditugaskan ke dinas mana pun. Hubungi admin untuk penugasan dinas.
@@ -78,18 +85,28 @@ export function DinasTab({ user }: { user: StaffProfile }) {
       <p style={{ fontSize: 13, color: THEME.textSecondary, margin: '0 0 12px' }}>
         {isAdminWithoutDinas ? 'Menampilkan seluruh aduan aktif lintas dinas (mode admin).' : `Menampilkan aduan dinas ${dinasName}.`}
       </p>
-      {error ? <p style={{ color: THEME.danger }}>{error}</p> : null}
-      {loading ? (
-        <p style={{ color: THEME.textSecondary }}>Memuat data…</p>
-      ) : complaints.length === 0 ? (
-        <p style={{ color: THEME.textSecondary }}>Tidak ada aduan aktif saat ini.</p>
-      ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: spacing(4) }}>
-          {complaints.map((c) => (
-            <ComplaintCard key={c.id} complaint={c} actorId={user.id} onChanged={load} />
-          ))}
-        </div>
-      )}
+      <AsyncSection
+        loading={loading}
+        error={error}
+        items={loading ? null : complaints}
+        onRetry={load}
+        loadingMessage="Memuat antrean dinas…"
+        empty={
+          <EmptyState
+            icon="🛠️"
+            title="Tidak ada aduan aktif"
+            message="Aduan yang sudah lolos verifikasi dan ditujukan ke dinas ini akan muncul di sini."
+          />
+        }
+      >
+        {(items) => (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: spacing(4) }}>
+            {items.map((c) => (
+              <ComplaintCard key={c.id} complaint={c} actorId={user.id} onChanged={load} />
+            ))}
+          </div>
+        )}
+      </AsyncSection>
     </div>
   );
 }
@@ -181,20 +198,39 @@ function ComplaintCard({
 
       <p style={{ fontSize: 14, margin: '10px 0' }}>{complaint.description}</p>
 
-      {actionError ? <p style={{ color: THEME.danger, fontSize: 13 }}>{actionError}</p> : null}
+      {actionError ? <p role="alert" style={{ color: THEME.danger, fontSize: 13 }}>{actionError}</p> : null}
 
       {formOpenFor ? (
         <div style={{ border: `1px solid ${THEME.border}`, borderRadius: 8, padding: 12, marginTop: 8 }}>
-          <label style={labelStyle}>Catatan progres</label>
+          <label htmlFor={`catatan-${complaint.id}`} style={labelStyle}>
+            Catatan progres
+          </label>
           <textarea
+            id={`catatan-${complaint.id}`}
             style={{ ...inputStyle, minHeight: 60 }}
             value={note}
             onChange={(e) => setNote(e.target.value)}
           />
-          <label style={labelStyle}>Foto progres (opsional)</label>
-          <input type="file" accept="image/*" onChange={handlePhotoChange} disabled={uploading} />
-          {uploading ? <p style={{ fontSize: 12, color: THEME.textSecondary, margin: '4px 0 0' }}>Mengunggah…</p> : null}
-          {uploadError ? <p style={{ fontSize: 12, color: THEME.danger, margin: '4px 0 0' }}>{uploadError}</p> : null}
+          <label htmlFor={`foto-${complaint.id}`} style={labelStyle}>
+            Foto progres (opsional)
+          </label>
+          <input
+            id={`foto-${complaint.id}`}
+            type="file"
+            accept="image/*"
+            onChange={handlePhotoChange}
+            disabled={uploading}
+          />
+          {uploading ? (
+            <p role="status" style={{ fontSize: 14, color: THEME.textSecondary, margin: '4px 0 0' }}>
+              Mengunggah…
+            </p>
+          ) : null}
+          {uploadError ? (
+            <p role="alert" style={{ fontSize: 14, color: THEME.danger, margin: '4px 0 0' }}>
+              {uploadError}
+            </p>
+          ) : null}
           {photoUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
@@ -228,8 +264,14 @@ function ComplaintCard({
               Tindak Lanjut
             </button>
           ) : null}
+          {/* Sama seperti tombol "Verifikasi": putih di atas `accent`
+              hanya 2,49:1, jadi teksnya memakai `textPrimary` (7,17:1). */}
           {complaint.status === 'in_progress' ? (
-            <button style={{ ...buttonStyle, background: THEME.accent }} onClick={() => setFormOpenFor('resolved')}>
+            <button
+              type="button"
+              style={{ ...buttonStyle, background: THEME.accent, color: THEME.textPrimary }}
+              onClick={() => setFormOpenFor('resolved')}
+            >
               Selesai
             </button>
           ) : null}

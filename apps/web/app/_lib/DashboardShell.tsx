@@ -5,7 +5,8 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { colors, spacing, typography } from '@repo/shared';
 import { useAuth } from './auth';
-import { NAV_ITEMS } from './DashboardNav';
+import { NAV_ITEMS } from './navItems';
+import { visuallyHidden } from './ui';
 
 const THEME = colors.light;
 
@@ -24,18 +25,30 @@ interface DashboardShellProps {
   subtitle?: ReactNode;
   /** Slot aksi khusus halaman di kanan topbar (tombol, dsb). */
   actions?: ReactNode;
+  /**
+   * Kotak pencarian topbar. Dulu topbar selalu merender `<input disabled>`
+   * yang tidak pernah tersambung ke apa pun — kontrol mati yang muncul di
+   * kesembilan halaman, dan di /warga duduk tepat di atas kotak pencarian
+   * kedua yang benar-benar berfungsi. Sekarang hanya dirender oleh halaman
+   * yang memang mengimplementasikan pencarian.
+   */
+  search?: {
+    value: string;
+    onChange: (value: string) => void;
+    placeholder?: string;
+    label: string;
+  };
   children: ReactNode;
 }
 
 /**
- * Shell dashboard staf: sidebar teal gelap + topbar (PRD 8.3) — pengganti
- * `DashboardNav`'s thin top-nav-bar untuk halaman Ringkasan (`/`) dan Warga
- * (`/warga`). Halaman lain (`/verifikasi`, `/dinas`, dst.) TIDAK disentuh di
- * fase ini; masih memakai `DashboardNav` sampai Fase 2 memigrasikannya.
- * `NAV_ITEMS` di `DashboardNav.tsx` tetap satu-satunya sumber kebenaran
- * daftar nav, hanya cara render-nya yang berbeda di sini.
+ * Shell dashboard staf: sidebar teal gelap + topbar (PRD 8.3). Seluruh
+ * halaman staf memakai shell ini, jadi tidak ada lagi top-nav-bar terpisah
+ * di `app/layout.tsx` (dulu `DashboardNav`, yang membuat menu tampil dua
+ * kali berdampingan dengan sidebar). `NAV_ITEMS` di `navItems.ts` tetap
+ * satu-satunya sumber kebenaran daftar nav.
  */
-export function DashboardShell({ title, subtitle, actions, children }: DashboardShellProps) {
+export function DashboardShell({ title, subtitle, actions, search, children }: DashboardShellProps) {
   const { user, signOut } = useAuth();
   const pathname = usePathname();
   const router = useRouter();
@@ -44,23 +57,31 @@ export function DashboardShell({ title, subtitle, actions, children }: Dashboard
   const items = NAV_ITEMS.filter((item) => item.roles.includes(user.role));
 
   return (
-    <div style={shellStyle}>
-      <aside style={sidebarStyle}>
+    <div className="sigap-shell" style={shellStyle}>
+      <a className="sigap-skip-link" href="#konten-utama">
+        Lewati ke konten utama
+      </a>
+
+      <div className="sigap-sidebar" style={sidebarStyle}>
         <div style={brandBlockStyle}>
-          <div style={brandMarkStyle}>S</div>
-          <div>
+          <div aria-hidden="true" style={brandMarkStyle}>
+            S
+          </div>
+          <div className="sigap-sidebar-label">
             <div style={brandTitleStyle}>SIGAP</div>
             <div style={brandSubtitleStyle}>Dashboard Staf</div>
           </div>
         </div>
 
-        <nav style={navListStyle}>
+        <nav aria-label="Navigasi utama" className="sigap-nav-list" style={navListStyle}>
           {items.map((item) => {
             const isActive = pathname === item.href;
             return (
               <Link
                 key={item.href}
                 href={item.href}
+                aria-current={isActive ? 'page' : undefined}
+                className="sigap-nav-link"
                 style={isActive ? { ...navLinkStyle, ...navLinkActiveStyle } : navLinkStyle}
               >
                 {item.label}
@@ -69,10 +90,15 @@ export function DashboardShell({ title, subtitle, actions, children }: Dashboard
           })}
         </nav>
 
-        <div style={userBlockStyle}>
-          <div style={userNameStyle}>{user.fullName ?? user.role}</div>
-          <div style={userRoleStyle}>{ROLE_LABELS[user.role] ?? user.role}</div>
+        <div className="sigap-user-block" style={userBlockStyle}>
+          <div className="sigap-sidebar-label" style={userNameStyle}>
+            {user.fullName ?? user.role}
+          </div>
+          <div className="sigap-sidebar-label" style={userRoleStyle}>
+            {ROLE_LABELS[user.role] ?? user.role}
+          </div>
           <button
+            type="button"
             style={signOutStyle}
             onClick={async () => {
               await signOut();
@@ -82,20 +108,37 @@ export function DashboardShell({ title, subtitle, actions, children }: Dashboard
             Keluar
           </button>
         </div>
-      </aside>
+      </div>
 
       <div style={mainColumnStyle}>
-        <header style={topbarStyle}>
-          <div>
+        <header className="sigap-topbar" style={topbarStyle}>
+          <div style={{ minWidth: 0 }}>
             <h1 style={titleStyle}>{title}</h1>
             {subtitle ? <div style={subtitleStyle}>{subtitle}</div> : null}
           </div>
           <div style={topbarRightStyle}>
-            <input type="search" placeholder="Cari…" style={searchInputStyle} disabled />
+            {search ? (
+              <>
+                <label htmlFor="topbar-search" style={visuallyHidden}>
+                  {search.label}
+                </label>
+                <input
+                  id="topbar-search"
+                  className="sigap-topbar-search"
+                  type="search"
+                  value={search.value}
+                  placeholder={search.placeholder ?? 'Cari…'}
+                  onChange={(e) => search.onChange(e.target.value)}
+                  style={searchInputStyle}
+                />
+              </>
+            ) : null}
             {actions}
           </div>
         </header>
-        <main style={contentStyle}>{children}</main>
+        <main id="konten-utama" tabIndex={-1} className="sigap-content" style={contentStyle}>
+          {children}
+        </main>
       </div>
     </div>
   );
@@ -157,6 +200,10 @@ const navListStyle: CSSProperties = {
   flexDirection: 'column',
   gap: spacing(1),
   flex: 1,
+  // Tanpa ini, admin dengan 9 item nav mendorong tombol "Keluar" keluar
+  // layar pada jendela pendek dan tidak ada cara lain untuk keluar.
+  overflowY: 'auto',
+  minHeight: 0,
 };
 
 const navLinkStyle: CSSProperties = {
@@ -241,13 +288,14 @@ const topbarRightStyle: CSSProperties = {
 };
 
 const searchInputStyle: CSSProperties = {
-  fontSize: typography.caption.fontSize,
+  fontSize: typography.body.fontSize,
   padding: `${spacing(2)}px ${spacing(3)}px`,
   borderRadius: 8,
   border: `1px solid ${THEME.border}`,
-  color: THEME.textMuted,
+  color: THEME.textPrimary,
   background: THEME.background,
-  width: 200,
+  width: 220,
+  maxWidth: '100%',
 };
 
 const contentStyle: CSSProperties = {

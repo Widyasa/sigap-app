@@ -888,6 +888,23 @@ export type Database = {
       }
     }
     Functions: {
+      attach_own_emergency_audio: {
+        Args: { p_alert_id: string; p_audio_url: string }
+        Returns: undefined
+      }
+      dinas_update_complaint_status: {
+        Args: {
+          p_complaint_id: string
+          p_status: string
+          p_note?: string | null
+          p_photo_urls?: string[]
+        }
+        Returns: undefined
+      }
+      set_user_role: {
+        Args: { p_user_id: string; p_role: Database['public']['Enums']['user_role']; p_dinas_id?: string | null }
+        Returns: undefined
+      }
       cancel_own_emergency_alert: {
         Args: { p_alert_id: string }
         Returns: undefined
