@@ -2,7 +2,17 @@
 
 import { use, useEffect, useState, type CSSProperties } from 'react';
 import { verifyServiceDocument, type VerifyServiceDocumentResult } from '@repo/supabase';
-import { SERVICE_CATALOG, SERVICE_STATUSES, type ServiceStatus } from '@repo/shared';
+import {
+  SERVICE_CATALOG,
+  SERVICE_STATUSES,
+  colors,
+  statusColor,
+  spacing,
+  typography,
+  type ServiceStatus,
+} from '@repo/shared';
+
+const THEME = colors.light;
 import { supabase } from '../../_lib/supabaseClient';
 
 function serviceTypeName(serviceType: string | null): string {
@@ -36,6 +46,9 @@ export default function VerifyDocumentPage({ params }: { params: Promise<{ code:
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Tombol "Coba Lagi": galat jaringan DULU dirender sebagai teks mati.
+  const [reloadKey, setReloadKey] = useState(0);
+
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
@@ -54,18 +67,43 @@ export default function VerifyDocumentPage({ params }: { params: Promise<{ code:
     return () => {
       cancelled = true;
     };
-  }, [code]);
+  }, [code, reloadKey]);
 
   return (
-    <div style={pageStyle}>
-      <div style={cardStyle}>
+    <main style={pageStyle}>
+      {/* Halaman ini dipindai warga mana pun dengan kameranya, jadi ia butuh
+          identitas SIGAP yang terlihat: tanpa itu, halaman verifikasi resmi
+          hanyalah kartu putih tanpa merek yang sepele dipalsukan. */}
+      <div style={brandRowStyle}>
+        <div aria-hidden="true" style={brandMarkStyle}>
+          S
+        </div>
+        <div>
+          <div style={{ fontWeight: 700, color: THEME.primary }}>SIGAP</div>
+          <div style={{ fontSize: typography.micro.fontSize, color: THEME.textSecondary }}>
+            Verifikasi dokumen resmi
+          </div>
+        </div>
+      </div>
+
+      {/* `role="status"` — seluruh isi kartu bertukar secara asinkron dan
+          DULU tidak ada yang diumumkan sama sekali, padahal hasil itulah
+          satu-satunya alasan halaman ini ada. */}
+      <div style={cardStyle} role="status" aria-live="polite">
         {loading ? (
           <p>Memeriksa dokumen…</p>
         ) : error ? (
-          <p style={{ color: '#DC2626' }}>{error}</p>
+          <>
+            <p style={{ color: THEME.danger }}>{error}</p>
+            <button type="button" style={retryStyle} onClick={() => setReloadKey((k) => k + 1)}>
+              Coba Lagi
+            </button>
+          </>
         ) : result?.valid ? (
           <>
-            <div style={{ fontSize: 40, marginBottom: 8 }}>✅</div>
+            {/* `aria-hidden`: emoji ini duplikat dekoratif dari judul di
+                bawahnya, tapi tetap dibacakan ("white heavy check mark"). */}
+            <div aria-hidden="true" style={{ fontSize: 40, marginBottom: 8 }}>✅</div>
             <h1 style={validHeadingStyle}>Dokumen Sah</h1>
             <dl style={dlStyle}>
               <dt style={dtStyle}>Jenis Layanan</dt>
@@ -80,15 +118,16 @@ export default function VerifyDocumentPage({ params }: { params: Promise<{ code:
           </>
         ) : (
           <>
-            <div style={{ fontSize: 40, marginBottom: 8 }}>⚠️</div>
+            <div aria-hidden="true" style={{ fontSize: 40, marginBottom: 8 }}>⚠️</div>
             <h1 style={invalidHeadingStyle}>Dokumen Tidak Valid</h1>
-            <p style={{ color: '#475569', fontSize: 14 }}>
+            <p style={{ color: THEME.textSecondary, fontSize: typography.body.fontSize }}>
               Dokumen tidak ditemukan atau kode tidak valid.
             </p>
           </>
         )}
+        <p style={codeStyle}>Kode: {code}</p>
       </div>
-    </div>
+    </main>
   );
 }
 
@@ -96,6 +135,7 @@ const pageStyle: CSSProperties = {
   width: '100%',
   minHeight: '100vh',
   display: 'flex',
+  flexDirection: 'column',
   alignItems: 'center',
   justifyContent: 'center',
   padding: 24,
@@ -107,23 +147,64 @@ const cardStyle: CSSProperties = {
   maxWidth: 380,
   padding: 24,
   borderRadius: 12,
-  border: '1px solid #E2E8F0',
+  border: `1px solid ${THEME.border}`,
   textAlign: 'center',
   boxSizing: 'border-box',
 };
 
 const validHeadingStyle: CSSProperties = {
-  fontSize: 20,
-  color: '#16A34A',
+  fontSize: typography.h1.fontSize,
+  // `#16A34A` hanya 3,30:1 — lolos ambang teks besar dengan margin tipis,
+  // pada halaman yang dipindai di luar ruangan lewat layar telepon.
+  color: statusColor('resolved', 'light').fg,
   marginBottom: 16,
 };
 
 const invalidHeadingStyle: CSSProperties = {
-  fontSize: 20,
-  color: '#DC2626',
+  fontSize: typography.h1.fontSize,
+  color: THEME.danger,
   marginBottom: 8,
 };
 
-const dlStyle: CSSProperties = { textAlign: 'left', fontSize: 14 };
-const dtStyle: CSSProperties = { color: '#475569', marginTop: 8 };
+const brandRowStyle: CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: spacing(2),
+  marginBottom: spacing(4),
+};
+
+const brandMarkStyle: CSSProperties = {
+  width: 32,
+  height: 32,
+  borderRadius: 8,
+  background: THEME.primary,
+  color: THEME.surface,
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  fontWeight: 700,
+};
+
+const retryStyle: CSSProperties = {
+  minHeight: 44,
+  marginTop: spacing(3),
+  padding: `0 ${spacing(4)}px`,
+  borderRadius: 8,
+  border: `1px solid ${THEME.primary}`,
+  background: 'transparent',
+  color: THEME.primary,
+  fontSize: typography.body.fontSize,
+  fontWeight: 600,
+  cursor: 'pointer',
+};
+
+const codeStyle: CSSProperties = {
+  marginTop: spacing(4),
+  fontFamily: 'monospace',
+  fontSize: typography.caption.fontSize,
+  color: THEME.textSecondary,
+};
+
+const dlStyle: CSSProperties = { textAlign: 'left', fontSize: typography.body.fontSize };
+const dtStyle: CSSProperties = { color: THEME.textSecondary, marginTop: 8 };
 const ddStyle: CSSProperties = { margin: 0, fontWeight: 600 };

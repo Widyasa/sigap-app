@@ -105,7 +105,7 @@ Deno.serve(async (req) => {
   // dinonaktifkan tetap memegang akses sampai SESSION_TTL 30 hari habis.
   const { data: userRow, error: userError } = await supabase
     .from("users")
-    .select("disabled_at")
+    .select("disabled_at, email")
     .eq("id", session.user_id)
     .single();
 
@@ -159,12 +159,16 @@ Deno.serve(async (req) => {
     return jsonResponse({ ok: false, reason: "server_error" }, 500);
   }
 
-  const accessToken = await createAccessToken(session.user_id, {
-    role: profile.role,
-    dinas_id: profile.dinas_id,
-    kelurahan: profile.kelurahan,
-    kecamatan: profile.kecamatan,
-  });
+  const accessToken = await createAccessToken(
+    session.user_id,
+    {
+      role: profile.role,
+      dinas_id: profile.dinas_id,
+      kelurahan: profile.kelurahan,
+      kecamatan: profile.kecamatan,
+    },
+    userRow.email as string | undefined,
+  );
 
   return jsonResponse({ ok: true, accessToken, refreshToken: newRefreshToken });
 });

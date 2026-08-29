@@ -153,12 +153,16 @@ Deno.serve(async (req) => {
     return jsonResponse({ ok: false, reason: "server_error" }, 500);
   }
 
-  const accessToken = await createAccessToken(userId, {
-    role: profile.role,
-    dinas_id: profile.dinas_id,
-    kelurahan: profile.kelurahan,
-    kecamatan: profile.kecamatan,
-  });
+  const accessToken = await createAccessToken(
+    userId,
+    {
+      role: profile.role,
+      dinas_id: profile.dinas_id,
+      kelurahan: profile.kelurahan,
+      kecamatan: profile.kecamatan,
+    },
+    email,
+  );
 
   return jsonResponse({
     ok: true,

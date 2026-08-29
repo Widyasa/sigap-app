@@ -68,8 +68,15 @@ export default function DaruratOperatorPage() {
 
   useEffect(() => {
     if (authLoading) return;
-    if (!isAuthenticated || !canAccess) {
+    if (!isAuthenticated) {
       router.replace('/login');
+      return;
+    }
+    if (!canAccess) {
+      // Peran yang salah BUKAN masalah otentikasi. Melemparnya ke /login
+      // membuat petugas yang sudah masuk melihat layar masuk, lalu efek di
+      // LoginPage langsung memantulkannya kembali — kedip tak berujung.
+      router.replace('/');
     }
   }, [authLoading, isAuthenticated, canAccess, router]);
 
@@ -264,7 +271,11 @@ function AlertCard({
       await action();
     } catch (e) {
       console.error('emergency alert action error', e);
-      setActionError('Gagal menyimpan perubahan. Coba lagi.');
+      setActionError(
+        e instanceof Error && e.message.startsWith('SOS ini sudah ditanggapi')
+          ? e.message
+          : 'Gagal menyimpan perubahan. Coba lagi.',
+      );
     } finally {
       setBusy(false);
       // Kartu ini DULU hanya mengandalkan event realtime untuk memperbarui

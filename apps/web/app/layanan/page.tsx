@@ -50,8 +50,15 @@ export default function LayananAdminPage() {
 
   useEffect(() => {
     if (authLoading) return;
-    if (!isAuthenticated || !canAccess) {
+    if (!isAuthenticated) {
       router.replace('/login');
+      return;
+    }
+    if (!canAccess) {
+      // Peran yang salah BUKAN masalah otentikasi. Melemparnya ke /login
+      // membuat petugas yang sudah masuk melihat layar masuk, lalu efek di
+      // LoginPage langsung memantulkannya kembali — kedip tak berujung.
+      router.replace('/');
     }
   }, [authLoading, isAuthenticated, canAccess, router]);
 
@@ -81,7 +88,7 @@ export default function LayananAdminPage() {
   }
 
   return (
-    <DashboardShell title="Tinjauan Layanan" subtitle={`Masuk sebagai ${user?.fullName ?? user?.role}.`}>
+    <DashboardShell title="Layanan" subtitle={`Masuk sebagai ${user?.fullName ?? user?.role}.`}>
       {/* Satu keadaan saja pada satu waktu. Dulu galat dan keadaan kosong
           dirender bersamaan: saat pengambilan data gagal, petugas melihat
           "Gagal memuat data" DAN "Tidak ada permohonan yang perlu

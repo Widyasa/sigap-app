@@ -9,7 +9,7 @@ import {
   type PointLedgerEntry,
   type ProfileStats,
 } from '@repo/supabase';
-import { POINT_REASON_LABELS, urgencyColor } from '@repo/shared';
+import { POINT_REASON_LABELS, urgencyColor, pointsColor } from '@repo/shared';
 import { ThemedText } from './_components/ThemedText';
 import { Button } from './_components/Button';
 import { useAuth } from './_components/AuthProvider';
@@ -373,7 +373,7 @@ export default function ProfileScreen() {
                     <ThemedText
                       variant="body"
                       style={{
-                        color: entry.points >= 0 ? colors.civicAmber : urgencyColor('P0', mode).fg,
+                        color: pointsColor(entry.points, mode).fg,
                         fontWeight: '700',
                       }}
                     >
@@ -435,8 +435,9 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   iconButton: {
-    width: 36,
-    height: 36,
+    // 44x44: minimum platform (iOS HIG / Android). Dulu 36x36.
+    width: 44,
+    height: 44,
     alignItems: 'center',
     justifyContent: 'center',
   },

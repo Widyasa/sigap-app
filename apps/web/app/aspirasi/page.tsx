@@ -45,8 +45,15 @@ export default function AspirasiAdminPage() {
 
   useEffect(() => {
     if (authLoading) return;
-    if (!isAuthenticated || !canAccess) {
+    if (!isAuthenticated) {
       router.replace('/login');
+      return;
+    }
+    if (!canAccess) {
+      // Peran yang salah BUKAN masalah otentikasi. Melemparnya ke /login
+      // membuat petugas yang sudah masuk melihat layar masuk, lalu efek di
+      // LoginPage langsung memantulkannya kembali — kedip tak berujung.
+      router.replace('/');
     }
   }, [authLoading, isAuthenticated, canAccess, router]);
 
@@ -225,14 +232,23 @@ function VotingPeriodsSection({
       {toggleError ? <p style={{ color: THEME.danger, fontSize: 13 }}>{toggleError}</p> : null}
 
       <h3 style={h3Style}>Buka Periode Baru</h3>
-      <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'flex-end' }}>
+      {/* Dibungkus <form>: sebagai <div> polos, menekan Enter di kolom "Nama"
+          tidak melakukan apa pun. */}
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          void handleCreate();
+        }}
+        style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'flex-end' }}
+      >
         <div>
-          <label style={labelStyle}>Nama</label>
-          <input style={inputStyle} value={name} onChange={(e) => setName(e.target.value)} />
+          <label htmlFor="periode-nama" style={labelStyle}>Nama</label>
+          <input id="periode-nama" style={inputStyle} value={name} onChange={(e) => setName(e.target.value)} />
         </div>
         <div>
-          <label style={labelStyle}>Tahun Anggaran</label>
+          <label htmlFor="periode-tahun" style={labelStyle}>Tahun Anggaran</label>
           <input
+            id="periode-tahun"
             style={{ ...inputStyle, width: 100 }}
             type="number"
             value={fiscalYear}
@@ -240,8 +256,9 @@ function VotingPeriodsSection({
           />
         </div>
         <div>
-          <label style={labelStyle}>Mulai</label>
+          <label htmlFor="periode-mulai" style={labelStyle}>Mulai</label>
           <input
+            id="periode-mulai"
             style={inputStyle}
             type="datetime-local"
             value={startsAt}
@@ -249,19 +266,30 @@ function VotingPeriodsSection({
           />
         </div>
         <div>
-          <label style={labelStyle}>Selesai</label>
+          <label htmlFor="periode-selesai" style={labelStyle}>Selesai</label>
           <input
+            id="periode-selesai"
             style={inputStyle}
             type="datetime-local"
             value={endsAt}
             onChange={(e) => setEndsAt(e.target.value)}
           />
         </div>
-        <button style={smallButtonStyle} disabled={submitting} onClick={handleCreate}>
+        <button type="submit" style={smallButtonStyle} disabled={submitting}>
           {submitting ? 'Menyimpan…' : 'Buka Periode'}
         </button>
-      </div>
-      {formError ? <p style={{ color: THEME.danger, fontSize: 13 }}>{formError}</p> : null}
+      </form>
+      {/* Zona waktu diumumkan eksplisit: `datetime-local` memakai zona
+          perangkat, jadi admin di WITA menyetel jam yang dibaca berbeda oleh
+          warga di WIB tanpa satu pun petunjuk di layar. */}
+      <p style={{ color: THEME.textSecondary, fontSize: 13, marginTop: 8 }}>
+        Waktu mengikuti zona perangkat Anda ({Intl.DateTimeFormat().resolvedOptions().timeZone}).
+      </p>
+      {formError ? (
+        <p role="alert" style={{ color: THEME.danger, fontSize: 13 }}>
+          {formError}
+        </p>
+      ) : null}
     </section>
   );
 }

@@ -36,6 +36,22 @@ function getUserIdFromToken(token: string): string {
   return payload?.sub ?? '';
 }
 
+function getEmailFromToken(token: string): string {
+  const payload = decodeJwtPayload<{ email?: string }>(token);
+  return payload?.email ?? '';
+}
+
+/**
+ * true hanya untuk galat yang benar-benar berarti sesi tidak sah. PostgREST
+ * memakai `PGRST301` untuk JWT bermasalah dan `42501` untuk pelanggaran
+ * RLS; kegagalan transport datang tanpa `code` sama sekali.
+ */
+function isAuthFailure(error: unknown): boolean {
+  if (typeof error !== 'object' || error === null) return false;
+  const code = (error as { code?: unknown }).code;
+  return code === 'PGRST301' || code === '42501';
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AuthState>({
     isLoading: true,
@@ -61,7 +77,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .eq('id', getUserIdFromToken(accessToken))
       .single();
     if (error || !profile) {
-      clearTokens();
+      // Kegagalan JARINGAN bukan sesi tidak sah. Dulu setiap galat —
+      // termasuk basement tanpa sinyal atau 5xx sesaat — menghapus refresh
+      // token yang masih berlaku 30 hari, dan pengguna harus mengulang
+      // seluruh alur OTP hanya untuk membuka aplikasi.
+      if (isAuthFailure(error)) clearTokens();
       setState((s) => ({ ...s, isLoading: false }));
       return;
     }
@@ -70,7 +90,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isAuthenticated: true,
       user: {
         id: profile.id,
-        email: '',
+        // Email diambil dari klaim token, bukan dikosongkan: setelah muat
+        // ulang halaman, `StaffProfile.email` DULU selalu string kosong
+        // karena hanya `verifyOtp` yang pernah mengisinya.
+        email: getEmailFromToken(accessToken),
         fullName: profile.full_name,
         role: profile.role,
         dinasId: profile.dinas_id,

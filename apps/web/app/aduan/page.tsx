@@ -28,8 +28,15 @@ export default function AduanPage() {
 
   useEffect(() => {
     if (authLoading) return;
-    if (!isAuthenticated || !canAccess) {
+    if (!isAuthenticated) {
       router.replace('/login');
+      return;
+    }
+    if (!canAccess) {
+      // Peran yang salah BUKAN masalah otentikasi. Melemparnya ke /login
+      // membuat petugas yang sudah masuk melihat layar masuk, lalu efek di
+      // LoginPage langsung memantulkannya kembali — kedip tak berujung.
+      router.replace('/');
     }
   }, [authLoading, isAuthenticated, canAccess, router]);
 
@@ -70,13 +77,20 @@ function AduanContent({ user }: { user: StaffProfile }) {
     <DashboardShell title="Aduan" subtitle={`Masuk sebagai ${user.fullName ?? user.role}.`}>
       {accessibleTabs.length > 1 ? (
         <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+          {/* Keadaan terpilih DULU hanya lewat warna latar. Pola tombol
+              alih (`aria-pressed`) lebih tepat daripada ARIA tabs penuh di
+              sini: panelnya sederhana dan hanya ada dua. */}
           <button
+            type="button"
+            aria-pressed={activeTab === 'verifikasi'}
             style={activeTab === 'verifikasi' ? { ...tabButtonStyle, ...tabButtonActiveStyle } : tabButtonStyle}
             onClick={() => setActiveTab('verifikasi')}
           >
             Verifikasi
           </button>
           <button
+            type="button"
+            aria-pressed={activeTab === 'dinas'}
             style={activeTab === 'dinas' ? { ...tabButtonStyle, ...tabButtonActiveStyle } : tabButtonStyle}
             onClick={() => setActiveTab('dinas')}
           >

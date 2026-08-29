@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
-import { View, ScrollView, Image, StyleSheet, Alert } from 'react-native';
+import { View, ScrollView, Image, Pressable, StyleSheet, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import * as Linking from 'expo-linking';
 import { SERVICE_CATALOG, type ServiceStatus } from '@repo/shared';
 import { getServiceRequest, getServiceRequestSignedUrl, type ServiceRequestSummary } from '@repo/supabase';
@@ -16,6 +17,7 @@ const STEP_ORDER: ServiceStatus[] = ['submitted', 'verifying', 'signing', 'ready
 
 export default function LayananDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const router = useRouter();
   const { colors, spacing } = useTheme();
 
   const [request, setRequest] = useState<ServiceRequestSummary | null>(null);
@@ -92,6 +94,22 @@ export default function LayananDetailScreen() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+      {/* `_layout.tsx` menyetel `headerShown: false` untuk seluruh Stack,
+          jadi setiap layar harus menyediakan tombol kembalinya sendiri.
+          Layar ini tidak punya satu pun — tidak ada chevron, tidak ada
+          BottomNav — sehingga di iOS hanya gestur geser tepi yang bisa
+          keluar, dan di Expo Web tidak ada jalan keluar sama sekali. */}
+      <View style={[styles.topBar, { paddingHorizontal: spacing(4), paddingTop: spacing(2) }]}>
+        <Pressable
+          onPress={() => router.back()}
+          accessibilityRole="button"
+          accessibilityLabel="Kembali"
+          hitSlop={8}
+        >
+          <Ionicons name="chevron-back" size={24} color={colors.textPrimary} />
+        </Pressable>
+        <ThemedText variant="h2">Detail Permohonan</ThemedText>
+      </View>
       <ScrollView contentContainerStyle={{ padding: spacing(4) }}>
         {error ? (
           <View style={{ gap: spacing(2) }}>
@@ -193,6 +211,11 @@ export default function LayananDetailScreen() {
 }
 
 const styles = StyleSheet.create({
+  topBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
   container: {
     flex: 1,
   },

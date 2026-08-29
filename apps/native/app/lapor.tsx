@@ -304,7 +304,7 @@ export default function LaporScreen() {
                     ]}
                   >
                     <ThemedText variant="micro" style={{ color: colors.surface }}>
-                      terunggah
+                      dipilih
                     </ThemedText>
                   </View>
                 </Pressable>
@@ -387,7 +387,8 @@ export default function LaporScreen() {
             ) : null}
 
             <View>
-              <Button text="Kirim Laporan" loading={submitting} disabled={!canSubmit} onPress={handleSubmit} />
+              <Button text="Kirim Laporan"
+          loadingText="Mengirim laporan Anda…" loading={submitting} disabled={!canSubmit} onPress={handleSubmit} />
               <ThemedText variant="caption" color="muted" style={{ marginTop: spacing(2), textAlign: 'center' }}>
                 Perlu 1 foto, 20 karakter, dan lokasi.
               </ThemedText>
@@ -455,7 +456,7 @@ const styles = StyleSheet.create({
   textArea: {
     minHeight: 120,
     borderWidth: 1,
-    fontSize: 15,
+    fontSize: 16,
   },
   counterRow: {
     flexDirection: 'row',

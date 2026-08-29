@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import {
   View,
   KeyboardAvoidingView,
@@ -46,19 +46,23 @@ export default function VerifyScreen() {
     }
   }, [devCode]);
 
-  useEffect(() => {
-    if (code) return;
-    Clipboard.getStringAsync()
-      .then((text) => {
-        const digits = text?.replace(/\D/g, '').slice(0, 6);
-        if (digits?.length === 6) {
-          setCode(digits);
-        }
-      })
-      .catch(() => {
-        // ignore clipboard errors
-      });
-  }, [code]);
+  /**
+   * Papan klip dibaca hanya saat warga MENEKAN tombolnya.
+   *
+   * Dulu ini `useEffect` yang berjalan otomatis saat layar terbuka. Di iOS 14+
+   * pembacaan papan klip memunculkan spanduk sistem "SIGAP menempel dari
+   * <aplikasi>", yang muncul persis setelah warga menyerahkan alamat
+   * emailnya — terbaca seperti aplikasi yang mengintip papan klip mereka.
+   */
+  const pasteFromClipboard = useCallback(async () => {
+    try {
+      const text = await Clipboard.getStringAsync();
+      const digits = text?.replace(/\D/g, '').slice(0, 6);
+      if (digits?.length === 6) setCode(digits);
+    } catch {
+      // Abaikan galat papan klip; menempel manual tetap bisa.
+    }
+  }, []);
 
   useEffect(() => {
     if (countdown <= 0) return;
@@ -206,10 +210,19 @@ export default function VerifyScreen() {
               containerStyle={{ width: '100%', marginBottom: spacing(3) }}
             />
 
+            <Button
+              text="Tempel kode dari papan klip"
+              variant="ghost"
+              onPress={() => void pasteFromClipboard()}
+              accessibilityLabel="Tempel kode OTP dari papan klip"
+              containerStyle={{ width: '100%', marginBottom: spacing(3) }}
+            />
+
             <Pressable
               onPress={handleOpenEmail}
               accessibilityRole="button"
               accessibilityLabel="Buka aplikasi email"
+              hitSlop={8}
               style={styles.link}
             >
               <ThemedText variant="body" color="primary">

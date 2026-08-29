@@ -111,11 +111,26 @@ function buildDummyTimeline(complaint: ComplaintDetail): TimelineEntry[] {
   return entries;
 }
 
-function HeaderIconButton({ name, onPress }: { name: IoniconName; onPress: () => void }) {
+/**
+ * `label` sengaja WAJIB: tombol ikon tanpa nama aksesibel diumumkan hanya
+ * sebagai "button", dan di layar ini ada dua tombol seperti itu bersebelahan.
+ */
+function HeaderIconButton({
+  name,
+  label,
+  onPress,
+}: {
+  name: IoniconName;
+  label: string;
+  onPress: () => void;
+}) {
   const { colors, spacing } = useTheme();
   return (
     <Pressable
       onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      hitSlop={8}
       style={[
         styles.headerButton,
         { backgroundColor: colors.surface, borderRadius: spacing(6), shadowColor: colors.textPrimary },
@@ -260,7 +275,14 @@ export default function ComplaintDetailScreen() {
     try {
       await upvoteComplaint(supabase, complaint.id, user.id);
     } catch (e) {
-      if (isDuplicateUpvoteError(e)) return;
+      if (isDuplicateUpvoteError(e)) {
+        // Dukungan sudah tercatat sebelumnya, jadi tombolnya memang harus
+        // tetap aktif — TAPI hitungan optimis di atas tidak pernah terjadi
+        // di server, jadi harus dikembalikan. Dulu `return` polos membuat
+        // angka dukungan tampil satu lebih banyak sampai layar dimuat ulang.
+        setComplaint((prev) => (prev ? { ...prev, upvoteCount: prev.upvoteCount - 1 } : prev));
+        return;
+      }
       console.error('upvoteComplaint error', e);
       setHasDukung(false);
       setComplaint((prev) => (prev ? { ...prev, upvoteCount: prev.upvoteCount - 1 } : prev));
@@ -272,9 +294,7 @@ export default function ComplaintDetailScreen() {
     Alert.alert('Belum tersedia', 'Fitur komentar akan hadir segera.');
   }, []);
 
-  const handleBookmark = useCallback(() => {
-    console.log('bookmark pressed', id);
-  }, [id]);
+
 
   if (loading) {
     return (
@@ -412,8 +432,8 @@ export default function ComplaintDetailScreen() {
           { top: insets.top + spacing(3), paddingHorizontal: spacing(4) },
         ]}
       >
-        <HeaderIconButton name="chevron-back" onPress={() => router.back()} />
-        <HeaderIconButton name="bookmark-outline" onPress={handleBookmark} />
+        {/* Tombol bookmark dihapus: ia hanya memanggil console.log. */}
+        <HeaderIconButton name="chevron-back" label="Kembali" onPress={() => router.back()} />
       </View>
 
       <View

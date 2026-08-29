@@ -83,6 +83,15 @@ async function verifyJwt(
   const parts = token.split(".");
   if (parts.length !== 3) throw new Error("Invalid token format");
 
+  // Algoritma di header WAJIB diperiksa. Verifikasi selalu memakai kunci
+  // HMAC yang diimpor, jadi `alg: none` dan kebingungan asimetris sudah
+  // gagal di pemeriksaan tanda tangan hari ini — tetapi menegaskannya di
+  // sini mencegah perubahan pemilihan kunci di masa depan membuka celah itu.
+  const header = JSON.parse(new TextDecoder().decode(base64UrlDecode(parts[0]))) as {
+    alg?: unknown;
+  };
+  if (header.alg !== "HS256") throw new Error("Unsupported token algorithm");
+
   const data = TEXT_ENCODER.encode(`${parts[0]}.${parts[1]}`);
   const signature = base64UrlDecode(parts[2]);
   const valid = await crypto.subtle.verify(
@@ -102,8 +111,12 @@ async function verifyJwt(
   }
 
   const now = getNumericDate(0);
-  const exp = typeof payload.exp === "number" ? payload.exp : 0;
-  if (exp && exp < now) throw new Error("Token expired");
+  // `if (exp && exp < now)` DULU meloloskan token yang sama sekali TIDAK
+  // punya `exp` — yaitu token tanpa masa berlaku. Tidak terjangkau lewat
+  // `createAccessToken`, tapi penjagaan yang bergantung pada bentuk data
+  // yang kebetulan benar bukan penjagaan.
+  const exp = payload.exp;
+  if (typeof exp !== "number" || exp < now) throw new Error("Token expired");
 
   return payload;
 }
@@ -111,6 +124,7 @@ async function verifyJwt(
 export async function createAccessToken(
   userId: string,
   profile: ProfileClaims,
+  email?: string,
 ): Promise<string> {
   return await signJwt(
     { alg: "HS256", typ: "JWT" },
@@ -118,6 +132,10 @@ export async function createAccessToken(
       sub: userId,
       jti: crypto.randomUUID(),
       role: "authenticated",
+      // Klien memakai klaim ini untuk menampilkan email petugas setelah
+      // memuat ulang halaman; tanpanya `StaffProfile.email` selalu kosong
+      // karena hanya jalur verifikasi OTP yang pernah mengisinya.
+      email: email ?? null,
       app_role: profile.role,
       dinas_id: profile.dinas_id ?? null,
       kelurahan: profile.kelurahan ?? null,

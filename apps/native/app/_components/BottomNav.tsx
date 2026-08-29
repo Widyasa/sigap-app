@@ -3,6 +3,7 @@ import type { ComponentProps } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, usePathname } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { urgencyColor } from '@repo/shared';
 import { useTheme } from './useTheme';
 import { ThemedText } from './ThemedText';
 
@@ -64,7 +65,7 @@ function isTabActive(pathname: string, route: string): boolean {
 }
 
 export function BottomNav() {
-  const { colors, spacing } = useTheme();
+  const { colors, spacing, mode } = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const pathname = usePathname();
@@ -80,6 +81,32 @@ export function BottomNav() {
         },
       ]}
     >
+      {/* Tombol SOS DULU hanya ada di beranda, padahal warga paling mungkin
+          menyaksikan keadaan darurat saat sedang membuka Feed — mereka harus
+          menavigasi pulang lebih dulu. DESIGN.md menempatkan SOS di lapisan
+          z tertinggi dan di jalur kritis aplikasi, jadi ia ikut di bilah nav
+          yang ada di setiap layar bertab. */}
+      {pathname !== '/sos' ? (
+        <Pressable
+          onPress={() => router.push('/sos')}
+          accessibilityRole="button"
+          accessibilityLabel="SOS Darurat"
+          hitSlop={8}
+          style={({ pressed }) => [
+            styles.sosPill,
+            {
+              backgroundColor: urgencyColor('P0', mode).fg,
+              opacity: pressed ? 0.9 : 1,
+              bottom: insets.bottom + 72,
+            },
+          ]}
+        >
+          <Ionicons name="warning" size={18} color={colors.surface} />
+          <ThemedText variant="micro" style={{ color: colors.surface, fontWeight: '800', marginLeft: 4 }}>
+            SOS
+          </ThemedText>
+        </Pressable>
+      ) : null}
       <View style={styles.row}>
         {TABS.map((tab, index) => {
           const active = isTabActive(pathname, tab.route);
@@ -157,6 +184,21 @@ export function BottomNav() {
 }
 
 const styles = StyleSheet.create({
+  sosPill: {
+    position: 'absolute',
+    right: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 44,
+    paddingHorizontal: 16,
+    borderRadius: 22,
+    elevation: 6,
+    shadowOpacity: 0.28,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    zIndex: 20,
+  },
   container: {
     position: 'absolute',
     left: 0,

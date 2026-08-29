@@ -247,8 +247,10 @@ function ComplaintCard({
       </div>
 
       <p style={{ fontSize: 14, margin: '10px 0' }}>{complaint.description}</p>
+      {/* `accent` hanya 2,49:1 di atas putih. `accentText` adalah varian
+          teal yang cukup gelap (5,47:1) dengan rona yang sama. */}
       {complaint.aiSummary ? (
-        <p style={{ fontSize: 13, color: THEME.accent, margin: '0 0 10px' }}>
+        <p style={{ fontSize: typography.caption.fontSize, color: THEME.accentText, margin: '0 0 10px' }}>
           Ringkasan AI: {complaint.aiSummary}
         </p>
       ) : null}
@@ -349,7 +351,15 @@ function ComplaintCard({
         </button>
         {complaint.status === 'pending' ? (
           <>
-            <button style={{ ...buttonStyle, background: THEME.accent }} disabled={saving} onClick={handleVerify}>
+            {/* Teks putih di atas `accent` = 2,49:1. Teks `textPrimary` di
+                atas warna teal yang sama = 7,17:1 dan tetap membedakan tombol
+                ini dari tombol netral di sebelahnya. */}
+            <button
+              type="button"
+              style={{ ...buttonStyle, background: THEME.accent, color: THEME.textPrimary }}
+              disabled={saving}
+              onClick={handleVerify}
+            >
               Verifikasi
             </button>
             <button style={{ ...buttonStyle, background: THEME.danger }} disabled={saving} onClick={handleReject}>

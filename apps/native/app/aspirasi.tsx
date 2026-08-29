@@ -127,9 +127,14 @@ export default function AspirasiScreen() {
     tab === 'kelurahan'
       ? `Usulan di Kel. ${user?.kelurahan ?? '-'}, terurut suara`
       : `Usulan di Kec. ${user?.kecamatan ?? '-'}, terurut suara`;
-  const remaining = displayedPeriod
-    ? formatSlaCountdown(new Date(displayedPeriod.endsAt).getTime() - Date.now()).replace(' lagi', '')
-    : null;
+  // `formatSlaCountdown` mengembalikan "Lewat batas SLA" untuk selisih
+  // negatif — kalimat SLA aduan yang tidak ada hubungannya dengan voting.
+  const msLeft = displayedPeriod ? new Date(displayedPeriod.endsAt).getTime() - Date.now() : 0;
+  const remaining = !displayedPeriod
+    ? null
+    : msLeft <= 0
+      ? 'sudah ditutup'
+      : formatSlaCountdown(msLeft).replace(' lagi', '');
   const closesOn = displayedPeriod
     ? new Date(displayedPeriod.endsAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'long' })
     : null;

@@ -31,8 +31,15 @@ export default function PengumumanAdminPage() {
 
   useEffect(() => {
     if (authLoading) return;
-    if (!isAuthenticated || !canAccess) {
+    if (!isAuthenticated) {
       router.replace('/login');
+      return;
+    }
+    if (!canAccess) {
+      // Peran yang salah BUKAN masalah otentikasi. Melemparnya ke /login
+      // membuat petugas yang sudah masuk melihat layar masuk, lalu efek di
+      // LoginPage langsung memantulkannya kembali — kedip tak berujung.
+      router.replace('/');
     }
   }, [authLoading, isAuthenticated, canAccess, router]);
 
@@ -67,8 +74,8 @@ export default function PengumumanAdminPage() {
   }
 
   return (
-    <DashboardShell title="Info & Komunitas" subtitle={`Masuk sebagai ${user?.fullName ?? user?.role}.`}>
-      {error ? <p style={{ color: THEME.danger }}>{error}</p> : null}
+    <DashboardShell title="Pengumuman" subtitle={`Masuk sebagai ${user?.fullName ?? user?.role}.`}>
+      {error ? <p role="alert" style={{ color: THEME.danger }}>{error}</p> : null}
       {loading ? (
         <p>Memuat data…</p>
       ) : (
@@ -339,7 +346,8 @@ function AnnouncementsSection({
                   </td>
                   <td style={tdStyle}>{a.isPinned ? 'Ya' : '-'}</td>
                   <td style={tdStyle}>{new Date(a.publishedAt).toLocaleString('id-ID')}</td>
-                  <td style={{ ...tdStyle, display: 'flex', gap: 4 }}>
+                  <td style={tdStyle}>
+                  <div style={{ display: 'flex', gap: 4 }}>
                     <button style={smallButtonStyle} onClick={() => handleEditStart(a)}>
                       Ubah
                     </button>
@@ -350,19 +358,25 @@ function AnnouncementsSection({
                     >
                       Hapus
                     </button>
+                  </div>
                   </td>
                 </tr>
                 {editingId === a.id && (
                   <tr>
                     <td style={tdStyle} colSpan={7}>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: '12px 0' }}>
-                        <input style={inputStyle} value={editTitle} onChange={(e) => setEditTitle(e.target.value)} />
+                        <input
+                      aria-label="Judul pengumuman"
+                      style={inputStyle}
+                      value={editTitle} onChange={(e) => setEditTitle(e.target.value)} />
                         <textarea
-                          style={{ ...inputStyle, minHeight: 80 }}
+                      aria-label="Isi pengumuman"
+                      style={{ ...inputStyle, minHeight: 80 }}
                           value={editBody}
                           onChange={(e) => setEditBody(e.target.value)}
                         />
                         <select
+                          aria-label="Target pengumuman"
                           style={selectStyle}
                           value={editTarget}
                           onChange={(e) => setEditTarget(e.target.value as 'all' | 'kelurahan')}
@@ -371,9 +385,19 @@ function AnnouncementsSection({
                           <option value="kelurahan">Kelurahan tertentu</option>
                         </select>
                         {editTarget === 'kelurahan' && (
-                          <input style={inputStyle} value={editKelurahan} onChange={(e) => setEditKelurahan(e.target.value)} />
+                          <input
+                            aria-label="Nama kelurahan tujuan"
+                            style={inputStyle}
+                            value={editKelurahan}
+                            onChange={(e) => setEditKelurahan(e.target.value)}
+                          />
                         )}
-                        <select style={selectStyle} value={editCategory} onChange={(e) => setEditCategory(e.target.value)}>
+                        <select
+                          aria-label="Kategori pengumuman"
+                          style={selectStyle}
+                          value={editCategory}
+                          onChange={(e) => setEditCategory(e.target.value)}
+                        >
                           <option value="">Tanpa kategori</option>
                           {ANNOUNCEMENT_CATEGORIES.map((c) => (
                             <option key={c.id} value={c.id}>{c.label}</option>
@@ -401,7 +425,7 @@ function AnnouncementsSection({
                           </button>
                           <button style={smallButtonStyle} onClick={handleEditCancel}>Batal</button>
                         </div>
-                        {editError && <p style={{ color: THEME.danger, fontSize: 13 }}>{editError}</p>}
+                        {editError && <p role="alert" style={{ color: THEME.danger, fontSize: 13 }}>{editError}</p>}
                       </div>
                     </td>
                   </tr>
@@ -470,7 +494,7 @@ function AnnouncementsSection({
           {submitting ? 'Menyimpan…' : 'Buat Pengumuman'}
         </button>
       </div>
-      {formError ? <p style={{ color: THEME.danger, fontSize: 13 }}>{formError}</p> : null}
+      {formError ? <p role="alert" style={{ color: THEME.danger, fontSize: 13 }}>{formError}</p> : null}
       {confirmingDeleteId ? (
         <ConfirmModal
           title="Hapus Pengumuman"
@@ -518,7 +542,7 @@ function LeaderboardSection({
       <button style={{ ...smallButtonStyle, marginBottom: 12 }} disabled={refreshing} onClick={handleRefresh}>
         {refreshing ? 'Menyegarkan…' : 'Segarkan Sekarang'}
       </button>
-      {refreshError ? <p style={{ color: THEME.danger, fontSize: 13 }}>{refreshError}</p> : null}
+      {refreshError ? <p role="alert" style={{ color: THEME.danger, fontSize: 13 }}>{refreshError}</p> : null}
 
       <table style={tableStyle}>
         <thead>

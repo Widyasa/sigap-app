@@ -13,7 +13,14 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import * as ImagePicker from 'expo-image-picker';
-import { SERVICE_CATALOG, createServiceRequestSchema, type ServiceRequirement } from '@repo/shared';
+import {
+  SERVICE_CATALOG,
+  SERVICE_LETTER_FIELDS,
+  createServiceRequestSchema,
+  isValidNik,
+  missingLetterFields,
+  type ServiceRequirement,
+} from '@repo/shared';
 import { createServiceRequest, uploadServiceDocument } from '@repo/supabase';
 import { ThemedText } from '../_components/ThemedText';
 import { useAuth } from '../_components/AuthProvider';
@@ -54,6 +61,12 @@ export default function LayananNewScreen() {
 
   const [documents, setDocuments] = useState<Record<string, UploadedDocument>>({});
   const [note, setNote] = useState('');
+  const letterFields = useMemo(
+    () => (catalogEntry ? SERVICE_LETTER_FIELDS[catalogEntry.id] ?? [] : []),
+    [catalogEntry],
+  );
+  const [letterValues, setLetterValues] = useState<Record<string, string>>({});
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
   const [pickingKey, setPickingKey] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -139,10 +152,31 @@ export default function LayananNewScreen() {
       return;
     }
 
+    // Validasi isian surat sebelum kirim: surat yang terbit dengan kolom
+    // kosong tidak bisa diperbaiki warga setelahnya.
+    const missing = missingLetterFields(catalogEntry.id, letterValues);
+    const nextErrors: Record<string, string> = {};
+    for (const field of missing) nextErrors[field.key] = 'Wajib diisi.';
+    for (const field of letterFields) {
+      if (field.type === 'nik' && letterValues[field.key]?.trim() && !isValidNik(letterValues[field.key]!)) {
+        nextErrors[field.key] = 'NIK harus 16 digit angka.';
+      }
+    }
+    if (Object.keys(nextErrors).length > 0) {
+      setFieldErrors(nextErrors);
+      setError('Lengkapi data untuk surat terlebih dahulu.');
+      return;
+    }
+    setFieldErrors({});
+
     submittingRef.current = true;
     setSubmitting(true);
     try {
       const formData: Record<string, string> = { catatan: note.trim() };
+      // Isian surat ikut disimpan agar `formatLetterFields` punya nilainya.
+      for (const field of letterFields) {
+        formData[field.key] = (letterValues[field.key] ?? '').trim();
+      }
       const documentUrls: string[] = [];
 
       for (const requirement of requirements) {
@@ -170,7 +204,7 @@ export default function LayananNewScreen() {
       submittingRef.current = false;
       setSubmitting(false);
     }
-  }, [catalogEntry, user, remaining, note, requirements, documents, router]);
+  }, [catalogEntry, user, remaining, note, requirements, documents, router, letterFields, letterValues]);
 
   if (!catalogEntry) {
     return (
@@ -317,6 +351,56 @@ export default function LayananNewScreen() {
             })}
           </View>
 
+          {/*
+            Isian surat.
+
+            Formulir ini DULU hanya mengumpulkan catatan bebas dan foto
+            berkas, sementara `formatLetterFields` di Edge Function mencari
+            `fullName`, `nik`, `address`, dan seterusnya — jadi SETIAP surat
+            yang diterbitkan berbunyi "Nama : -", "NIK : -", "Alamat : -",
+            lengkap dengan QR yang memverifikasi dokumen kosong. Daftar
+            isiannya berasal dari `SERVICE_LETTER_FIELDS` di `@repo/shared`,
+            yang diuji tetap sinkron dengan `FIELD_LABELS` Edge Function.
+          */}
+          <View style={{ marginTop: spacing(6), gap: spacing(3) }}>
+            <ThemedText variant="h2">Data untuk surat</ThemedText>
+            <ThemedText variant="caption" color="secondary">
+              Isian ini dicetak apa adanya di surat Anda. Periksa ejaannya.
+            </ThemedText>
+            {letterFields.map((field) => (
+              <View key={field.key} style={{ gap: spacing(1) }}>
+                <ThemedText variant="caption" color="secondary">
+                  {field.label}
+                </ThemedText>
+                <TextInput
+                  value={letterValues[field.key] ?? ''}
+                  onChangeText={(v) => setLetterValues((prev) => ({ ...prev, [field.key]: v }))}
+                  placeholder={field.placeholder ?? field.label}
+                  placeholderTextColor={colors.textMuted}
+                  keyboardType={field.type === 'nik' ? 'number-pad' : 'default'}
+                  maxLength={field.type === 'nik' ? 16 : undefined}
+                  multiline={field.type === 'textarea'}
+                  accessibilityLabel={field.label}
+                  style={[
+                    field.type === 'textarea' ? styles.textArea : styles.input,
+                    {
+                      backgroundColor: colors.surface,
+                      borderColor: fieldErrors[field.key] ? colors.danger : colors.border,
+                      borderRadius: spacing(3),
+                      color: colors.textPrimary,
+                      padding: spacing(3),
+                    },
+                  ]}
+                />
+                {fieldErrors[field.key] ? (
+                  <ThemedText variant="caption" color="danger">
+                    {fieldErrors[field.key]}
+                  </ThemedText>
+                ) : null}
+              </View>
+            ))}
+          </View>
+
           <View style={{ marginTop: spacing(6), gap: spacing(2) }}>
             <ThemedText variant="h2">Catatan tambahan</ThemedText>
             <TextInput
@@ -340,7 +424,12 @@ export default function LayananNewScreen() {
           </View>
 
           <ThemedText variant="micro" color="muted" style={{ marginTop: spacing(4) }}>
-            Foto hanya dipakai untuk verifikasi berkas ini dan dihapus 30 hari setelah surat terbit.
+            {/* Janji "dihapus 30 hari" DULU ditulis tanpa satu pun job
+                penghapusan yang mengimplementasikannya — janji retensi data
+                yang tidak ditepati atas pindaian KTP/KK adalah masalah
+                kebijakan privasi, bukan sekadar salah tulis. Kalimatnya
+                dilunakkan sampai penghapusannya benar-benar ada. */}
+            Foto hanya dipakai untuk memverifikasi berkas permohonan ini.
           </ThemedText>
 
           {error ? (
@@ -432,7 +521,14 @@ const styles = StyleSheet.create({
   textArea: {
     minHeight: 100,
     borderWidth: 1,
-    fontSize: 15,
+    // 16px: di bawah itu Safari iOS otomatis memperbesar viewport saat
+    // fokus, dan DESIGN.md melarang teks isi turun di bawah 16px.
+    fontSize: 16,
+  },
+  input: {
+    minHeight: 48,
+    borderWidth: 1,
+    fontSize: 16,
   },
   stickyBar: {
     borderTopWidth: 1,

@@ -108,7 +108,14 @@ export default function TanyaAnggaranScreen() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={[styles.header, { padding: spacing(4), borderBottomWidth: 1, borderColor: colors.border }]}>
-        <Pressable onPress={() => router.back()}><Ionicons name="chevron-back" size={24} color={colors.textPrimary} /></Pressable>
+        <Pressable
+          onPress={() => router.back()}
+          accessibilityRole="button"
+          accessibilityLabel="Kembali"
+          hitSlop={8}
+        >
+          <Ionicons name="chevron-back" size={24} color={colors.textPrimary} />
+        </Pressable>
         <ThemedText style={{ fontSize: 18, fontWeight: 'bold' }}>SIGAP</ThemedText>
         <Ionicons name="ellipsis-horizontal" size={24} color={colors.textPrimary} />
       </View>
@@ -147,14 +154,28 @@ export default function TanyaAnggaranScreen() {
       <View style={{ padding: spacing(2) }}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: spacing(2), paddingBottom: spacing(2) }}>
           {suggestions.map((s) => (
-            <Pressable key={s} onPress={() => handleAsk(s)} style={{ padding: spacing(2), backgroundColor: colors.primarySurface, borderRadius: spacing(4) }}>
+            <Pressable
+              key={s}
+              onPress={() => handleAsk(s)}
+              accessibilityRole="button"
+              accessibilityLabel={`Tanyakan: ${s}`}
+              style={{ padding: spacing(2), backgroundColor: colors.primarySurface, borderRadius: spacing(4) }}
+            >
               <ThemedText style={{ color: colors.primary, fontSize: 12 }}>{s}</ThemedText>
             </Pressable>
           ))}
         </ScrollView>
         <View style={[styles.inputContainer, { backgroundColor: colors.surface, borderRadius: spacing(8), paddingHorizontal: spacing(4), flexDirection: 'row', alignItems: 'center' }]}>
           <TextInput value={question} onChangeText={setQuestion} placeholder="Tulis pertanyaan..." placeholderTextColor={colors.textSecondary} style={{ flex: 1, color: colors.textPrimary }} />
-          <Pressable onPress={() => handleAsk(question)} disabled={!question.trim()} style={{ padding: spacing(2) }}>
+          <Pressable
+            onPress={() => handleAsk(question)}
+            disabled={!question.trim()}
+            accessibilityRole="button"
+            accessibilityLabel="Kirim pertanyaan"
+            accessibilityState={{ disabled: !question.trim() }}
+            hitSlop={8}
+            style={{ padding: spacing(2) }}
+          >
             <Ionicons name="chevron-forward-circle" size={32} color={question.trim() ? colors.primary : colors.border} />
           </Pressable>
         </View>

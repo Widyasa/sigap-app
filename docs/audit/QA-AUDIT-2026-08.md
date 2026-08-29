@@ -51,35 +51,44 @@ Akibatnya:
 
 ## Temuan yang SENGAJA belum diperbaiki
 
-Semuanya butuh basis data hidup, keputusan produk, atau perubahan yang
-terlalu besar untuk dititipkan ke PR ini.
+Sisa berikut butuh basis data hidup, keputusan produk, atau berukuran fitur —
+bukan perbaikan cacat.
 
 1. **Bucket `service-docs` dan audio SOS terbuka untuk seluruh peran
    petugas.** `20260811000001_service_docs_staff_read.sql` memberi SELECT
    atas seluruh bucket kepada `verifier`, `dinas_staff`, `dinas_head`, dan
    `admin` tanpa kaitan ke permohonan yang sedang ditangani — satu akun
    berperan rendah bisa mengunduh semua pindaian KTP/KK di sistem.
-   Perbaikannya perlu policy yang mengikat objek ke `service_requests` yang
-   ditangani petugas itu, dan itu wajib diuji terhadap data nyata.
-2. **Formulir isian surat belum ada.** `formatLetterFields` mencari
-   `fullName`, `nik`, `address`, `purpose`, dan seterusnya, tetapi
-   `apps/native/app/layanan/new.tsx` hanya menyimpan `catatan` plus jalur
-   berkas. Semua surat karena itu terbit dengan seluruh isian bernilai `-`.
-   Jalur OCR yang semestinya mengisinya juga mati: `runOcr` tidak punya satu
-   pun pemanggil. Ini pekerjaan fitur, bukan perbaikan bug.
-3. **Draf luring dan antrean kirim ulang.** PRD 11.1 mewajibkan draf aduan
-   disimpan di AsyncStorage dan dikirim ulang saat koneksi kembali. Belum
-   ada.
-4. **Unggah foto per-berkas dengan progres dan coba-lagi.** Foto aduan
-   sekarang bertanda "terunggah" sejak dipilih, padahal unggahannya baru
-   terjadi saat kirim, dan satu kegagalan membuang semuanya.
-5. **Font ganda di aplikasi warga.** `expo-font` belum dipasang; hanya
-   dashboard web yang memakai Plus Jakarta Sans + Inter.
-6. **Retensi 30 hari dokumen layanan.** `layanan/new.tsx` menjanjikannya ke
-   warga, tetapi tidak ada job penghapusan mana pun yang
-   mengimplementasikannya.
-7. **Hak hapus data warga.** Tidak ada policy DELETE untuk warga dan tidak
+   Perbaikannya butuh policy yang mengikat objek storage ke baris
+   `service_requests` yang benar-benar ditangani petugas itu, dan itu wajib
+   diuji terhadap data nyata sebelum diterapkan: salah sedikit, seluruh
+   petugas kehilangan akses ke berkas permohonan yang sah.
+2. **Draf luring dan antrean kirim ulang.** PRD 11.1 mewajibkan draf aduan
+   disimpan di AsyncStorage dan dikirim ulang saat koneksi kembali, plus
+   spanduk "Menampilkan data tersimpan" di layar baca. Belum ada.
+3. **Unggah foto per-berkas dengan progres dan coba-lagi.** Foto aduan
+   diunggah sekaligus saat kirim, jadi satu kegagalan membuang semuanya.
+   PRD meminta status per foto, ikon coba-lagi, dan pengiriman tetap jalan
+   bila minimal satu foto berhasil. (Label "terunggah" yang menyesatkan
+   sudah diganti menjadi "dipilih".)
+4. **Kompresi foto sebelum unggah.** PRD 15.3 meminta lebar maksimum 1280px;
+   saat ini hanya `quality: 0.7` tanpa perubahan dimensi.
+5. **Font ganda di aplikasi warga.** `expo-font` belum terpasang dan berkas
+   fontnya belum ada; hanya dashboard web yang memakai Plus Jakarta Sans +
+   Inter.
+6. **Bottom sheet Feed belum memakai snap point 30/60/95%** seperti
+   DESIGN.md; masih pengalih dua keadaan.
+7. **Retensi 30 hari dokumen layanan.** Tidak ada job penghapusan yang
+   mengimplementasikannya. Janji ke warga sudah dihapus dari layar sampai
+   penghapusannya benar-benar ada, tapi kebijakan retensinya sendiri masih
+   perlu diputuskan.
+8. **Hak hapus data warga.** Tidak ada policy DELETE untuk warga dan tidak
    ada jalur penghapusan akun, sementara UU 27/2022 Pasal 8 mewajibkannya.
+   Ini keputusan produk sekaligus perubahan skema.
+9. **Haptics dan cincin progres melingkar pada tombol SOS.** DESIGN.md
+   memintanya; `expo-haptics` belum jadi dependensi. Jalur aksesibilitas dan
+   pemulihan izin lokasi SUDAH diperbaiki, jadi tidak ada lagi jalan buntu —
+   sisanya murni penghalusan.
 
 ## Catatan lint
 

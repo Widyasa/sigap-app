@@ -62,6 +62,15 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 
 const PROFILE_KEY = 'sigap_user_profile';
 
+/** Rapikan spasi ganda dan seragamkan kapitalisasi nama wilayah. */
+function normalizePlaceName(value: string): string {
+  return value
+    .trim()
+    .replace(/\s+/g, ' ')
+    .toLowerCase()
+    .replace(/(^|\s)\S/g, (c) => c.toUpperCase());
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AuthState>({
     isLoading: true,
@@ -187,12 +196,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return { ok: false, message: 'Sesi tidak ditemukan. Masuk kembali.' };
         }
         const userId = getUserIdFromToken(accessToken);
+        // Kelurahan dinormalkan sebelum disimpan.
+        //
+        // Nilai ini dibandingkan PERSIS (string equality) oleh
+        // `votes_insert_own` dan oleh setiap query yang discope per
+        // kelurahan. Tanpa normalisasi, warga yang mengetik "sukamaju" atau
+        // "Suka  Maju" diam-diam melihat daftar aspirasi kosong dan tidak
+        // akan pernah bisa memilih, tanpa satu pun penjelasan di layar.
         const { error } = await supabase
           .from('profiles')
           .update({
-            full_name: fullName.trim(),
-            kecamatan: kecamatan.trim(),
-            kelurahan: kelurahan.trim(),
+            full_name: fullName.trim().replace(/\s+/g, ' '),
+            kecamatan: normalizePlaceName(kecamatan),
+            kelurahan: normalizePlaceName(kelurahan),
           })
           .eq('id', userId);
         if (error) {

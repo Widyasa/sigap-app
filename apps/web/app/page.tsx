@@ -306,6 +306,10 @@ function RingkasanContent({ user }: { user: StaffProfile }) {
                   {STATUS_CHIPS.map((c) => (
                     <button
                       key={c.id}
+                      type="button"
+                      // Keadaan terpilih DULU hanya disampaikan lewat warna
+                      // latar; `aria-pressed` mengeksposnya ke pembaca layar.
+                      aria-pressed={c.id === chip}
                       onClick={() => setChip(c.id)}
                       style={c.id === chip ? { ...chipStyle, ...chipActiveStyle } : chipStyle}
                     >
@@ -556,6 +560,11 @@ function SlaCell({ complaint }: { complaint: RingkasanComplaintRow }) {
   return (
     <span style={{ color: sla.isCritical ? THEME.danger : THEME.textSecondary, fontSize: typography.micro.fontSize }}>
       {formatSlaCountdown(sla.remainingMs)}
+      {/* Peringatan "mendekati batas SLA" DULU disampaikan HANYA lewat warna
+          merah: teksnya identik dengan baris yang aman, jadi pengguna buta
+          warna atau pembaca layar tidak menerima sinyalnya sama sekali
+          (WCAG 1.4.1). Ini justru sinyal yang menjadi alasan kolom ini ada. */}
+      {sla.isCritical ? <span style={{ fontWeight: 700 }}> · mendesak</span> : null}
     </span>
   );
 }
@@ -772,6 +781,7 @@ const kpiLabelStyle: CSSProperties = {
 };
 
 const kpiValueStyle: CSSProperties = {
+  fontVariantNumeric: 'tabular-nums',
   fontSize: typography.display.fontSize,
   fontWeight: typography.display.fontWeight,
   color: THEME.textPrimary,

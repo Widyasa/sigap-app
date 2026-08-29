@@ -198,20 +198,39 @@ function ComplaintCard({
 
       <p style={{ fontSize: 14, margin: '10px 0' }}>{complaint.description}</p>
 
-      {actionError ? <p style={{ color: THEME.danger, fontSize: 13 }}>{actionError}</p> : null}
+      {actionError ? <p role="alert" style={{ color: THEME.danger, fontSize: 13 }}>{actionError}</p> : null}
 
       {formOpenFor ? (
         <div style={{ border: `1px solid ${THEME.border}`, borderRadius: 8, padding: 12, marginTop: 8 }}>
-          <label style={labelStyle}>Catatan progres</label>
+          <label htmlFor={`catatan-${complaint.id}`} style={labelStyle}>
+            Catatan progres
+          </label>
           <textarea
+            id={`catatan-${complaint.id}`}
             style={{ ...inputStyle, minHeight: 60 }}
             value={note}
             onChange={(e) => setNote(e.target.value)}
           />
-          <label style={labelStyle}>Foto progres (opsional)</label>
-          <input type="file" accept="image/*" onChange={handlePhotoChange} disabled={uploading} />
-          {uploading ? <p style={{ fontSize: 12, color: THEME.textSecondary, margin: '4px 0 0' }}>Mengunggah…</p> : null}
-          {uploadError ? <p style={{ fontSize: 12, color: THEME.danger, margin: '4px 0 0' }}>{uploadError}</p> : null}
+          <label htmlFor={`foto-${complaint.id}`} style={labelStyle}>
+            Foto progres (opsional)
+          </label>
+          <input
+            id={`foto-${complaint.id}`}
+            type="file"
+            accept="image/*"
+            onChange={handlePhotoChange}
+            disabled={uploading}
+          />
+          {uploading ? (
+            <p role="status" style={{ fontSize: 14, color: THEME.textSecondary, margin: '4px 0 0' }}>
+              Mengunggah…
+            </p>
+          ) : null}
+          {uploadError ? (
+            <p role="alert" style={{ fontSize: 14, color: THEME.danger, margin: '4px 0 0' }}>
+              {uploadError}
+            </p>
+          ) : null}
           {photoUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
@@ -245,8 +264,14 @@ function ComplaintCard({
               Tindak Lanjut
             </button>
           ) : null}
+          {/* Sama seperti tombol "Verifikasi": putih di atas `accent`
+              hanya 2,49:1, jadi teksnya memakai `textPrimary` (7,17:1). */}
           {complaint.status === 'in_progress' ? (
-            <button style={{ ...buttonStyle, background: THEME.accent }} onClick={() => setFormOpenFor('resolved')}>
+            <button
+              type="button"
+              style={{ ...buttonStyle, background: THEME.accent, color: THEME.textPrimary }}
+              onClick={() => setFormOpenFor('resolved')}
+            >
               Selesai
             </button>
           ) : null}

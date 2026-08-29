@@ -260,6 +260,7 @@ const statLabelStyle: CSSProperties = {
 };
 
 const statValueStyle: CSSProperties = {
+  fontVariantNumeric: 'tabular-nums',
   fontSize: typography.display.fontSize,
   fontWeight: typography.display.fontWeight,
   color: THEME.textPrimary,

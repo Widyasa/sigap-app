@@ -1,7 +1,8 @@
 import {
+  ActivityIndicator,
   Pressable,
   PressableProps,
-  StyleSheet,
+  View,
   ViewStyle,
   TextStyle,
 } from 'react-native';
@@ -12,6 +13,8 @@ interface ButtonProps extends Omit<PressableProps, 'children' | 'style'> {
   text: string;
   variant?: 'primary' | 'secondary' | 'ghost';
   loading?: boolean;
+  /** Kalimat khusus saat memuat (mis. "Mengirim laporan Anda…"). */
+  loadingText?: string;
   containerStyle?: ViewStyle;
   style?: ViewStyle;
 }
@@ -20,6 +23,7 @@ export function Button({
   text,
   variant = 'primary',
   loading = false,
+  loadingText,
   disabled,
   containerStyle,
   style,
@@ -28,6 +32,13 @@ export function Button({
   const { colors, spacing } = useTheme();
 
   const isDisabled = disabled || loading;
+
+  const labelRowStyle: ViewStyle = {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing(2),
+  };
 
   const base: ViewStyle = {
     minHeight: 48,
@@ -105,9 +116,16 @@ export function Button({
       accessibilityState={{ busy: loading, disabled: isDisabled }}
       {...rest}
     >
-      <ThemedText variant="h2" style={textStyle}>
-        {loading ? 'Memuat…' : text}
-      </ThemedText>
+      {/* DESIGN.md mensyaratkan spinner pada keadaan memuat. Label aksinya
+          juga dipertahankan alih-alih ditimpa "Memuat…": mengganti teks
+          tombol membuang satu-satunya petunjuk aksi apa yang sedang berjalan
+          (`loadingText` menyediakan kalimat per-aksi bila diberikan). */}
+      <View style={labelRowStyle}>
+        {loading ? <ActivityIndicator size="small" color={textStyle?.color as string | undefined} /> : null}
+        <ThemedText variant="h2" style={textStyle}>
+          {loading ? loadingText ?? text : text}
+        </ThemedText>
+      </View>
     </Pressable>
   );
 }

@@ -454,8 +454,9 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   iconButton: {
-    width: 36,
-    height: 36,
+    // 44x44: minimum platform (iOS HIG / Android). Dulu 36x36.
+    width: 44,
+    height: 44,
     alignItems: 'center',
     justifyContent: 'center',
   },

@@ -90,26 +90,12 @@ export default function AspirationDetailScreen() {
 
   const isOwner = user?.id === aspiration.userId;
 
-  if (!isOwner) {
-    return (
-      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
-        {header}
-        <Button
-          text="< Kembali"
-          variant="ghost"
-          onPress={() => router.back()}
-          containerStyle={{ alignSelf: 'flex-start', marginHorizontal: spacing(4), marginTop: spacing(2) }}
-        />
-        <View style={[styles.center, { paddingHorizontal: spacing(6) }]}>
-          <ThemedText align="center" color="secondary">
-            Detail aspirasi hanya dapat dilihat oleh pengirim usulan.
-          </ThemedText>
-          <Button text="Kembali" variant="secondary" onPress={() => router.back()} containerStyle={{ marginTop: spacing(4) }} />
-        </View>
-        <BottomNav />
-      </SafeAreaView>
-    );
-  }
+  // Detail aspirasi DULU digerbangi `isOwner`, sehingga mengetuk usulan
+  // warga lain dari tab Musrenbang hanya menampilkan "Detail aspirasi hanya
+  // dapat dilihat oleh pengirim usulan" — bertentangan dengan RLS
+  // `aspirations_read` yang memang publik, dan menghapus seluruh guna tab
+  // telusur/dukung itu sendiri. Kepemilikan tetap dipakai untuk aksi
+  // (mis. tidak bisa mendukung usulan sendiri), bukan untuk membaca.
 
   const createdAt = new Date(aspiration.createdAt);
   const statusIndex = STATUS_ORDER.indexOf(aspiration.status);
@@ -234,8 +220,9 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   iconButton: {
-    width: 36,
-    height: 36,
+    // 44x44: minimum platform (iOS HIG / Android). Dulu 36x36.
+    width: 44,
+    height: 44,
     alignItems: 'center',
     justifyContent: 'center',
   },

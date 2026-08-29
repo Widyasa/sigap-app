@@ -44,8 +44,15 @@ export default function AnggaranAdminPage() {
 
   useEffect(() => {
     if (authLoading) return;
-    if (!isAuthenticated || !canAccess) {
+    if (!isAuthenticated) {
       router.replace('/login');
+      return;
+    }
+    if (!canAccess) {
+      // Peran yang salah BUKAN masalah otentikasi. Melemparnya ke /login
+      // membuat petugas yang sudah masuk melihat layar masuk, lalu efek di
+      // LoginPage langsung memantulkannya kembali — kedip tak berujung.
+      router.replace('/');
     }
   }, [authLoading, isAuthenticated, canAccess, router]);
 
@@ -128,7 +135,7 @@ export default function AnggaranAdminPage() {
 
   return (
     <DashboardShell
-      title="Dashboard Anggaran"
+      title="Anggaran"
       subtitle={`Masuk sebagai ${user?.fullName ?? user?.role}. Tahun anggaran ${fiscalYear}.`}
       actions={
         <>

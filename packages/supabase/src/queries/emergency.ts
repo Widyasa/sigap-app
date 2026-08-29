@@ -186,20 +186,34 @@ export async function listActiveEmergencyAlerts(
 }
 
 /** Operator menandai dirinya sedang menanggapi sebuah SOS. */
+/**
+ * Operator mengambil alih satu SOS.
+ *
+ * `.eq('status', 'active')` penting: tanpa itu UPDATE-nya tak bersyarat,
+ * sehingga dua operator yang sama-sama melihat SOS berstatus `active` dan
+ * sama-sama mengeklik "Tanggapi" akan saling menimpa `responded_by` —
+ * yang kedua menang, dan yang pertama tetap yakin dialah yang menangani.
+ * Baris yang terpengaruh nol berarti operator lain sudah lebih dulu.
+ */
 export async function respondToEmergencyAlert(
   supabase: SupabaseClient<Database>,
   id: string,
   operatorId: string,
 ): Promise<void> {
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from('emergency_alerts')
     .update({
       status: 'responding',
       responded_by: operatorId,
       responded_at: new Date().toISOString(),
     })
-    .eq('id', id);
+    .eq('id', id)
+    .eq('status', 'active')
+    .select('id');
   if (error) throw error;
+  if (!data || data.length === 0) {
+    throw new Error('SOS ini sudah ditanggapi operator lain.');
+  }
 }
 
 /** Operator menutup SOS setelah penanganan selesai. */
