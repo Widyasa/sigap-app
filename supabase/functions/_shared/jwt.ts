@@ -51,8 +51,8 @@ function getNumericDate(offsetSeconds: number): number {
 }
 
 async function importSecret(): Promise<CryptoKey> {
-  const raw = Deno.env.get("SUPABASE_JWT_SECRET") ||
-    Deno.env.get("SIGAP_JWT_SECRET") ||
+  const raw = Deno.env.get("SIGAP_JWT_SECRET") ||
+    Deno.env.get("SUPABASE_JWT_SECRET") ||
     Deno.env.get("SUPABASE_INTERNAL_JWT_SECRET");
   if (!raw) throw new Error("JWT secret is not set (SUPABASE_JWT_SECRET or SIGAP_JWT_SECRET)");
   return await crypto.subtle.importKey(

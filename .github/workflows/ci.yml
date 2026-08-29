@@ -1,0 +1,51 @@
+# Repo ini belum punya CI sama sekali: satu-satunya otomasi adalah build
+# Vercel (`vercel.json`), yang hanya menjalankan `turbo run build --filter=web`
+# dan karena itu tidak pernah menjalankan typecheck, unit test, maupun lint.
+# Beberapa cacat yang ditemukan audit QA Agustus 2026 akan tertangkap di sini.
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+jobs:
+  verify:
+    name: Typecheck, test, lint, build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+          cache: npm
+
+      - run: npm ci
+
+      - name: Typecheck
+        run: npx turbo run typecheck
+
+      - name: Unit tests
+        run: npx turbo run test
+
+      - name: Lint
+        run: npx turbo run lint
+
+      # Dijalankan TANPA .env sengaja: build pernah gagal total di tahap
+      # prerender ketika variabel Supabase tidak ada, termasuk untuk halaman
+      # yang sama sekali tidak memakai Supabase.
+      - name: Build web tanpa env
+        run: npx turbo run build --filter=web
+
+  edge-functions:
+    name: Deno tests (Edge Functions)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Deno test
+        working-directory: supabase/functions
+        run: deno test --allow-env --allow-net --no-check

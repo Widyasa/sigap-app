@@ -13,11 +13,13 @@
 -- hanya dikembalikan bila kuota percobaan masih ada; perbandingan hash
 -- tetap dilakukan di Edge Function (constant-time, memakai pepper yang tidak
 -- pernah masuk basis data).
+DROP FUNCTION IF EXISTS claim_otp_attempt(TEXT);
+
 CREATE OR REPLACE FUNCTION claim_otp_attempt(p_email TEXT)
-RETURNS TABLE (otp_id UUID, code_hash TEXT, attempts INT, exhausted BOOLEAN)
+RETURNS TABLE (otp_id BIGINT, code_hash TEXT, attempts SMALLINT, exhausted BOOLEAN)
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE
-  v_id UUID;
+  v_id BIGINT;
 BEGIN
   SELECT c.id INTO v_id
   FROM auth_otp_codes c
