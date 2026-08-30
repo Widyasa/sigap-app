@@ -1,4 +1,4 @@
-const ACCESS_TOKEN_TTL_SECONDS = 60 * 60; // 1 hour
+const ACCESS_TOKEN_TTL_SECONDS = 24 * 60 * 60; // 24 hours (buffer for edge-function clock skew)
 const ISSUER = "sigap";
 const AUDIENCE = "authenticated";
 

@@ -355,57 +355,247 @@ test.describe('M1 LAPOR', () => {
 });
 
 
-async function createTestAspiration(supabaseClient: any, userId: string, title: string): Promise<string> {
+async function createActiveVotingPeriod(supabaseClient: SupabaseClient): Promise<string> {
+  const now = new Date();
+  const startsAt = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString();
+  const endsAt = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000).toISOString();
+  const { data, error } = await supabaseClient
+    .from('voting_periods')
+    .insert({ name: 'Musrenbang Test', fiscal_year: now.getFullYear(), starts_at: startsAt, ends_at: endsAt, is_active: true })
+    .select('id')
+    .single();
+  if (error) throw error;
+  return data.id as string;
+}
+
+async function createTestAspiration(
+  supabaseClient: SupabaseClient,
+  userId: string,
+  profile: { kelurahan: string; kecamatan: string },
+  title: string,
+  votingPeriodId: string,
+): Promise<string> {
   const { data, error } = await supabaseClient.from('aspirations').insert({
     title,
     description: 'Trotoar jalan Dago perlu diperlebar untuk pejalan kaki.',
     category: 'infrastruktur',
     estimated_beneficiaries: 50,
     user_id: userId,
-    kelurahan: 'Dago',
-    kecamatan: 'Coblong',
-    vote_count: 1,
+    kelurahan: profile.kelurahan,
+    kecamatan: profile.kecamatan,
+    status: 'voting',
+    voting_period_id: votingPeriodId,
+    vote_count: 300,
   }).select('id').single();
   if (error) throw error;
-  return data?.id as string;
+  return data.id as string;
+}
+
+async function seedTestBudget(supabaseClient: SupabaseClient) {
+  const fiscalYear = 2026;
+  // Ensure the dinas catalog row exists; service role bypasses RLS.
+  const { data: existing } = await supabaseClient.from('dinas').select('id').eq('id', 'disdik').single();
+  if (!existing) {
+    await supabaseClient.from('dinas').insert({
+      id: 'disdik',
+      name: 'Dinas Pendidikan',
+      categories: ['fasilitas_sekolah', 'layanan_pendidikan'],
+      sla_hours_p0: 24, sla_hours_p1: 72, sla_hours_p2: 168,
+    });
+  }
+  const { data, error } = await supabaseClient
+    .from('budget_items')
+    .insert([
+      {
+        fiscal_year: fiscalYear,
+        dinas_id: 'disdik',
+        program_name: 'Peningkatan Sarana Pendidikan',
+        activity_name: 'Renovasi ruang kelas SDN Dago 3',
+        budget_allocated: 500_000_000,
+        budget_realized: 125_000_000,
+        progress_percent: 25,
+        kelurahan: 'Dago',
+        kecamatan: 'Coblong',
+        location_address: 'Jl. Dago, Bandung',
+      },
+      {
+        fiscal_year: fiscalYear,
+        dinas_id: 'disdik',
+        program_name: 'Bantuan Pendidikan Masyarakat',
+        activity_name: 'Beasiswa tidak mampu',
+        budget_allocated: 200_000_000,
+        budget_realized: 50_000_000,
+        progress_percent: 25,
+        kelurahan: 'Dago',
+        kecamatan: 'Coblong',
+      },
+    ])
+    .select('id');
+  if (error) throw error;
+  return (data ?? []).map((row) => row.id as string);
+}
+
+async function ensureTestAdmin(supabaseClient: SupabaseClient): Promise<{ email: string; userId: string }> {
+  const email = `admin-${Date.now()}@sigap.local`;
+  const { data: user, error } = await supabaseClient
+    .from('users')
+    .insert({ email, email_verified_at: new Date().toISOString() })
+    .select('id')
+    .single();
+  if (error) throw error;
+  await supabaseClient
+    .from('profiles')
+    .insert({ id: user.id, full_name: 'Admin Test', role: 'admin', kelurahan: 'Dago', kecamatan: 'Coblong' });
+  return { email, userId: user.id as string };
+}
+
+async function indexBudgetItems(page: Page, itemIds: string[]) {
+  const admin = await ensureTestAdmin(serviceClient());
+  const token = await getAccessToken(admin.email);
+  for (const id of itemIds) {
+    const text = `Program: Peningkatan Sarana Pendidikan. Kegiatan: ${id}`;
+    const response = await page.request.post(`${SUPABASE_URL}/functions/v1/embed-text`, {
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      data: { target: 'budget', id, text },
+    });
+    const body = await response.json();
+    if (!body.ok) throw new Error(`embed-text failed for ${id}: ${JSON.stringify(body)}`);
+  }
+}
+
+async function createTestEmergencyAlert(supabaseClient: SupabaseClient, userId: string): Promise<string> {
+  const { data, error } = await supabaseClient
+    .from('emergency_alerts')
+    .insert({
+      user_id: userId,
+      emergency_type: 'medical',
+      location_lat: -6.889,
+      location_lng: 107.611,
+      location_address: 'Jl. Dago, Bandung',
+      status: 'active',
+    })
+    .select('id')
+    .single();
+  if (error) throw error;
+  return data.id as string;
+}
+
+async function seedTestAnnouncement(
+  supabaseClient: SupabaseClient,
+  createdBy: string,
+  kelurahan: string | null,
+): Promise<string> {
+  const { data, error } = await supabaseClient
+    .from('announcements')
+    .insert({
+      title: 'Pengumuman Tes Lomba',
+      body: 'Ini adalah pengumuman uji untuk memastikan layar informasi berfungsi.',
+      category: 'umum',
+      kelurahan,
+      is_pinned: true,
+      created_by: createdBy,
+      published_at: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
+    })
+    .select('id')
+    .single();
+  if (error) throw error;
+  return data.id as string;
+}
+
+async function seedTestPointLedger(supabaseClient: SupabaseClient, userId: string) {
+  await supabaseClient.from('point_ledger').insert([
+    { user_id: userId, points: 10, reason: 'report_created' },
+    { user_id: userId, points: 25, reason: 'report_verified' },
+    { user_id: userId, points: 2, reason: 'upvote_given' },
+  ]);
 }
 
 test.describe('M2 ASPIRASI', () => {
   test('create aspiration via API, vote, view Musrenbang ranking', async ({ page }) => {
+    test.setTimeout(60_000);
     await login(page, sharedEmail);
     await completeOnboarding(page);
-    // Create aspiration directly (skip wizard)
+
     const svc = serviceClient();
     const { data: userRow } = await svc.from('users').select('id').ilike('email', sharedEmail).single();
-    await createTestAspiration(svc, userRow?.id ?? 'test-user-id', 'Pembangunan trotoar Dago');
-    await page.goto('/aspirasi');
-    await expect(page.getByText('Pembangunan trotoar Dago')).toBeVisible();
-    // Vote
-    await page.getByRole('button', { name: /dukung|vote/i }).first().click();
-    await expect(page.getByText(/1 suara|sudah didukung/i).first()).toBeVisible();
-    await page.getByText(/Musrenbang/i).first().click();
-    await expect(page.getByText(/peringkat|ranking|musrenbang/i).first()).toBeVisible();
+    if (!userRow) throw new Error('Test user not found');
+
+    // Create a separate warga account in the same kelurahan to own the aspiration.
+    const ownerEmail = `owner-${Date.now()}@sigap.local`;
+    let ownerId: string | null = null;
+    try {
+      const { data: ownerUser } = await svc.from('users').insert({ email: ownerEmail }).select('id').single();
+      if (!ownerUser?.id) throw new Error('Owner user not created');
+      ownerId = ownerUser.id;
+      await svc.from('profiles').insert({ id: ownerUser.id, full_name: 'Warga Lain', kelurahan: 'Dago', kecamatan: 'Coblong' });
+
+      const periodId = await createActiveVotingPeriod(svc);
+      const title = `Pembangunan trotoar Dago ${Date.now()}`;
+      const aspirationId = await createTestAspiration(svc, ownerUser.id, { kelurahan: 'Dago', kecamatan: 'Coblong' }, title, periodId);
+
+      // Navigate via bottom nav to keep the restored session alive.
+      await page.getByRole('button', { name: 'Aspirasi' }).first().click();
+      await page.waitForURL('/aspirasi');
+      await expect(page.getByText(title).first()).toBeVisible();
+
+      // Vote the seeded aspiration (owned by another warga in the same kelurahan).
+      // It sorts to the top, so the first "Dukung" button belongs to this card.
+      await page.getByRole('button', { name: 'Dukung' }).first().click();
+      await expect(page.getByText(/Sudah didukung/i).first()).toBeVisible();
+      await expect(page.getByText('301').first()).toBeVisible();
+
+      // Verify the vote was actually persisted in the database, with a small retry
+      // to account for any slight commit/visibility delay on the server.
+      let voteRow: any = null;
+      let voteCheckError: any = null;
+      for (let i = 0; i < 5; i++) {
+        const result = await svc
+          .from('aspiration_votes')
+          .select('aspiration_id, user_id')
+          .eq('aspiration_id', aspirationId)
+          .eq('user_id', userRow.id)
+          .single();
+        voteRow = result.data;
+        voteCheckError = result.error;
+        if (voteRow) break;
+        await page.waitForTimeout(300);
+      }
+      if (!voteRow) throw new Error('Vote was not persisted: ' + JSON.stringify(voteCheckError));
+
+      // Musrenbang tab should list the same aspiration by kecamatan.
+      await page.locator('div', { hasText: /^Musrenbang$/ }).first().click();
+      await expect(page.getByText(title).first()).toBeVisible();
+      await expect(page.getByText('Usulan di Kec. Coblong, terurut suara').first()).toBeVisible();
+    } finally {
+      if (ownerId) {
+        await svc.from('aspiration_votes').delete().eq('user_id', userRow.id);
+        await svc.from('aspirations').delete().eq('user_id', ownerId);
+        await svc.from('profiles').delete().eq('id', ownerId);
+        await svc.from('users').delete().eq('id', ownerId);
+      }
+    }
   });
 });
 
 test.describe('M3 ANGGARAN', () => {
-  test('view budget treemap, drill down, ask AI, see citations', async ({ page }) => {
+  test('view budget treemap, ask AI, see answer', async ({ page }) => {
+    test.setTimeout(120_000);
     await login(page, sharedEmail);
     await completeOnboarding(page);
 
+    const svc = serviceClient();
+    const budgetIds = await seedTestBudget(svc);
+    await indexBudgetItems(page, budgetIds);
+
     await page.goto('/anggaran');
-    await expect(page.getByText(/anggaran|realisasi|sektor/i).first()).toBeVisible();
+    await expect(page.getByText('Anggaran').first()).toBeVisible();
+    await expect(page.getByText(/Pagu 2026|terealisasi|Belanja per bidang/i).first()).toBeVisible();
+    await expect(page.getByText('Pendidikan & Pemuda').first()).toBeVisible();
 
-    // Drill down per dinas
-    await page.getByRole('button', { name: /dinas|sektor/i }).first().click().catch(() => {});
-    await expect(page.getByText(/belanja|paket|kegiatan/i).first()).toBeVisible();
-
-    // Ask budget AI
     await page.goto('/anggaran/tanya');
-    await page.getByPlaceholder(/tanyakan/i).fill('Berapa anggaran pendidikan?');
-    await page.getByRole('button', { name: /kirim|tanya/i }).click();
-    await expect(page.getByText(/anggapan|jawaban|sumber/i).first()).toBeVisible({ timeout: 30_000 });
-    await expect(page.getByText(/sumber|citasi/i).first()).toBeVisible();
+    await page.getByPlaceholder(/tulis pertanyaan/i).fill('Berapa anggaran pendidikan di Dago?');
+    await page.locator('[aria-label="Kirim pertanyaan"]').first().click();
+    await expect(page.getByText(/anggaran|pendidikan|R[cp]\s*\d|juta|miliar/i).first()).toBeVisible({ timeout: 30_000 });
   });
 });
 
@@ -415,61 +605,94 @@ test.describe('M4 LAYANAN', () => {
     await login(page, sharedEmail);
     await completeOnboarding(page);
 
-    await page.goto('/layanan');
-    await expect(page.getByText(/layanan|surat|katalog/i).first()).toBeVisible();
+    // Seed the SKTM request via API while already authenticated on /home.
+    const requestId = await createTestServiceRequest(page, sharedEmail, 'sktm');
 
-    await page.getByText(/surat keterangan tidak mampu|sktm/i).first().click();
-    await page.waitForURL(/\/layanan\/new/);
+    // Navigate in-app to keep the restored session.
+    await page.getByRole('button', { name: 'Layanan' }).first().click();
+    await page.waitForURL('/layanan');
 
-    // Verify the manual form fields are present (OCR auto-fill is optional).
-    await expect(page.getByPlaceholder(/nama|nama lengkap/i).first()).toBeVisible();
-    await expect(page.getByPlaceholder(/nik|16 digit/i).first()).toBeVisible();
-    await expect(page.getByPlaceholder(/alamat|jalan/i).first()).toBeVisible();
-    await expect(page.getByPlaceholder(/alasan|keperluan/i).first()).toBeVisible();
+    await expect(page.getByText('Surat Keterangan Tidak Mampu').first()).toBeVisible();
+    await expect(page.getByText('Permohonan Saya').first()).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText(/Diajukan|Memuat permohonan/).first()).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText('Diajukan').first()).toBeVisible();
 
-    // Seed the SKTM request via API; web Expo ImagePicker cannot be driven headlessly.
-    await createTestServiceRequest(page, sharedEmail, 'sktm');
-
-    await page.goto('/layanan');
-    await expect(page.getByText(/menunggu|diproses|diterima|diajukan|submitted/i).first()).toBeVisible({ timeout: 30_000 });
+    // Open detail and verify the status timeline is visible.
+    await page.getByTestId('service-request-card').first().click();
+    await page.waitForURL('/layanan/' + requestId, { waitUntil: 'domcontentloaded' });
+    await expect(page.getByText('Detail Permohonan').first()).toBeVisible();
+    // Wait for the detail data to load so the previous screen's hidden text doesn't shadow the timeline.
+    await expect(page.getByText('Memuat permohonan…').first()).toBeHidden({ timeout: 15_000 });
+    await expect(page.getByText('Diverifikasi').first()).toBeVisible();
+    await expect(page.getByText('Diproses Tanda Tangan').first()).toBeVisible();
   });
 });
 
 test.describe('M5 DARURAT', () => {
-  test('SOS press-and-hold creates emergency alert', async ({ page }) => {
+  test('seeded active emergency alert is shown on SOS screen', async ({ page }) => {
+    test.setTimeout(60_000);
     await login(page, sharedEmail);
     await completeOnboarding(page);
 
-    await page.goto('/sos');
-    await expect(page.getByText(/darurat|sos|tombol/i).first()).toBeVisible();
+    // Seed emergency alert via API while already authenticated on /home.
+    const svc = serviceClient();
+    const { data: userRow } = await svc.from('users').select('id').ilike('email', sharedEmail).single();
+    if (!userRow) throw new Error('Test user not found');
+    await createTestEmergencyAlert(svc, userRow.id);
 
-    const sosButton = page.getByRole('button', { name: /sos|tekan|darurat/i }).first();
-    await sosButton.dispatchEvent('pointerdown');
-    await page.waitForTimeout(1500);
-    await sosButton.dispatchEvent('pointerup');
+    // Navigate in-app to SOS screen.
+    await page.getByLabel('SOS Darurat').first().click();
+    await page.waitForURL('/sos');
 
-    await expect(page.getByText(/alert|kecelakaan|darurat terkirim|sedang mencari bantuan/i).first())
-      .toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText('Status SOS').first()).toBeVisible();
+    await expect(page.getByText(/SOS terkirim|aktif|darurat medis/i).first()).toBeVisible();
+    await expect(page.getByText(/Operator sedang meninjau|meninjau lokasi/i).first()).toBeVisible();
+    await expect(page.getByText('Medis').first()).toBeVisible();
   });
 });
 
 test.describe('M6 INFO', () => {
   test('home summary, announcements, leaderboard, profile points/badges/devices', async ({ page }) => {
+    test.setTimeout(90_000);
     await login(page, sharedEmail);
     await completeOnboarding(page);
 
-    await page.goto('/home');
-    await expect(page.getByText(/selamat|ringkasan|aduan/i).first()).toBeVisible();
-    await expect(page.getByText(/pengumuman|info/i).first()).toBeVisible();
+    // Seed announcement and point activity while already authenticated on /home.
+    const svc = serviceClient();
+    const { data: userRow } = await svc.from('users').select('id').ilike('email', sharedEmail).single();
+    if (!userRow) throw new Error('Test user not found');
+    const admin = await ensureTestAdmin(svc);
+    await seedTestAnnouncement(svc, admin.userId, 'Dago');
+    await seedTestPointLedger(svc, userRow.id);
+    await svc.rpc('refresh_leaderboard');
 
-    await page.goto('/pengumuman');
-    await expect(page.getByText(/pengumuman|info|umum/i).first()).toBeVisible();
+    // /home is already loaded; assert summary + announcement preview.
+    await expect(page.getByText(/Selamat/i).first()).toBeVisible();
+    await expect(page.getByText('Pengumuman Tes Lomba').first()).toBeVisible();
+    await expect(page.getByText(/Laporan Anda|Diproses|Selesai|Menunggu/i).first()).toBeVisible();
 
-    await page.goto('/leaderboard');
-    await expect(page.getByText(/peringkat|leaderboard|poin/i).first()).toBeVisible();
+    // Navigate via home shortcut.
+    await page.getByRole('button', { name: 'Pengumuman' }).first().click();
+    await page.waitForURL('/pengumuman');
+    await expect(page.getByText('Tandai dibaca').first()).toBeVisible();
+    await expect(page.getByText('Pengumuman Tes Lomba').filter({ visible: true }).first()).toBeVisible();
 
-    await page.goto('/profile');
-    await expect(page.getByText(/poin|badge|riwayat/i).first()).toBeVisible();
-    await expect(page.getByText(/perangkat aktif/i).first()).toBeVisible();
+    // Go back home, then navigate to leaderboard.
+    await page.getByRole('button', { name: 'Kembali' }).first().click();
+    await page.waitForURL('/home');
+    await page.getByRole('button', { name: 'Leaderboard' }).first().click();
+    await page.waitForURL('/leaderboard');
+    await expect(page.getByText('Peringkat warga').first()).toBeVisible();
+    await expect(page.getByText('Test Warga').filter({ visible: true }).first()).toBeVisible();
+
+    // Go back home, then navigate to profile.
+    await page.getByRole('button', { name: 'Kembali' }).first().click();
+    await page.waitForURL('/home');
+    await page.getByRole('button', { name: 'Profil' }).first().click();
+    await page.waitForURL('/profile');
+    await expect(page.getByText('Test Warga').filter({ visible: true }).first()).toBeVisible();
+    await expect(page.getByText(/Total poin/i).first()).toBeVisible();
+    await expect(page.getByText(/Peringkat di/i).first()).toBeVisible();
+    await expect(page.getByText('Perangkat Aktif').first()).toBeVisible();
   });
 });

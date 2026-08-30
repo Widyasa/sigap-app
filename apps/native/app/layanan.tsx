@@ -203,6 +203,7 @@ export default function LayananScreen() {
                   <Pressable
                     key={item.id}
                     onPress={() => router.push(`/layanan/${item.id}`)}
+                    testID="service-request-card"
                     style={({ pressed }) => [
                       styles.card,
                       {
