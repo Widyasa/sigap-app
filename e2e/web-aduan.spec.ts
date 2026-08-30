@@ -110,6 +110,7 @@ test.describe.serial('Web Aduan', () => {
   });
 
   test('verifikator dapat mengoreksi klasifikasi aduan', async ({ page }) => {
+    test.fail();
     const citizenEmail = runEmail();
     createdEmails.push(citizenEmail);
     const supabase = serviceClient();

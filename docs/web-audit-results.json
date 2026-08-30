@@ -1,0 +1,1425 @@
+{
+  "config": {
+    "argv": [
+      "C:\\Program Files\\nodejs\\node.exe",
+      "C:\\Users\\widya\\Documents\\Lomba\\sigap-app\\node_modules\\@playwright\\test\\cli.js",
+      "test",
+      "-c",
+      "playwright.web.config.ts",
+      "e2e/web-smoke.spec.ts",
+      "e2e/web-auth.spec.ts",
+      "e2e/web-aduan.spec.ts",
+      "e2e/web-aspirasi-anggaran.spec.ts",
+      "e2e/web-ops.spec.ts",
+      "--reporter=line,json"
+    ],
+    "configFile": "C:\\Users\\widya\\Documents\\Lomba\\sigap-app\\playwright.web.config.ts",
+    "rootDir": "C:/Users/widya/Documents/Lomba/sigap-app/e2e",
+    "failOnFlakyTests": false,
+    "forbidOnly": false,
+    "fullyParallel": false,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "actualWorkers": 1
+    },
+    "preserveOutput": "always",
+    "projects": [
+      {
+        "outputDir": "C:/Users/widya/Documents/Lomba/sigap-app/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "chromium",
+        "name": "chromium",
+        "testDir": "C:/Users/widya/Documents/Lomba/sigap-app/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 30000
+      }
+    ],
+    "quiet": false,
+    "reporter": [
+      [
+        "line"
+      ],
+      [
+        "json"
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.62.1",
+    "workers": 1,
+    "webServer": {
+      "command": "npm run dev",
+      "url": "http://127.0.0.1:3000",
+      "reuseExistingServer": true,
+      "timeout": 120000,
+      "cwd": "apps/web"
+    }
+  },
+  "suites": [
+    {
+      "title": "web-aduan.spec.ts",
+      "file": "web-aduan.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "Web Aduan",
+          "file": "web-aduan.spec.ts",
+          "line": 93,
+          "column": 15,
+          "specs": [
+            {
+              "title": "verifikator dapat mengoreksi klasifikasi aduan",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [
+                    {
+                      "type": "fail",
+                      "location": {
+                        "file": "C:\\Users\\widya\\Documents\\Lomba\\sigap-app\\e2e\\web-aduan.spec.ts",
+                        "line": 113,
+                        "column": 10
+                      }
+                    }
+                  ],
+                  "expectedStatus": "failed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "failed",
+                      "duration": 6491,
+                      "error": {
+                        "message": "Error: locator.fill: Error: strict mode violation: getByRole('heading', { name: 'Aduan Uji Aduan' }).locator('xpath=ancestor::div[contains(@style, \"border\")][1]').getByLabel('Judul') resolved to 3 elements:\n    1) <input value=\"Aduan Uji Aduan\" id=\"judul-e60a973d-d17d-4288-a49b-6c8b72800b78\"/> aka getByRole('textbox', { name: 'Judul' }).first()\n    2) <input value=\"Aduan Uji Aduan\" id=\"judul-ad6db5bf-9749-49d4-badb-d2fc397e35bb\"/> aka getByRole('textbox', { name: 'Judul' }).nth(1)\n    3) <input value=\"Aduan Uji Aduan\" id=\"judul-a3c61bc6-13a4-4e61-800c-6451fefee5ba\"/> aka getByRole('textbox', { name: 'Judul' }).nth(2)\n\nCall log:\n\u001b[2m  - waiting for getByRole('heading', { name: 'Aduan Uji Aduan' }).locator('xpath=ancestor::div[contains(@style, \"border\")][1]').getByLabel('Judul')\u001b[22m\n",
+                        "stack": "Error: locator.fill: Error: strict mode violation: getByRole('heading', { name: 'Aduan Uji Aduan' }).locator('xpath=ancestor::div[contains(@style, \"border\")][1]').getByLabel('Judul') resolved to 3 elements:\n    1) <input value=\"Aduan Uji Aduan\" id=\"judul-e60a973d-d17d-4288-a49b-6c8b72800b78\"/> aka getByRole('textbox', { name: 'Judul' }).first()\n    2) <input value=\"Aduan Uji Aduan\" id=\"judul-ad6db5bf-9749-49d4-badb-d2fc397e35bb\"/> aka getByRole('textbox', { name: 'Judul' }).nth(1)\n    3) <input value=\"Aduan Uji Aduan\" id=\"judul-a3c61bc6-13a4-4e61-800c-6451fefee5ba\"/> aka getByRole('textbox', { name: 'Judul' }).nth(2)\n\nCall log:\n\u001b[2m  - waiting for getByRole('heading', { name: 'Aduan Uji Aduan' }).locator('xpath=ancestor::div[contains(@style, \"border\")][1]').getByLabel('Judul')\u001b[22m\n\n    at C:\\Users\\widya\\Documents\\Lomba\\sigap-app\\e2e\\web-aduan.spec.ts:126:36",
+                        "location": {
+                          "file": "C:\\Users\\widya\\Documents\\Lomba\\sigap-app\\e2e\\web-aduan.spec.ts",
+                          "column": 36,
+                          "line": 126
+                        },
+                        "snippet": "\u001b[0m \u001b[90m 124 |\u001b[39m\n \u001b[90m 125 |\u001b[39m     \u001b[36mconst\u001b[39m card \u001b[33m=\u001b[39m complaintCard(page\u001b[33m,\u001b[39m \u001b[33mCOMPLAINT_TITLE\u001b[39m)\u001b[33m;\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 126 |\u001b[39m     \u001b[36mawait\u001b[39m card\u001b[33m.\u001b[39mgetByLabel(\u001b[32m'Judul'\u001b[39m)\u001b[33m.\u001b[39mfill(\u001b[32m'Jalan berlubang di Sukamaju'\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m     |\u001b[39m                                    \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 127 |\u001b[39m     \u001b[36mawait\u001b[39m card\u001b[33m.\u001b[39mgetByLabel(\u001b[32m'Dinas'\u001b[39m)\u001b[33m.\u001b[39mselectOption(\u001b[32m'pupr'\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m 128 |\u001b[39m     \u001b[36mawait\u001b[39m card\u001b[33m.\u001b[39mgetByLabel(\u001b[32m'Kategori'\u001b[39m)\u001b[33m.\u001b[39mselectOption(\u001b[32m'jalan_rusak'\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m 129 |\u001b[39m     \u001b[36mawait\u001b[39m card\u001b[33m.\u001b[39mgetByLabel(\u001b[32m'Urgensi'\u001b[39m)\u001b[33m.\u001b[39mselectOption(\u001b[32m'P1'\u001b[39m)\u001b[33m;\u001b[39m\u001b[0m"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "C:\\Users\\widya\\Documents\\Lomba\\sigap-app\\e2e\\web-aduan.spec.ts",
+                            "column": 36,
+                            "line": 126
+                          },
+                          "message": "Error: locator.fill: Error: strict mode violation: getByRole('heading', { name: 'Aduan Uji Aduan' }).locator('xpath=ancestor::div[contains(@style, \"border\")][1]').getByLabel('Judul') resolved to 3 elements:\n    1) <input value=\"Aduan Uji Aduan\" id=\"judul-e60a973d-d17d-4288-a49b-6c8b72800b78\"/> aka getByRole('textbox', { name: 'Judul' }).first()\n    2) <input value=\"Aduan Uji Aduan\" id=\"judul-ad6db5bf-9749-49d4-badb-d2fc397e35bb\"/> aka getByRole('textbox', { name: 'Judul' }).nth(1)\n    3) <input value=\"Aduan Uji Aduan\" id=\"judul-a3c61bc6-13a4-4e61-800c-6451fefee5ba\"/> aka getByRole('textbox', { name: 'Judul' }).nth(2)\n\nCall log:\n\u001b[2m  - waiting for getByRole('heading', { name: 'Aduan Uji Aduan' }).locator('xpath=ancestor::div[contains(@style, \"border\")][1]').getByLabel('Judul')\u001b[22m\n\n\n  124 |\n  125 |     const card = complaintCard(page, COMPLAINT_TITLE);\n> 126 |     await card.getByLabel('Judul').fill('Jalan berlubang di Sukamaju');\n      |                                    ^\n  127 |     await card.getByLabel('Dinas').selectOption('pupr');\n  128 |     await card.getByLabel('Kategori').selectOption('jalan_rusak');\n  129 |     await card.getByLabel('Urgensi').selectOption('P1');\n    at C:\\Users\\widya\\Documents\\Lomba\\sigap-app\\e2e\\web-aduan.spec.ts:126:36"
+                        }
+                      ],
+                      "stdout": [
+                        {
+                          "text": "[PAGE CONSOLE info] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold\n"
+                        },
+                        {
+                          "text": "[PAGE CONSOLE log] [HMR] connected\n"
+                        },
+                        {
+                          "text": "[PAGE CONSOLE info] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold\n"
+                        },
+                        {
+                          "text": "[PAGE CONSOLE log] [HMR] connected\n"
+                        },
+                        {
+                          "text": "[PAGE CONSOLE info] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold\n"
+                        },
+                        {
+                          "text": "[PAGE CONSOLE log] [HMR] connected\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-08-30T06:23:12.396Z",
+                      "annotations": [
+                        {
+                          "type": "fail",
+                          "location": {
+                            "file": "C:\\Users\\widya\\Documents\\Lomba\\sigap-app\\e2e\\web-aduan.spec.ts",
+                            "line": 113,
+                            "column": 10
+                          }
+                        }
+                      ],
+                      "attachments": [
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "C:\\Users\\widya\\Documents\\Lomba\\sigap-app\\test-results\\web-aduan-Web-Aduan-verifi-27e07-engoreksi-klasifikasi-aduan-chromium\\error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "C:\\Users\\widya\\Documents\\Lomba\\sigap-app\\e2e\\web-aduan.spec.ts",
+                        "column": 36,
+                        "line": 126
+                      }
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "19b9223e3d4cbca12567-449e0213eb234944d39d",
+              "file": "web-aduan.spec.ts",
+              "line": 112,
+              "column": 7
+            },
+            {
+              "title": "verifikator dapat menolak aduan dengan alasan",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "failed",
+                      "duration": 5010,
+                      "error": {
+                        "message": "Error: locator.click: Error: strict mode violation: getByRole('heading', { name: 'Aduan Uji Aduan' }).locator('xpath=ancestor::div[contains(@style, \"border\")][1]').getByRole('button', { name: 'Tolak' }) resolved to 2 elements:\n    1) <button>Tolak</button> aka getByRole('button', { name: 'Tolak' }).first()\n    2) <button>Tolak</button> aka getByRole('button', { name: 'Tolak' }).nth(1)\n\nCall log:\n\u001b[2m  - waiting for getByRole('heading', { name: 'Aduan Uji Aduan' }).locator('xpath=ancestor::div[contains(@style, \"border\")][1]').getByRole('button', { name: 'Tolak' })\u001b[22m\n",
+                        "stack": "Error: locator.click: Error: strict mode violation: getByRole('heading', { name: 'Aduan Uji Aduan' }).locator('xpath=ancestor::div[contains(@style, \"border\")][1]').getByRole('button', { name: 'Tolak' }) resolved to 2 elements:\n    1) <button>Tolak</button> aka getByRole('button', { name: 'Tolak' }).first()\n    2) <button>Tolak</button> aka getByRole('button', { name: 'Tolak' }).nth(1)\n\nCall log:\n\u001b[2m  - waiting for getByRole('heading', { name: 'Aduan Uji Aduan' }).locator('xpath=ancestor::div[contains(@style, \"border\")][1]').getByRole('button', { name: 'Tolak' })\u001b[22m\n\n    at C:\\Users\\widya\\Documents\\Lomba\\sigap-app\\e2e\\web-aduan.spec.ts:160:55",
+                        "location": {
+                          "file": "C:\\Users\\widya\\Documents\\Lomba\\sigap-app\\e2e\\web-aduan.spec.ts",
+                          "column": 55,
+                          "line": 160
+                        },
+                        "snippet": "\u001b[0m \u001b[90m 158 |\u001b[39m\n \u001b[90m 159 |\u001b[39m     \u001b[36mconst\u001b[39m card \u001b[33m=\u001b[39m complaintCard(page\u001b[33m,\u001b[39m \u001b[33mCOMPLAINT_TITLE\u001b[39m)\u001b[33m;\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 160 |\u001b[39m     \u001b[36mawait\u001b[39m card\u001b[33m.\u001b[39mgetByRole(\u001b[32m'button'\u001b[39m\u001b[33m,\u001b[39m { name\u001b[33m:\u001b[39m \u001b[32m'Tolak'\u001b[39m })\u001b[33m.\u001b[39mclick()\u001b[33m;\u001b[39m\n \u001b[90m     |\u001b[39m                                                       \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 161 |\u001b[39m     \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mlocator(\u001b[32m'#alasan-tolak-aduan'\u001b[39m)\u001b[33m.\u001b[39mfill(\u001b[32m'Aduan tidak sesuai kriteria'\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m 162 |\u001b[39m     \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mgetByRole(\u001b[32m'button'\u001b[39m\u001b[33m,\u001b[39m { name\u001b[33m:\u001b[39m \u001b[32m'Konfirmasi'\u001b[39m })\u001b[33m.\u001b[39mclick()\u001b[33m;\u001b[39m\n \u001b[90m 163 |\u001b[39m\u001b[0m"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "C:\\Users\\widya\\Documents\\Lomba\\sigap-app\\e2e\\web-aduan.spec.ts",
+                            "column": 55,
+                            "line": 160
+                          },
+                          "message": "Error: locator.click: Error: strict mode violation: getByRole('heading', { name: 'Aduan Uji Aduan' }).locator('xpath=ancestor::div[contains(@style, \"border\")][1]').getByRole('button', { name: 'Tolak' }) resolved to 2 elements:\n    1) <button>Tolak</button> aka getByRole('button', { name: 'Tolak' }).first()\n    2) <button>Tolak</button> aka getByRole('button', { name: 'Tolak' }).nth(1)\n\nCall log:\n\u001b[2m  - waiting for getByRole('heading', { name: 'Aduan Uji Aduan' }).locator('xpath=ancestor::div[contains(@style, \"border\")][1]').getByRole('button', { name: 'Tolak' })\u001b[22m\n\n\n  158 |\n  159 |     const card = complaintCard(page, COMPLAINT_TITLE);\n> 160 |     await card.getByRole('button', { name: 'Tolak' }).click();\n      |                                                       ^\n  161 |     await page.locator('#alasan-tolak-aduan').fill('Aduan tidak sesuai kriteria');\n  162 |     await page.getByRole('button', { name: 'Konfirmasi' }).click();\n  163 |\n    at C:\\Users\\widya\\Documents\\Lomba\\sigap-app\\e2e\\web-aduan.spec.ts:160:55"
+                        }
+                      ],
+                      "stdout": [
+                        {
+                          "text": "[PAGE CONSOLE info] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold\n"
+                        },
+                        {
+                          "text": "[PAGE CONSOLE log] [HMR] connected\n"
+                        },
+                        {
+                          "text": "[PAGE CONSOLE info] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold\n"
+                        },
+                        {
+                          "text": "[PAGE CONSOLE log] [HMR] connected\n"
+                        },
+                        {
+                          "text": "[PAGE CONSOLE info] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold\n"
+                        },
+                        {
+                          "text": "[PAGE CONSOLE log] [HMR] connected\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-08-30T06:23:19.202Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "C:\\Users\\widya\\Documents\\Lomba\\sigap-app\\test-results\\web-aduan-Web-Aduan-verifi-0b330-menolak-aduan-dengan-alasan-chromium\\error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "C:\\Users\\widya\\Documents\\Lomba\\sigap-app\\e2e\\web-aduan.spec.ts",
+                        "column": 55,
+                        "line": 160
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "19b9223e3d4cbca12567-401a61c3239ac68e3151",
+              "file": "web-aduan.spec.ts",
+              "line": 147,
+              "column": 7
+            },
+            {
+              "title": "staf dinas menemui kegagalan saat menindaklanjuti aduan (gap)",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": -1,
+                      "parallelIndex": -1,
+                      "status": "skipped",
+                      "duration": 0,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-08-30T06:23:24.922Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "skipped"
+                }
+              ],
+              "id": "19b9223e3d4cbca12567-8a322b8706bbe81bdf71",
+              "file": "web-aduan.spec.ts",
+              "line": 170,
+              "column": 7
+            },
+            {
+              "title": "staf dinas hanya melihat aduan dinasnya sendiri",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": -1,
+                      "parallelIndex": -1,
+                      "status": "skipped",
+                      "duration": 0,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-08-30T06:23:24.922Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "skipped"
+                }
+              ],
+              "id": "19b9223e3d4cbca12567-399022127ea01cfcda61",
+              "file": "web-aduan.spec.ts",
+              "line": 203,
+              "column": 7
+            },
+            {
+              "title": "gap: kepala dinas tidak bisa memindahkan aduan ke dinas lain",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": -1,
+                      "parallelIndex": -1,
+                      "status": "skipped",
+                      "duration": 0,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-08-30T06:23:24.923Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "skipped"
+                }
+              ],
+              "id": "19b9223e3d4cbca12567-fc3df1100a41281abd58",
+              "file": "web-aduan.spec.ts",
+              "line": 230,
+              "column": 7
+            },
+            {
+              "title": "gap: verifikator tidak bisa menandai aduan sebagai duplikat",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": -1,
+                      "parallelIndex": -1,
+                      "status": "skipped",
+                      "duration": 0,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-08-30T06:23:24.923Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "skipped"
+                }
+              ],
+              "id": "19b9223e3d4cbca12567-79d94be7d55de11db3b4",
+              "file": "web-aduan.spec.ts",
+              "line": 255,
+              "column": 7
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "web-aspirasi-anggaran.spec.ts",
+      "file": "web-aspirasi-anggaran.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "Web Aspirasi Admin",
+          "file": "web-aspirasi-anggaran.spec.ts",
+          "line": 110,
+          "column": 15,
+          "specs": [
+            {
+              "title": "admin creates a voting period and sees it in the list",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 2744,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-08-30T06:23:25.802Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "ca5c8e04ffcd022752e2-d8beba2e3cb6846fff91",
+              "file": "web-aspirasi-anggaran.spec.ts",
+              "line": 115,
+              "column": 7
+            },
+            {
+              "title": "admin advances aspiration from voting to musrenbang and persists in DB",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 4698,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-08-30T06:23:28.799Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "ca5c8e04ffcd022752e2-a80e49f847021cc9827c",
+              "file": "web-aspirasi-anggaran.spec.ts",
+              "line": 135,
+              "column": 7
+            },
+            {
+              "title": "non-admin is blocked from /aspirasi",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 1744,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-08-30T06:23:33.517Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "ca5c8e04ffcd022752e2-9e8537a267961fe67508",
+              "file": "web-aspirasi-anggaran.spec.ts",
+              "line": 158,
+              "column": 7
+            }
+          ]
+        },
+        {
+          "title": "Web Anggaran Admin",
+          "file": "web-aspirasi-anggaran.spec.ts",
+          "line": 168,
+          "column": 15,
+          "specs": [
+            {
+              "title": "admin imports budget CSV and sees new item in status table",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 2533,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-08-30T06:23:35.281Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "ca5c8e04ffcd022752e2-fd4e1aae1f2ba0bea392",
+              "file": "web-aspirasi-anggaran.spec.ts",
+              "line": 184,
+              "column": 7
+            },
+            {
+              "title": "import does not reject budget_realized greater than budget_allocated",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [
+                    {
+                      "type": "gap",
+                      "description": "UI parser and DB CHECK do not enforce budget_realized <= budget_allocated; row is accepted instead of rejected."
+                    }
+                  ],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 2583,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-08-30T06:23:37.832Z",
+                      "annotations": [
+                        {
+                          "type": "gap",
+                          "description": "UI parser and DB CHECK do not enforce budget_realized <= budget_allocated; row is accepted instead of rejected."
+                        }
+                      ],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "ca5c8e04ffcd022752e2-0d33832d825e206de3b9",
+              "file": "web-aspirasi-anggaran.spec.ts",
+              "line": 202,
+              "column": 7
+            },
+            {
+              "title": "non-admin is blocked from /anggaran",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 1713,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-08-30T06:23:40.438Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "ca5c8e04ffcd022752e2-3ade70423ef08960e5b1",
+              "file": "web-aspirasi-anggaran.spec.ts",
+              "line": 225,
+              "column": 7
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "web-auth.spec.ts",
+      "file": "web-auth.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "Web Auth",
+          "file": "web-auth.spec.ts",
+          "line": 36,
+          "column": 15,
+          "specs": [
+            {
+              "title": "fresh staff user can log in via full UI OTP flow and see dashboard",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 13841,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-08-30T06:23:42.179Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "25bc4ea8c86630fa34b8-5b931ae4eb09dfec5679",
+              "file": "web-auth.spec.ts",
+              "line": 57,
+              "column": 7
+            },
+            {
+              "title": "seeded admin can log in via seededLogin, see admin nav items, and sign out",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 7074,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-08-30T06:24:07.241Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "25bc4ea8c86630fa34b8-a6bf40ec62cffe4b84c0",
+              "file": "web-auth.spec.ts",
+              "line": 81,
+              "column": 7
+            },
+            {
+              "title": "seeded dinas_staff is restricted to Dinas tab",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 1791,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-08-30T06:24:14.339Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "25bc4ea8c86630fa34b8-5771ed0729bae60dfc23",
+              "file": "web-auth.spec.ts",
+              "line": 93,
+              "column": 7
+            },
+            {
+              "title": "seeded verifier is restricted to Verifikasi scope",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 2379,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-08-30T06:24:16.153Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "25bc4ea8c86630fa34b8-dec75469bfdbfec2c52b",
+              "file": "web-auth.spec.ts",
+              "line": 103,
+              "column": 7
+            },
+            {
+              "title": "seeded emergency_operator is redirected to /darurat and sees SOS queue",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 1508,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-08-30T06:24:18.553Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "25bc4ea8c86630fa34b8-6daa7b9a990e307d325b",
+              "file": "web-auth.spec.ts",
+              "line": 114,
+              "column": 7
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "web-ops.spec.ts",
+      "file": "web-ops.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "Web Ops — Layanan",
+          "file": "web-ops.spec.ts",
+          "line": 61,
+          "column": 15,
+          "specs": [
+            {
+              "title": "Admin updates service request status from submitted to verifying",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 0,
+                      "status": "failed",
+                      "duration": 9203,
+                      "error": {
+                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator:  getByText(/verifying|Verifikasi/i)\nExpected: visible\nReceived: hidden\nTimeout:  5000ms\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByText(/verifying|Verifikasi/i)\u001b[22m\n\u001b[2m    14 × locator resolved to <option value=\"verifying\">Diverifikasi</option>\u001b[22m\n\u001b[2m       - unexpected value \"hidden\"\u001b[22m\n",
+                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator:  getByText(/verifying|Verifikasi/i)\nExpected: visible\nReceived: hidden\nTimeout:  5000ms\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByText(/verifying|Verifikasi/i)\u001b[22m\n\u001b[2m    14 × locator resolved to <option value=\"verifying\">Diverifikasi</option>\u001b[22m\n\u001b[2m       - unexpected value \"hidden\"\u001b[22m\n\n    at C:\\Users\\widya\\Documents\\Lomba\\sigap-app\\e2e\\web-ops.spec.ts:73:61",
+                        "location": {
+                          "file": "C:\\Users\\widya\\Documents\\Lomba\\sigap-app\\e2e\\web-ops.spec.ts",
+                          "column": 61,
+                          "line": 73
+                        },
+                        "snippet": "\u001b[0m \u001b[90m 71 |\u001b[39m       \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mgetByRole(\u001b[32m'combobox'\u001b[39m)\u001b[33m.\u001b[39mfirst()\u001b[33m.\u001b[39mselectOption(\u001b[32m'verifying'\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m 72 |\u001b[39m       \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mwaitForTimeout(\u001b[35m500\u001b[39m)\u001b[33m;\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 73 |\u001b[39m       \u001b[36mawait\u001b[39m expect(page\u001b[33m.\u001b[39mgetByText(\u001b[35m/verifying|Verifikasi/i\u001b[39m))\u001b[33m.\u001b[39mtoBeVisible()\u001b[33m;\u001b[39m\n \u001b[90m    |\u001b[39m                                                             \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 74 |\u001b[39m     } \u001b[36mfinally\u001b[39m {\n \u001b[90m 75 |\u001b[39m       \u001b[36mawait\u001b[39m cleanupTestUser(email)\u001b[33m;\u001b[39m\n \u001b[90m 76 |\u001b[39m     }\u001b[0m"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "C:\\Users\\widya\\Documents\\Lomba\\sigap-app\\e2e\\web-ops.spec.ts",
+                            "column": 61,
+                            "line": 73
+                          },
+                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator:  getByText(/verifying|Verifikasi/i)\nExpected: visible\nReceived: hidden\nTimeout:  5000ms\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByText(/verifying|Verifikasi/i)\u001b[22m\n\u001b[2m    14 × locator resolved to <option value=\"verifying\">Diverifikasi</option>\u001b[22m\n\u001b[2m       - unexpected value \"hidden\"\u001b[22m\n\n\n  71 |       await page.getByRole('combobox').first().selectOption('verifying');\n  72 |       await page.waitForTimeout(500);\n> 73 |       await expect(page.getByText(/verifying|Verifikasi/i)).toBeVisible();\n     |                                                             ^\n  74 |     } finally {\n  75 |       await cleanupTestUser(email);\n  76 |     }\n    at C:\\Users\\widya\\Documents\\Lomba\\sigap-app\\e2e\\web-ops.spec.ts:73:61"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-08-30T06:24:31.832Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "C:\\Users\\widya\\Documents\\Lomba\\sigap-app\\test-results\\web-ops-Web-Ops-—-Layanan--d0667-from-submitted-to-verifying-chromium\\error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "C:\\Users\\widya\\Documents\\Lomba\\sigap-app\\e2e\\web-ops.spec.ts",
+                        "column": 61,
+                        "line": 73
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "6a33873abc431fd5bc86-4fbf0fff90e2d5792d01",
+              "file": "web-ops.spec.ts",
+              "line": 62,
+              "column": 7
+            },
+            {
+              "title": "Rejection requires reason",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": -1,
+                      "parallelIndex": -1,
+                      "status": "skipped",
+                      "duration": 0,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-08-30T06:24:43.732Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "skipped"
+                }
+              ],
+              "id": "6a33873abc431fd5bc86-f0118a19feaed17383b9",
+              "file": "web-ops.spec.ts",
+              "line": 79,
+              "column": 7
+            }
+          ]
+        },
+        {
+          "title": "Web Ops — Darurat",
+          "file": "web-ops.spec.ts",
+          "line": 90,
+          "column": 15,
+          "specs": [
+            {
+              "title": "Operator responds and resolves SOS",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 2,
+                      "parallelIndex": 0,
+                      "status": "failed",
+                      "duration": 715,
+                      "error": {
+                        "value": "{\n  code: 'PGRST204',\n  details: null,\n  hint: null,\n  message: \"Could not find the 'description' column of 'emergency_alerts' in the schema cache\"\n}"
+                      },
+                      "errors": [
+                        {
+                          "message": "{\n  code: 'PGRST204',\n  details: null,\n  hint: null,\n  message: \"Could not find the 'description' column of 'emergency_alerts' in the schema cache\"\n}"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-08-30T06:24:44.731Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "6a33873abc431fd5bc86-6cd3115165e90e76bf9b",
+              "file": "web-ops.spec.ts",
+              "line": 91,
+              "column": 7
+            }
+          ]
+        },
+        {
+          "title": "Web Ops — Pengumuman",
+          "file": "web-ops.spec.ts",
+          "line": 115,
+          "column": 15,
+          "specs": [
+            {
+              "title": "Admin creates, pins, edits, deletes announcement",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [
+                    {
+                      "type": "gap",
+                      "description": "Pengumuman CRUD UI selectors not yet verified; test data setup valid"
+                    },
+                    {
+                      "type": "gap",
+                      "description": "Buat Pengumuman button not found"
+                    }
+                  ],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 3,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 1763,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-08-30T06:24:46.741Z",
+                      "annotations": [
+                        {
+                          "type": "gap",
+                          "description": "Pengumuman CRUD UI selectors not yet verified; test data setup valid"
+                        },
+                        {
+                          "type": "gap",
+                          "description": "Buat Pengumuman button not found"
+                        }
+                      ],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "6a33873abc431fd5bc86-6649f3a699e9bff2ba1f",
+              "file": "web-ops.spec.ts",
+              "line": 116,
+              "column": 7
+            }
+          ]
+        },
+        {
+          "title": "Web Ops — Pengguna",
+          "file": "web-ops.spec.ts",
+          "line": 135,
+          "column": 15,
+          "specs": [
+            {
+              "title": "Admin changes role, assigns dinas, disables/enables",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [
+                    {
+                      "type": "gap",
+                      "description": "Pengguna UI selectors may vary"
+                    }
+                  ],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 3,
+                      "parallelIndex": 0,
+                      "status": "timedOut",
+                      "duration": 30060,
+                      "error": {
+                        "message": "\u001b[31mTest timeout of 30000ms exceeded.\u001b[39m",
+                        "stack": "\u001b[31mTest timeout of 30000ms exceeded.\u001b[39m"
+                      },
+                      "errors": [
+                        {
+                          "message": "\u001b[31mTest timeout of 30000ms exceeded.\u001b[39m"
+                        },
+                        {
+                          "location": {
+                            "file": "C:\\Users\\widya\\Documents\\Lomba\\sigap-app\\e2e\\web-ops.spec.ts",
+                            "column": 91,
+                            "line": 140
+                          },
+                          "message": "Error: locator.click: Test timeout of 30000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByRole('button', { name: /Ubah Peran|Ubah peran|Edit peran/i }).first()\u001b[22m\n\n\n  138 |     await seededLogin(page, 'admin@sigap.test');\n  139 |     await page.goto('/pengguna');\n> 140 |     await page.getByRole('button', { name: /Ubah Peran|Ubah peran|Edit peran/i }).first().click();\n      |                                                                                           ^\n  141 |     await page.getByLabel('Peran').selectOption('dinas_staff');\n  142 |     await page.getByLabel('Dinas').selectOption('pupr');\n  143 |     await page.getByRole('button', { name: /Ubah|Simpan|Konfirmasi/i }).click();\n    at C:\\Users\\widya\\Documents\\Lomba\\sigap-app\\e2e\\web-ops.spec.ts:140:91"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-08-30T06:24:48.753Z",
+                      "annotations": [
+                        {
+                          "type": "gap",
+                          "description": "Pengguna UI selectors may vary"
+                        }
+                      ],
+                      "attachments": [
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "C:\\Users\\widya\\Documents\\Lomba\\sigap-app\\test-results\\web-ops-Web-Ops-—-Pengguna-a7d09-igns-dinas-disables-enables-chromium\\error-context.md"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "6a33873abc431fd5bc86-5b2ff09d07a2588f6f89",
+              "file": "web-ops.spec.ts",
+              "line": 136,
+              "column": 7
+            }
+          ]
+        },
+        {
+          "title": "Web Ops — Warga",
+          "file": "web-ops.spec.ts",
+          "line": 153,
+          "column": 15,
+          "specs": [
+            {
+              "title": "Verifier sees directory and stats",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 4,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 2861,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-08-30T06:25:22.543Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "6a33873abc431fd5bc86-298703db0b15534ccb86",
+              "file": "web-ops.spec.ts",
+              "line": 154,
+              "column": 7
+            }
+          ]
+        },
+        {
+          "title": "Web Ops — Role Gates",
+          "file": "web-ops.spec.ts",
+          "line": 164,
+          "column": 15,
+          "specs": [
+            {
+              "title": "Verifier blocked from /pengguna",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [
+                    {
+                      "type": "gap",
+                      "description": "Exact redirect/error message may vary"
+                    }
+                  ],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 4,
+                      "parallelIndex": 0,
+                      "status": "failed",
+                      "duration": 6480,
+                      "error": {
+                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByText(/Hanya untuk petugas|Tidak diizinkan|Akses ditolak|403/i)\nExpected: visible\nTimeout: 5000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByText(/Hanya untuk petugas|Tidak diizinkan|Akses ditolak|403/i)\u001b[22m\n",
+                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByText(/Hanya untuk petugas|Tidak diizinkan|Akses ditolak|403/i)\nExpected: visible\nTimeout: 5000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByText(/Hanya untuk petugas|Tidak diizinkan|Akses ditolak|403/i)\u001b[22m\n\n    at C:\\Users\\widya\\Documents\\Lomba\\sigap-app\\e2e\\web-ops.spec.ts:169:92",
+                        "location": {
+                          "file": "C:\\Users\\widya\\Documents\\Lomba\\sigap-app\\e2e\\web-ops.spec.ts",
+                          "column": 92,
+                          "line": 169
+                        },
+                        "snippet": "\u001b[0m \u001b[90m 167 |\u001b[39m     \u001b[36mawait\u001b[39m seededLogin(page\u001b[33m,\u001b[39m \u001b[32m'verifier@sigap.test'\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m 168 |\u001b[39m     \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mgoto(\u001b[32m'/pengguna'\u001b[39m)\u001b[33m;\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 169 |\u001b[39m     \u001b[36mawait\u001b[39m expect(page\u001b[33m.\u001b[39mgetByText(\u001b[35m/Hanya untuk petugas|Tidak diizinkan|Akses ditolak|403/i\u001b[39m))\u001b[33m.\u001b[39mtoBeVisible()\u001b[33m;\u001b[39m\n \u001b[90m     |\u001b[39m                                                                                            \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 170 |\u001b[39m   })\u001b[33m;\u001b[39m\n \u001b[90m 171 |\u001b[39m\n \u001b[90m 172 |\u001b[39m   test(\u001b[32m'Admin can access /pengguna'\u001b[39m\u001b[33m,\u001b[39m \u001b[36masync\u001b[39m ({ page }) \u001b[33m=>\u001b[39m {\u001b[0m"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "C:\\Users\\widya\\Documents\\Lomba\\sigap-app\\e2e\\web-ops.spec.ts",
+                            "column": 92,
+                            "line": 169
+                          },
+                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByText(/Hanya untuk petugas|Tidak diizinkan|Akses ditolak|403/i)\nExpected: visible\nTimeout: 5000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByText(/Hanya untuk petugas|Tidak diizinkan|Akses ditolak|403/i)\u001b[22m\n\n\n  167 |     await seededLogin(page, 'verifier@sigap.test');\n  168 |     await page.goto('/pengguna');\n> 169 |     await expect(page.getByText(/Hanya untuk petugas|Tidak diizinkan|Akses ditolak|403/i)).toBeVisible();\n      |                                                                                            ^\n  170 |   });\n  171 |\n  172 |   test('Admin can access /pengguna', async ({ page }) => {\n    at C:\\Users\\widya\\Documents\\Lomba\\sigap-app\\e2e\\web-ops.spec.ts:169:92"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-08-30T06:25:25.659Z",
+                      "annotations": [
+                        {
+                          "type": "gap",
+                          "description": "Exact redirect/error message may vary"
+                        }
+                      ],
+                      "attachments": [
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "C:\\Users\\widya\\Documents\\Lomba\\sigap-app\\test-results\\web-ops-Web-Ops-—-Role-Gates-Verifier-blocked-from-pengguna-chromium\\error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "C:\\Users\\widya\\Documents\\Lomba\\sigap-app\\e2e\\web-ops.spec.ts",
+                        "column": 92,
+                        "line": 169
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "6a33873abc431fd5bc86-def5dd7485f0b2b9d73c",
+              "file": "web-ops.spec.ts",
+              "line": 165,
+              "column": 7
+            },
+            {
+              "title": "Admin can access /pengguna",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": -1,
+                      "parallelIndex": -1,
+                      "status": "skipped",
+                      "duration": 0,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-08-30T06:25:33.156Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "skipped"
+                }
+              ],
+              "id": "6a33873abc431fd5bc86-0f88dba5afb8655e4b84",
+              "file": "web-ops.spec.ts",
+              "line": 172,
+              "column": 7
+            },
+            {
+              "title": "Dinas_staff blocked from /darurat",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": -1,
+                      "parallelIndex": -1,
+                      "status": "skipped",
+                      "duration": 0,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-08-30T06:25:33.156Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "skipped"
+                }
+              ],
+              "id": "6a33873abc431fd5bc86-81f063952ef63f9f91b1",
+              "file": "web-ops.spec.ts",
+              "line": 178,
+              "column": 7
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "web-smoke.spec.ts",
+      "file": "web-smoke.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "web smoke",
+          "file": "web-smoke.spec.ts",
+          "line": 10,
+          "column": 6,
+          "specs": [
+            {
+              "title": "login page renders SIGAP heading",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 5,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 587,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-08-30T06:25:33.979Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "92954cfbb57b0c1642c7-93b4c2245b056585b070",
+              "file": "web-smoke.spec.ts",
+              "line": 11,
+              "column": 7
+            },
+            {
+              "title": "root responds with HTML",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 5,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 536,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-08-30T06:25:34.778Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "92954cfbb57b0c1642c7-24258ae379f63b29b4fd",
+              "file": "web-smoke.spec.ts",
+              "line": 16,
+              "column": 7
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-08-30T06:23:06.006Z",
+    "duration": 150170.669,
+    "expected": 16,
+    "skipped": 7,
+    "unexpected": 5,
+    "flaky": 0
+  }
+}
