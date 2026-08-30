@@ -22,6 +22,10 @@ export const metadata: Metadata = {
   title: 'SIGAP — Dashboard Staf',
   description:
     'Dashboard petugas SIGAP: verifikasi aduan, tindak lanjut dinas, aspirasi, layanan, dan antrean darurat.',
+  icons: {
+    icon: '/logo.png',
+    apple: '/logo.png',
+  },
   robots: { index: false, follow: false },
 };
 
