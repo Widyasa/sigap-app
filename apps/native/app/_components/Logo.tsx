@@ -1,4 +1,4 @@
-import { View, StyleSheet, ViewStyle } from 'react-native';
+import { View, StyleSheet, ViewStyle, Image } from 'react-native';
 import { useTheme } from './useTheme';
 
 interface LogoProps {
@@ -8,9 +8,6 @@ interface LogoProps {
 
 export function Logo({ size = 64, style }: LogoProps) {
   const { colors } = useTheme();
-
-  const ringSize = size * 0.45;
-  const ringWidth = size * 0.08;
 
   return (
     <View
@@ -25,14 +22,10 @@ export function Logo({ size = 64, style }: LogoProps) {
         style,
       ]}
     >
-      <View
-        style={{
-          width: ringSize,
-          height: ringSize,
-          borderRadius: ringSize * 0.5,
-          borderWidth: ringWidth,
-          borderColor: colors.background,
-        }}
+      <Image
+        source={require('../../assets/logo-mark.png')}
+        style={{ width: size, height: size, resizeMode: 'contain' }}
+        resizeMode="contain"
       />
     </View>
   );
