@@ -6,6 +6,9 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import {
   getMyPointLedger,
   getProfileStats,
+  listMySessions,
+  revokeSession,
+  type MySession,
   type PointLedgerEntry,
   type ProfileStats,
 } from '@repo/supabase';
@@ -16,6 +19,8 @@ import { useAuth } from './_components/AuthProvider';
 import { useTheme } from './_components/useTheme';
 import { BottomNav } from './_components/BottomNav';
 import { supabase } from './_components/supabase';
+import { baseUrl } from './_components/api';
+import { getAccessToken } from './_components/session';
 
 const POINT_HISTORY_LIMIT = 50;
 
@@ -44,6 +49,16 @@ function formatLedgerDate(createdAt: string): string {
   });
 }
 
+function formatSessionDate(iso: string): string {
+  return new Date(iso).toLocaleDateString('id-ID', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
 interface Badge {
   key: string;
   title: string;
@@ -61,8 +76,24 @@ export default function ProfileScreen() {
 
   const [stats, setStats] = useState<ProfileStats | null>(null);
   const [ledger, setLedger] = useState<PointLedgerEntry[]>([]);
+  const [sessions, setSessions] = useState<MySession[]>([]);
+  const [sessionsLoading, setSessionsLoading] = useState(false);
+  const [sessionsError, setSessionsError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const loadSessions = useCallback(async (userId: string) => {
+    setSessionsLoading(true);
+    setSessionsError(null);
+    try {
+      const rows = await listMySessions(supabase, userId);
+      setSessions(rows);
+    } catch (err) {
+      setSessionsError(err instanceof Error ? err.message : 'Gagal memuat daftar perangkat.');
+    } finally {
+      setSessionsLoading(false);
+    }
+  }, []);
 
   const load = useCallback(async (userId: string) => {
     setLoading(true);
@@ -82,8 +113,11 @@ export default function ProfileScreen() {
   }, []);
 
   useEffect(() => {
-    if (user?.id) load(user.id);
-  }, [load, user?.id]);
+    if (user?.id) {
+      load(user.id);
+      loadSessions(user.id);
+    }
+  }, [load, loadSessions, user?.id]);
 
   const confirmSignOut = useCallback(() => {
     Alert.alert('Keluar', 'Yakin ingin keluar dari akun?', [
@@ -91,6 +125,37 @@ export default function ProfileScreen() {
       { text: 'Keluar', style: 'destructive', onPress: () => signOut() },
     ]);
   }, [signOut]);
+
+  const confirmSignOutAll = useCallback(() => {
+    Alert.alert(
+      'Keluar dari semua perangkat',
+      'Semua perangkat yang masuk akun ini akan dikeluarkan. Lanjutkan?',
+      [
+        { text: 'Batal', style: 'cancel' },
+        { text: 'Keluar semua', style: 'destructive', onPress: () => signOut(true) },
+      ],
+    );
+  }, [signOut]);
+
+  const handleRevokeSession = useCallback(
+    async (session: MySession) => {
+      try {
+        const accessToken = await getAccessToken();
+        if (!accessToken || !baseUrl) {
+          Alert.alert('Gagal', 'Sesi tidak ditemukan.');
+          return;
+        }
+        await revokeSession(baseUrl, accessToken, session.id);
+        if (user?.id) loadSessions(user.id);
+      } catch (err) {
+        Alert.alert(
+          'Gagal mencabut perangkat',
+          err instanceof Error ? err.message : 'Terjadi kesalahan.',
+        );
+      }
+    },
+    [loadSessions, user?.id],
+  );
 
   if (isLoading) {
     return (
@@ -391,8 +456,112 @@ export default function ProfileScreen() {
             >
               Poin dihitung dari seluruh baris ledger. Baris negatif muncul bila laporan terbukti palsu.
             </ThemedText>
+
+            <View
+              style={[
+                styles.sectionHeader,
+                {
+                  paddingHorizontal: spacing(4),
+                  marginTop: spacing(6),
+                  marginBottom: spacing(3),
+                },
+              ]}
+            >
+              <ThemedText variant="h2">Perangkat Aktif</ThemedText>
+              <ThemedText variant="caption" color="secondary">
+                {sessions.length} aktif
+              </ThemedText>
+            </View>
+
+            {sessionsError ? (
+              <View style={{ paddingHorizontal: spacing(4) }}>
+                <ThemedText color="danger">{sessionsError}</ThemedText>
+                <Button
+                  text="Coba lagi"
+                  variant="secondary"
+                  onPress={() => user?.id && loadSessions(user.id)}
+                  containerStyle={{ alignSelf: 'center', marginTop: spacing(2) }}
+                />
+              </View>
+            ) : sessionsLoading ? (
+              <ThemedText color="secondary" style={{ paddingHorizontal: spacing(4) }}>
+                Memuat perangkat…
+              </ThemedText>
+            ) : sessions.length === 0 ? (
+              <ThemedText color="secondary" style={{ paddingHorizontal: spacing(4) }}>
+                Tidak ada perangkat aktif.
+              </ThemedText>
+            ) : (
+              <View style={{ paddingHorizontal: spacing(4), gap: spacing(2) }}>
+                {sessions.map((session) => (
+                  <View
+                    key={session.id}
+                    style={[
+                      styles.sessionRow,
+                      {
+                        backgroundColor: colors.surface,
+                        borderColor: colors.border,
+                        borderRadius: spacing(3),
+                        padding: spacing(3),
+                      },
+                    ]}
+                  >
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing(3), flex: 1 }}>
+                      <Ionicons name="phone-portrait-outline" size={22} color={colors.primary} />
+                      <View style={{ flex: 1, gap: spacing(0.5) }}>
+                        <ThemedText variant="body" style={{ fontWeight: '600' }}>
+                          {session.deviceLabel ?? 'Perangkat tidak dikenal'}
+                        </ThemedText>
+                        <ThemedText variant="micro" color="secondary">
+                          Aktif sejak {formatSessionDate(session.createdAt)} · terakhir{' '}
+                          {formatSessionDate(session.lastUsedAt)}
+                        </ThemedText>
+                      </View>
+                    </View>
+                    <Pressable
+                      onPress={() =>
+                        Alert.alert('Cabut sesi', 'Cabut akses perangkat ini?', [
+                          { text: 'Batal', style: 'cancel' },
+                          {
+                            text: 'Cabut',
+                            style: 'destructive',
+                            onPress: () => handleRevokeSession(session),
+                          },
+                        ])
+                      }
+                      hitSlop={8}
+                      accessibilityRole="button"
+                      accessibilityLabel="Cabut perangkat"
+                    >
+                      <Ionicons name="close-circle-outline" size={24} color={colors.danger} />
+                    </Pressable>
+                  </View>
+                ))}
+              </View>
+            )}
           </>
         )}
+
+        <Pressable
+          onPress={confirmSignOutAll}
+          style={({ pressed }) => [
+            styles.logoutButton,
+            {
+              borderColor: colors.danger,
+              borderRadius: spacing(3),
+              marginHorizontal: spacing(4),
+              marginTop: spacing(6),
+              backgroundColor: pressed ? colors.dangerSurface : 'transparent',
+            },
+          ]}
+          accessibilityRole="button"
+          accessibilityLabel="Keluar dari semua perangkat"
+        >
+          <Ionicons name="phone-portrait-outline" size={20} color={colors.danger} />
+          <ThemedText variant="h2" color="danger">
+            Keluar dari semua perangkat
+          </ThemedText>
+        </Pressable>
 
         <Pressable
           onPress={confirmSignOut}
@@ -402,7 +571,8 @@ export default function ProfileScreen() {
               borderColor: colors.civicAmber,
               borderRadius: spacing(3),
               marginHorizontal: spacing(4),
-              marginTop: spacing(6),
+              marginTop: spacing(4),
+              marginBottom: spacing(2),
               backgroundColor: pressed ? colors.background : 'transparent',
             },
           ]}
@@ -497,5 +667,11 @@ const styles = StyleSheet.create({
     gap: 8,
     borderWidth: 1,
     paddingVertical: 14,
+  },
+  sessionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderWidth: 1,
   },
 });

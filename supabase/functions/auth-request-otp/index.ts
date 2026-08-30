@@ -64,9 +64,13 @@ async function sendOtpEmail(email: string, code: string): Promise<boolean> {
   if (!apiKey) return false;
 
   const from = Deno.env.get("EMAIL_FROM") ?? "SIGAP <otp@sigap.id>";
-  const subject = Deno.env.get("EMAIL_SUBJECT") ?? "Kode OTP SIGAP Anda";
-  const html = `<p>Kode OTP Anda adalah <strong>${code}</strong>.</p>
-<p>Kode berlaku 10 menit. Jangan bagikan kepada siapa pun.</p>`;
+  const subject = `Kode OTP SIGAP Anda: ${code}`;
+  const html = `<p>Halo,</p>
+<p>Kode verifikasi masuk aplikasi SIGAP Anda adalah:</p>
+<p style="font-size:24px; font-weight:bold; letter-spacing:2px;">${code}</p>
+<p>Kode berlaku 10 menit dan bersifat rahasia. Jangan bagikan kepada siapa pun, termasuk petugas SIGAP.</p>
+<p>--<br>Tim SIGAP<br>Kota Bandung</p>`;
+  const text = `Halo,\n\nKode verifikasi masuk aplikasi SIGAP Anda adalah: ${code}\n\nKode berlaku 10 menit dan bersifat rahasia. Jangan bagikan kepada siapa pun, termasuk petugas SIGAP.\n\n--\nTim SIGAP\nKota Bandung`;
 
   const res = await fetch("https://api.resend.com/emails", {
     method: "POST",
@@ -74,7 +78,13 @@ async function sendOtpEmail(email: string, code: string): Promise<boolean> {
       "Authorization": `Bearer ${apiKey}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ from, to: [email], subject, html }),
+    body: JSON.stringify({
+      from,
+      to: [email],
+      subject,
+      text,
+      html,
+    }),
   });
 
   return res.ok;
@@ -85,24 +95,24 @@ Deno.serve(async (req) => {
     return new Response(null, { status: 204, headers: corsHeaders() });
   }
   if (req.method !== "POST") {
-    return jsonResponse({ ok: false, reason: "method_not_allowed" }, 405);
+    return jsonResponse({ ok: false, reason: "method_not_allowed" });
   }
 
   let body: { email?: string };
   try {
     body = await req.json();
   } catch {
-    return jsonResponse({ ok: false, reason: "invalid_body" }, 400);
+    return jsonResponse({ ok: false, reason: "invalid_body" });
   }
 
   const rawEmail = body.email;
   if (!rawEmail || typeof rawEmail !== "string") {
-    return jsonResponse({ ok: false, reason: "invalid_email" }, 400);
+    return jsonResponse({ ok: false, reason: "invalid_email" });
   }
 
   const email = normalizeEmail(rawEmail);
   if (!isValidEmail(email)) {
-    return jsonResponse({ ok: false, reason: "invalid_email" }, 400);
+    return jsonResponse({ ok: false, reason: "invalid_email" });
   }
 
   const pepper = Deno.env.get("OTP_PEPPER");
@@ -111,6 +121,7 @@ Deno.serve(async (req) => {
   }
 
   const supabase = getServiceClient();
+  const nowIso = new Date().toISOString();
   const ip = getRequesterIp(req);
 
   // Opportunistic cleanup (1:20 chance) per PRD.
@@ -134,17 +145,14 @@ Deno.serve(async (req) => {
 
   const limit = Array.isArray(limitData) ? limitData[0] : limitData;
   if (!limit?.allowed) {
-    return jsonResponse(
-      {
-        ok: false,
-        reason: limit?.reason === "too_many_for_email" ||
-            limit?.reason === "too_many_for_ip"
-          ? "too_many_attempts"
-          : "rate_limited",
-        retry_after_seconds: limit?.retry_after_seconds ?? 0,
-      },
-      429,
-    );
+    return jsonResponse({
+      ok: false,
+      reason: limit?.reason === "too_many_for_email" ||
+          limit?.reason === "too_many_for_ip"
+        ? "too_many_attempts"
+        : "rate_limited",
+      retry_after_seconds: limit?.retry_after_seconds ?? 0,
+    });
   }
 
   const code = generateCode();
@@ -194,9 +202,13 @@ Deno.serve(async (req) => {
 
   const sent = await sendOtpEmail(email, code);
   if (!sent) {
-    // Email failure cancels the code per PRD.
-    await supabase.from("auth_otp_codes").delete().eq("id", insertData.id);
-    return jsonResponse({ ok: false, reason: "email_failed" }, 502);
+    // Kegagalan email membuat kode tidak dapat dipakai, tetapi barisnya
+    // tetap dipertahankan dan ditandai sebagai sudah dikonsumsi.
+    await supabase.from("auth_otp_codes").update({ consumed_at: nowIso }).eq(
+      "id",
+      insertData.id,
+    );
+    return jsonResponse({ ok: false, reason: "email_failed" });
   }
 
   return jsonResponse({ ok: true });

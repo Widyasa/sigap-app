@@ -65,6 +65,83 @@ export interface ComplaintAuthorProfile {
   kecamatan: string | null;
 }
 
+export interface DuplicateCandidate {
+  id: string;
+  title: string;
+  similarity: number;
+  distanceMeters: number;
+  upvoteCount: number;
+  imageUrls: string[];
+  status: ComplaintStatus;
+  urgency: Urgency | null;
+}
+
+interface DuplicateRow {
+  id: string;
+  title: string | null;
+  similarity: number;
+  distance_meters: number;
+  upvote_count: number;
+}
+
+interface DuplicateDetailRow {
+  id: string;
+  image_urls: string[];
+  status: string;
+  urgency: string | null;
+}
+
+/**
+ * Cari aduan lain yang mirip secara semantik & geografis dengan aduan `complaintId`.
+ * Menggunakan RPC `find_duplicate_complaints` yang membutuhkan embedding + koordinat
+ * dari baris aduan itu sendiri. Hasil yang berisi ID sendiri disaring keluar.
+ */
+export async function listDuplicateComplaints(
+  supabase: SupabaseClient<Database>,
+  complaintId: string,
+): Promise<DuplicateCandidate[]> {
+  const { data: complaint, error: findError } = await supabase
+    .from('complaints')
+    .select('embedding, location_lat, location_lng')
+    .eq('id', complaintId)
+    .single();
+  if (findError) throw findError;
+  if (!complaint?.embedding || complaint.location_lat == null || complaint.location_lng == null) {
+    return [];
+  }
+
+  const { data: rows, error } = await supabase.rpc('find_duplicate_complaints', {
+    query_embedding: complaint.embedding,
+    query_lat: complaint.location_lat,
+    query_lng: complaint.location_lng,
+  });
+  if (error) throw error;
+
+  const candidates = ((rows ?? []) as DuplicateRow[]).filter((row) => row.id !== complaintId);
+  if (candidates.length === 0) return [];
+
+  const { data: details } = await supabase
+    .from('complaints')
+    .select<string, DuplicateDetailRow>('id, image_urls, status, urgency')
+    .in('id', candidates.map((c) => c.id));
+
+  const detailById = new Map((details ?? []).map((d) => [d.id, d]));
+
+  return candidates.map((row) => {
+    const detail = detailById.get(row.id);
+    return {
+      id: row.id,
+      title: row.title ?? 'Aduan Tanpa Judul',
+      similarity: row.similarity,
+      distanceMeters: row.distance_meters,
+      upvoteCount: row.upvote_count,
+      imageUrls: detail?.image_urls ?? [],
+      status: (detail?.status ?? 'pending_classification') as ComplaintStatus,
+      urgency: detail?.urgency as Urgency | null,
+    };
+  });
+}
+
 /**
  * Inserts a complaint row directly via PostgREST — no Edge Function is
  * involved, so submission succeeds even when Edge Functions are offline.
@@ -461,6 +538,7 @@ export interface UpdateComplaintClassificationInput {
   category?: string | null;
   assignedDinas?: string | null;
   urgency?: Urgency;
+  aiSummary?: string | null;
   rejectionReason?: string | null;
   /** `sla_due_at` baris saat ini — supaya tenggat yang sudah ada tidak ditimpa. */
   currentSlaDueAt?: string | null;
@@ -491,6 +569,7 @@ export async function updateComplaintClassification(
   if (input.category !== undefined) update.category = input.category;
   if (input.assignedDinas !== undefined) update.assigned_dinas = input.assignedDinas;
   if (input.urgency !== undefined) update.urgency = input.urgency;
+  if (input.aiSummary !== undefined) update.ai_summary = input.aiSummary;
   if (input.rejectionReason !== undefined) update.rejection_reason = input.rejectionReason;
 
   // Tenggat SLA. `sla_due_at` sebelumnya HANYA pernah ditulis oleh Edge

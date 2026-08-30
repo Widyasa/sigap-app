@@ -64,6 +64,10 @@ export async function verifyOtp(
 
 export function authReasonToMessage(reason: string | undefined): string {
   switch (reason) {
+    case 'invalid_body':
+      return 'Format permintaan tidak valid.';
+    case 'invalid_request':
+      return 'Permintaan tidak lengkap.';
     case 'invalid_email':
       return 'Alamat email tidak valid.';
     case 'invalid_code':

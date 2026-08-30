@@ -32,7 +32,7 @@ Deno.serve(async (req) => {
     return jsonResponse({ ok: false, reason: "method_not_allowed" });
   }
 
-  let body: { refreshToken?: string; all?: boolean };
+  let body: { refreshToken?: string };
   try {
     body = await req.json();
   } catch {
@@ -53,7 +53,8 @@ Deno.serve(async (req) => {
   const nowIso = new Date().toISOString();
 
   // Verifikasi refresh token dengan mencocokkan hash-nya di database,
-  // sama seperti auth-refresh. Refresh token bersifat opaque hex, bukan JWT.
+  // sama seperti auth-refresh. Kita TIDAK punya verifyRefreshToken JWT
+  // karena refresh token adalah opaque hex.
   const refreshHash = await hashCode(refreshToken, pepper);
   const { data: rows, error: findError } = await supabase
     .from("auth_sessions")
@@ -69,26 +70,17 @@ Deno.serve(async (req) => {
 
   const userId = rows[0].user_id;
 
-  if (body.all) {
-    const { error } = await supabase.from("auth_sessions").update({
-      revoked_at: nowIso,
-      revoked_reason: "signout",
-    }).eq("user_id", userId).is("revoked_at", null);
+  // Cabut SEMUA sesi pengguna kecuali sesi yang membawa refresh token ini.
+  const { error } = await supabase.from("auth_sessions").update({
+    revoked_at: nowIso,
+    revoked_reason: "signout_all",
+  }).eq("user_id", userId)
+    .is("revoked_at", null)
+    .neq("refresh_token_hash", refreshHash);
 
-    if (error) {
-      console.error("signout all error", error);
-      return jsonResponse({ ok: false, reason: "server_error" }, 500);
-    }
-  } else {
-    const { error } = await supabase.from("auth_sessions").update({
-      revoked_at: nowIso,
-      revoked_reason: "signout",
-    }).eq("refresh_token_hash", refreshHash);
-
-    if (error) {
-      console.error("signout single error", error);
-      return jsonResponse({ ok: false, reason: "server_error" }, 500);
-    }
+  if (error) {
+    console.error("signout all error", error);
+    return jsonResponse({ ok: false, reason: "server_error" }, 500);
   }
 
   return jsonResponse({ ok: true });

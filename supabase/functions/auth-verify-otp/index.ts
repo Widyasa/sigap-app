@@ -41,26 +41,26 @@ Deno.serve(async (req) => {
     return new Response(null, { status: 204, headers: corsHeaders() });
   }
   if (req.method !== "POST") {
-    return jsonResponse({ ok: false, reason: "method_not_allowed" }, 405);
+    return jsonResponse({ ok: false, reason: "method_not_allowed" });
   }
 
   let body: { email?: string; code?: string };
   try {
     body = await req.json();
   } catch {
-    return jsonResponse({ ok: false, reason: "invalid_body" }, 400);
+    return jsonResponse({ ok: false, reason: "invalid_body" });
   }
 
   const rawEmail = body.email;
   const rawCode = body.code;
   if (!rawEmail || !rawCode || typeof rawEmail !== "string" ||
     typeof rawCode !== "string") {
-    return jsonResponse({ ok: false, reason: "invalid_request" }, 400);
+    return jsonResponse({ ok: false, reason: "invalid_request" });
   }
 
   const email = normalizeEmail(rawEmail);
   if (!isValidEmail(email) || !/^\d{6}$/.test(rawCode)) {
-    return jsonResponse({ ok: false, reason: "invalid_code" }, 400);
+    return jsonResponse({ ok: false, reason: "invalid_code" });
   }
 
   const pepper = Deno.env.get("OTP_PEPPER");
@@ -88,7 +88,7 @@ Deno.serve(async (req) => {
 
   const row = Array.isArray(claimRows) ? claimRows[0] : claimRows;
   if (!row) {
-    return jsonResponse({ ok: false, reason: "invalid_code" }, 401);
+    return jsonResponse({ ok: false, reason: "invalid_code" });
   }
 
   // `row.attempts` sudah berisi nilai SESUDAH kenaikan, dan percobaan
@@ -96,15 +96,12 @@ Deno.serve(async (req) => {
   // dulu, baru kehabisan kuota dilaporkan kalau kodenya memang salah.
   const valid = await verifyCode(rawCode, row.code_hash, pepper);
   if (!valid) {
-    return jsonResponse(
-      {
-        ok: false,
-        reason: row.attempts >= OTP_MAX_ATTEMPTS
-          ? "too_many_attempts"
-          : "invalid_code",
-      },
-      401,
-    );
+    return jsonResponse({
+      ok: false,
+      reason: row.attempts >= OTP_MAX_ATTEMPTS
+        ? "too_many_attempts"
+        : "invalid_code",
+    });
   }
 
   await supabase.from("auth_otp_codes").update({ consumed_at: nowIso }).eq(
@@ -124,7 +121,7 @@ Deno.serve(async (req) => {
 
   const { user_id: userId, is_disabled: isDisabled } = userRows[0];
   if (isDisabled) {
-    return jsonResponse({ ok: false, reason: "account_disabled" }, 403);
+    return jsonResponse({ ok: false, reason: "account_disabled" });
   }
 
   const { data: profile, error: profileError } = await supabase
@@ -138,7 +135,7 @@ Deno.serve(async (req) => {
     return jsonResponse({ ok: false, reason: "server_error" }, 500);
   }
 
-  const refreshToken = await createRefreshToken(userId);
+  const refreshToken = createRefreshToken();
   const refreshHash = await hashCode(refreshToken, pepper);
   const sessionExpiresAt = new Date(Date.now() + SESSION_TTL_MS).toISOString();
 
@@ -153,16 +150,7 @@ Deno.serve(async (req) => {
     return jsonResponse({ ok: false, reason: "server_error" }, 500);
   }
 
-  const accessToken = await createAccessToken(
-    userId,
-    {
-      role: profile.role,
-      dinas_id: profile.dinas_id,
-      kelurahan: profile.kelurahan,
-      kecamatan: profile.kecamatan,
-    },
-    email,
-  );
+  const accessToken = await createAccessToken(userId);
 
   return jsonResponse({
     ok: true,

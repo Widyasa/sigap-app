@@ -6,73 +6,85 @@ import {
   deleteItemAsync,
 } from './SecureStore';
 
-const ACCESS_TOKEN_KEY = 'sigap_access_token';
 const REFRESH_TOKEN_KEY = 'sigap_refresh_token';
-const ACCESS_TOKEN_EXP_KEY = 'sigap_access_token_exp';
 
-export interface StoredTokens {
+let memoryAccessToken: string | null = null;
+let memoryAccessTokenExp = 0;
+let onAccessTokenChange: ((token: string) => void) | null = null;
+
+export function setAccessTokenChangeHandler(
+  handler: ((token: string) => void) | null,
+): void {
+  onAccessTokenChange = handler;
+}
+
+export interface RefreshResult {
   accessToken: string;
   refreshToken: string;
   accessTokenExp: number;
 }
 
-export async function saveTokens(tokens: StoredTokens): Promise<void> {
-  await Promise.all([
-    setItemAsync(ACCESS_TOKEN_KEY, tokens.accessToken),
-    setItemAsync(REFRESH_TOKEN_KEY, tokens.refreshToken),
-    setItemAsync(ACCESS_TOKEN_EXP_KEY, String(tokens.accessTokenExp)),
-  ]);
-}
-
-export async function loadTokens(): Promise<StoredTokens | null> {
-  const [accessToken, refreshToken, expStr] = await Promise.all([
-    getItemAsync(ACCESS_TOKEN_KEY),
-    getItemAsync(REFRESH_TOKEN_KEY),
-    getItemAsync(ACCESS_TOKEN_EXP_KEY),
-  ]);
-  if (!accessToken || !refreshToken || !expStr) return null;
-  const accessTokenExp = Number(expStr);
-  if (Number.isNaN(accessTokenExp)) return null;
-  return { accessToken, refreshToken, accessTokenExp };
-}
-
-export async function clearTokens(): Promise<void> {
-  await Promise.all([
-    deleteItemAsync(ACCESS_TOKEN_KEY),
-    deleteItemAsync(REFRESH_TOKEN_KEY),
-    deleteItemAsync(ACCESS_TOKEN_EXP_KEY),
-  ]);
-}
-
-export async function getAccessToken(): Promise<string | null> {
-  const tokens = await loadTokens();
-  if (!tokens) return null;
-
-  const now = Math.floor(Date.now() / 1000);
-  // Refresh if token expires within the next 5 minutes.
-  if (tokens.accessTokenExp - now < 300) {
-    const refreshed = await refreshAccessToken(tokens.refreshToken);
-    if (refreshed) return refreshed.accessToken;
-    // Pemanggil paralel lain mungkin sudah menyegarkan sesi ini sementara
-    // kita menunggu; baca ulang sebelum menyimpulkan sesi benar-benar mati.
-    const latest = await loadTokens();
-    if (latest && latest.accessTokenExp - Math.floor(Date.now() / 1000) >= 300) {
-      return latest.accessToken;
-    }
-    await clearTokens();
-    return null;
-  }
-  return tokens.accessToken;
-}
-
-export async function getRefreshToken(): Promise<string | null> {
+export async function loadRefreshToken(): Promise<string | null> {
   return getItemAsync(REFRESH_TOKEN_KEY);
 }
 
-interface RefreshResult {
-  accessToken: string;
-  refreshToken: string;
-  accessTokenExp: number;
+export async function saveRefreshToken(refreshToken: string): Promise<void> {
+  await setItemAsync(REFRESH_TOKEN_KEY, refreshToken);
+}
+
+export async function clearRefreshToken(): Promise<void> {
+  await deleteItemAsync(REFRESH_TOKEN_KEY);
+}
+
+export function setAccessToken(accessToken: string): void {
+  memoryAccessToken = accessToken;
+  memoryAccessTokenExp = getTokenExpiry(accessToken);
+  onAccessTokenChange?.(accessToken);
+}
+
+export function clearAccessToken(): void {
+  memoryAccessToken = null;
+  memoryAccessTokenExp = 0;
+}
+
+export async function getAccessToken(): Promise<string | null> {
+  const token = memoryAccessToken;
+  if (token) {
+    const now = Math.floor(Date.now() / 1000);
+    if (memoryAccessTokenExp - now >= 300) {
+      return token;
+    }
+  }
+
+  // Token tidak ada atau hampir kedaluwarsa: coba segarkan dari SecureStore.
+  const refreshToken = await loadRefreshToken();
+  if (!refreshToken) {
+    clearAccessToken();
+    return null;
+  }
+
+  const refreshed = await refreshAccessToken(refreshToken);
+  if (refreshed) {
+    return refreshed.accessToken;
+  }
+
+  // Pemanggil paralel lain mungkin sudah berhasil menyegarkan sementara
+  // kita menunggu; periksa memori sekali lagi sebelum menyerah.
+  const latest = memoryAccessToken;
+  if (latest) {
+    const now = Math.floor(Date.now() / 1000);
+    if (memoryAccessTokenExp - now >= 300) {
+      return latest;
+    }
+  }
+
+  await clearTokens();
+  return null;
+}
+
+export async function clearTokens(): Promise<void> {
+  clearAccessToken();
+  await clearRefreshToken();
 }
 
 /**
@@ -102,26 +114,19 @@ async function doRefreshAccessToken(
   refreshToken: string,
 ): Promise<RefreshResult | null> {
   try {
-    // URL Supabase HARUS diambil lewat `baseUrl` bersama, yang juga membaca
-    // `app.json -> expo.extra.supabaseUrl`. Berkas ini dulu hanya membaca
-    // `process.env.EXPO_PUBLIC_SUPABASE_URL`, dan tidak ada `.env` di
-    // apps/native maupun variabel itu di eas.json — jadi 55 menit setelah
-    // masuk (atau pada setiap start dingin dengan sisa token < 300 detik),
-    // refresh menembak URL kosong, gagal, dan `getAccessToken` menghapus
-    // token: warga terlempar keluar di tengah sesi tanpa sebab.
     const response = await fetch(`${baseUrl}/functions/v1/auth-refresh`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ refreshToken }),
     });
     const data = await response.json();
-    if (!response.ok || !data.ok || !data.accessToken || !data.refreshToken) {
+    if (!data.ok || !data.accessToken || !data.refreshToken) {
       return null;
     }
     const accessTokenExp = getTokenExpiry(data.accessToken);
-    const tokens = { accessToken: data.accessToken, refreshToken: data.refreshToken, accessTokenExp };
-    await saveTokens(tokens);
-    return tokens;
+    setAccessToken(data.accessToken);
+    await saveRefreshToken(data.refreshToken);
+    return { accessToken: data.accessToken, refreshToken: data.refreshToken, accessTokenExp };
   } catch {
     return null;
   }

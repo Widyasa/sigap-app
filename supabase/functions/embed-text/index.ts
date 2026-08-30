@@ -45,11 +45,20 @@ async function isAuthorizedForTarget(
   supabase: any,
   target: EmbeddingTarget,
   id: string,
-  payload: { sub?: string; app_role?: string },
+  payload: { sub?: string },
 ): Promise<boolean> {
-  if (target === 'budget') return payload.app_role === 'admin';
-  if (payload.app_role === 'admin') return true;
   if (!payload.sub) return false;
+
+  const { data: profile, error: profileError } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', payload.sub)
+    .maybeSingle();
+  if (profileError) return false;
+  const role = profile?.role as string | undefined;
+
+  if (target === 'budget') return role === 'admin';
+  if (role === 'admin') return true;
 
   const { data, error } = await supabase
     .from(TARGET_TABLE[target])

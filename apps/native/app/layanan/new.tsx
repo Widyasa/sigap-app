@@ -21,7 +21,9 @@ import {
   missingLetterFields,
   type ServiceRequirement,
 } from '@repo/shared';
-import { createServiceRequest, uploadServiceDocument } from '@repo/supabase';
+import { createServiceRequest, uploadServiceDocument, runOcr } from '@repo/supabase';
+import { baseUrl } from '../_components/api';
+import { getAccessToken } from '../_components/session';
 import { ThemedText } from '../_components/ThemedText';
 import { useAuth } from '../_components/AuthProvider';
 import { useTheme } from '../_components/useTheme';
@@ -48,6 +50,85 @@ function extensionFor(contentType: string): string {
   return 'jpg';
 }
 
+const MAX_OCR_IMAGE_BASE64_LENGTH = 7_000_000;
+const OCR_CONFIDENCE_THRESHOLD = 0.8;
+
+const BASE64_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+
+interface OcrStatus {
+  status: 'loading' | 'done' | 'error';
+  message?: string;
+}
+
+function arrayBufferToBase64(buffer: ArrayBuffer): string {
+  const bytes = new Uint8Array(buffer);
+  let result = '';
+  for (let i = 0; i < bytes.length; i += 3) {
+    const b1 = bytes[i]!;
+    const b2 = bytes[i + 1];
+    const b3 = bytes[i + 2];
+    const bitmap = (b1 << 16) | ((b2 ?? 0) << 8) | (b3 ?? 0);
+    result += BASE64_CHARS[(bitmap >> 18) & 63]!;
+    result += BASE64_CHARS[(bitmap >> 12) & 63]!;
+    result += b2 !== undefined ? BASE64_CHARS[(bitmap >> 6) & 63]! : '=';
+    result += b3 !== undefined ? BASE64_CHARS[bitmap & 63]! : '=';
+  }
+  return result;
+}
+
+function getOcrDocumentType(key: string): 'ktp' | 'kk' | null {
+  const lower = key.toLowerCase();
+  if (lower.includes('ktp')) return 'ktp';
+  if (lower.includes('kk')) return 'kk';
+  return null;
+}
+
+function mapOcrFieldsToForm(
+  documentType: 'ktp' | 'kk',
+  ocrFields: Record<string, { value: string; confidence: number }>,
+  allowedKeys: Set<string>,
+): Array<{ key: string; value: string; confidence: number }> {
+  const mapping: Record<'ktp' | 'kk', Record<string, string[]>> = {
+    ktp: {
+      nik: ['nik'],
+      fullName: ['fullName'],
+      address: ['address'],
+      birthPlace: ['birthPlace'],
+      birthDate: ['birthDate'],
+      rt: ['rt'],
+      rw: ['rw'],
+      kelurahan: ['kelurahan'],
+      kecamatan: ['kecamatan'],
+      religion: ['religion'],
+      maritalStatus: ['maritalStatus'],
+      occupation: ['occupation'],
+    },
+    kk: {
+      nomorKK: ['nomorKK'],
+      kepalaKeluarga: ['fullName'],
+      alamat: ['address'],
+      rt: ['rt'],
+      rw: ['rw'],
+      kelurahan: ['kelurahan'],
+      kecamatan: ['kecamatan'],
+    },
+  };
+  const result: Array<{ key: string; value: string; confidence: number }> = [];
+  const fieldMap = mapping[documentType];
+  for (const [ocrKey, field] of Object.entries(ocrFields)) {
+    const targetKeys = fieldMap[ocrKey];
+    if (!targetKeys) continue;
+    const value = field.value.trim();
+    if (!value) continue;
+    for (const targetKey of targetKeys) {
+      if (allowedKeys.has(targetKey)) {
+        result.push({ key: targetKey, value, confidence: field.confidence });
+      }
+    }
+  }
+  return result;
+}
+
 export default function LayananNewScreen() {
   const { serviceType } = useLocalSearchParams<{ serviceType: string }>();
   const { user } = useAuth();
@@ -67,6 +148,8 @@ export default function LayananNewScreen() {
   );
   const [letterValues, setLetterValues] = useState<Record<string, string>>({});
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [ocrByKey, setOcrByKey] = useState<Record<string, OcrStatus>>({});
+  const [ocrWarnings, setOcrWarnings] = useState<Record<string, boolean>>({});
   const [error, setError] = useState<string | null>(null);
   const [pickingKey, setPickingKey] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -80,9 +163,103 @@ export default function LayananNewScreen() {
   const remaining = totalCount - uploadedCount;
   const progress = totalCount === 0 ? 0 : uploadedCount / totalCount;
 
+  const runOcrForDocument = useCallback(
+    async (requirementKey: string, doc: UploadedDocument) => {
+      const documentType = getOcrDocumentType(requirementKey);
+      if (!documentType) return;
+
+      setOcrByKey((prev) => ({ ...prev, [requirementKey]: { status: 'loading' } }));
+      try {
+        const accessToken = await getAccessToken();
+        if (!accessToken || !baseUrl) {
+          setOcrByKey((prev) => ({
+            ...prev,
+            [requirementKey]: { status: 'error', message: 'Sesi tidak ditemukan.' },
+          }));
+          return;
+        }
+
+        const imageBase64 = arrayBufferToBase64(doc.arrayBuffer);
+        if (imageBase64.length > MAX_OCR_IMAGE_BASE64_LENGTH) {
+          setOcrByKey((prev) => ({
+            ...prev,
+            [requirementKey]: {
+              status: 'error',
+              message: 'Foto terlalu besar untuk dibaca otomatis.',
+            },
+          }));
+          return;
+        }
+
+        const response = await runOcr(
+          baseUrl,
+          accessToken,
+          imageBase64,
+          doc.contentType,
+          documentType,
+        );
+
+        if (response.ok || response.reason === 'low_confidence') {
+          const allowedKeys = new Set(letterFields.map((f) => f.key));
+          const mapped = mapOcrFieldsToForm(documentType, response.fields ?? {}, allowedKeys);
+          if (mapped.length > 0) {
+            setLetterValues((prev) => {
+              const next = { ...prev };
+              for (const { key, value } of mapped) {
+                if (!next[key]?.trim()) {
+                  next[key] = value;
+                }
+              }
+              return next;
+            });
+            setOcrWarnings((prev) => {
+              const next = { ...prev };
+              for (const { key, confidence } of mapped) {
+                if (confidence < OCR_CONFIDENCE_THRESHOLD) {
+                  next[key] = true;
+                } else {
+                  delete next[key];
+                }
+              }
+              return next;
+            });
+          }
+          const message =
+            response.reason === 'low_confidence'
+              ? 'Hasil pembacaan kurang jelas — periksa manual.'
+              : mapped.length > 0
+                ? 'Data dokumen terbaca.'
+                : 'Tidak ada data yang cocok untuk surat ini.';
+          setOcrByKey((prev) => ({
+            ...prev,
+            [requirementKey]: { status: 'done', message },
+          }));
+        } else {
+          setOcrByKey((prev) => ({
+            ...prev,
+            [requirementKey]: { status: 'error', message: 'Gagal membaca dokumen.' },
+          }));
+        }
+      } catch (e) {
+        console.error('ocr error', e);
+        setOcrByKey((prev) => ({
+          ...prev,
+          [requirementKey]: { status: 'error', message: 'Gagal membaca dokumen.' },
+        }));
+      }
+    },
+    [letterFields],
+  );
+
   const handlePickPhoto = useCallback(
     async (requirement: ServiceRequirement) => {
       setError(null);
+      setOcrByKey((prev) => {
+        if (!prev[requirement.key]) return prev;
+        const next = { ...prev };
+        delete next[requirement.key];
+        return next;
+      });
       setPickingKey(requirement.key);
       try {
         let result: ImagePicker.ImagePickerResult;
@@ -115,16 +292,15 @@ export default function LayananNewScreen() {
 
         const fileName = asset.fileName ?? `${requirement.key}.${extensionFor(contentType)}`;
 
-        setDocuments((prev) => ({
-          ...prev,
-          [requirement.key]: {
-            uri: asset.uri,
-            contentType,
-            sizeBytes: arrayBuffer.byteLength,
-            fileName,
-            arrayBuffer,
-          },
-        }));
+        const uploadedDoc: UploadedDocument = {
+          uri: asset.uri,
+          contentType,
+          sizeBytes: arrayBuffer.byteLength,
+          fileName,
+          arrayBuffer,
+        };
+        setDocuments((prev) => ({ ...prev, [requirement.key]: uploadedDoc }));
+        runOcrForDocument(requirement.key, uploadedDoc);
       } catch (e) {
         console.error('pick document error', e);
         setError('Gagal mengambil foto. Coba lagi.');
@@ -132,7 +308,7 @@ export default function LayananNewScreen() {
         setPickingKey(null);
       }
     },
-    [],
+    [runOcrForDocument],
   );
 
   const handleSubmit = useCallback(async () => {
@@ -313,9 +489,29 @@ export default function LayananNewScreen() {
                       {requirement.label}
                     </ThemedText>
                     {doc ? (
-                      <ThemedText variant="caption" style={{ color: colors.primary }}>
-                        {doc.fileName} · {formatBytes(doc.sizeBytes)}
-                      </ThemedText>
+                      <>
+                        <ThemedText variant="caption" style={{ color: colors.primary }}>
+                          {doc.fileName} · {formatBytes(doc.sizeBytes)}
+                        </ThemedText>
+                        {(() => {
+                          const ocrStatus = ocrByKey[requirement.key];
+                          if (!ocrStatus) return null;
+                          if (ocrStatus.status === 'loading') {
+                            return (
+                              <ThemedText variant="caption" color="secondary">
+                                Membaca dokumen…
+                              </ThemedText>
+                            );
+                          }
+                          const statusColor =
+                            ocrStatus.status === 'error' ? colors.danger : colors.primary;
+                          return (
+                            <ThemedText variant="caption" style={{ color: statusColor }}>
+                              {ocrStatus.message}
+                            </ThemedText>
+                          );
+                        })()}
+                      </>
                     ) : (
                       <ThemedText variant="caption" color="muted">
                         Belum diunggah · JPG atau PNG, maks 5 MB
@@ -374,7 +570,17 @@ export default function LayananNewScreen() {
                 </ThemedText>
                 <TextInput
                   value={letterValues[field.key] ?? ''}
-                  onChangeText={(v) => setLetterValues((prev) => ({ ...prev, [field.key]: v }))}
+                  onChangeText={(v) => {
+                    setLetterValues((prev) => ({ ...prev, [field.key]: v }));
+                    if (ocrWarnings[field.key]) {
+                      setOcrWarnings((prev) => {
+                        if (!prev[field.key]) return prev;
+                        const next = { ...prev };
+                        delete next[field.key];
+                        return next;
+                      });
+                    }
+                  }}
                   placeholder={field.placeholder ?? field.label}
                   placeholderTextColor={colors.textMuted}
                   keyboardType={field.type === 'nik' ? 'number-pad' : 'default'}
@@ -385,7 +591,11 @@ export default function LayananNewScreen() {
                     field.type === 'textarea' ? styles.textArea : styles.input,
                     {
                       backgroundColor: colors.surface,
-                      borderColor: fieldErrors[field.key] ? colors.danger : colors.border,
+                      borderColor: fieldErrors[field.key]
+                        ? colors.danger
+                        : ocrWarnings[field.key]
+                          ? colors.civicAmber
+                          : colors.border,
                       borderRadius: spacing(3),
                       color: colors.textPrimary,
                       padding: spacing(3),
@@ -395,6 +605,10 @@ export default function LayananNewScreen() {
                 {fieldErrors[field.key] ? (
                   <ThemedText variant="caption" color="danger">
                     {fieldErrors[field.key]}
+                  </ThemedText>
+                ) : ocrWarnings[field.key] ? (
+                  <ThemedText variant="caption" style={{ color: colors.civicAmber }}>
+                    Hasil pembacaan OCR kurang yakin — periksa kembali.
                   </ThemedText>
                 ) : null}
               </View>

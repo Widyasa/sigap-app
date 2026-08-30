@@ -138,16 +138,25 @@ Deno.serve(async (req) => {
   const authHeader = req.headers.get('Authorization') ?? '';
   const token = authHeader.replace(/^Bearer\s+/i, '');
   let callerId: string;
-  let callerRole: string;
   try {
     const payload = await verifyAccessToken(token);
     callerId = payload.sub;
-    callerRole = payload.app_role;
   } catch {
     return jsonResponse({ ok: false, reason: 'session_expired' }, 401);
   }
 
   const supabase = getServiceClient();
+
+  const { data: profile, error: profileError } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', callerId)
+    .single();
+
+  if (profileError || !profile) {
+    return jsonResponse({ ok: false, reason: 'session_expired' }, 401);
+  }
+  const callerRole = profile.role;
 
   const { data: request, error: fetchError } = await supabase
     .from('service_requests')

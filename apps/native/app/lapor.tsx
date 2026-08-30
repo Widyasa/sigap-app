@@ -16,8 +16,8 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
 import { reverseGeocode } from './_lib/reverseGeocode';
-import { createComplaintSchema, statusColor, DINAS_LIST } from '@repo/shared';
-import { createComplaint, uploadComplaintPhoto, upvoteComplaint } from '@repo/supabase';
+import { createComplaintSchema, statusColor } from '@repo/shared';
+import { createComplaint, uploadComplaintPhoto } from '@repo/supabase';
 import { ThemedText } from './_components/ThemedText';
 import { BottomNav } from './_components/BottomNav';
 import { Button } from './_components/Button';
@@ -185,48 +185,21 @@ export default function LaporScreen() {
       // Klasifikasi AI bersifat best-effort: aduan sudah tersimpan di atas,
       // jadi kegagalan di sini tidak menghapus atau membatalkan apa pun —
       // baris tetap `pending_classification` dan bisa diklasifikasi ulang nanti.
-      let duplicateOffer: { id: string; title: string; distanceMeters: number } | null = null;
-      let successMessage = 'Terima kasih, laporan Anda sudah kami terima.';
+      let hasDuplicates = false;
       try {
         const token = await getAccessToken();
         if (token) {
           const result = await classifyComplaint(complaintId, token);
-          if (result.ok && result.classification) {
-            const dinas = DINAS_LIST.find((d) => d.id === result.classification!.assignedDinas);
-            successMessage = `Aduan diteruskan ke ${dinas?.name ?? result.classification.assignedDinas}.`;
-          }
-          if (result.ok && result.duplicates && result.duplicates.length > 0) {
-            const top = result.duplicates[0];
-            duplicateOffer = { id: top.id, title: top.title, distanceMeters: top.distanceMeters };
-          }
+          hasDuplicates = !!(result.ok && result.duplicates && result.duplicates.length > 0);
         }
       } catch (classifyErr) {
         console.error('classifyComplaint error', classifyErr);
       }
 
-      if (duplicateOffer) {
-        const offer = duplicateOffer;
-        Alert.alert(
-          'Aduan serupa ditemukan',
-          `Ada laporan "${offer.title}" yang mirip sekitar ${Math.round(offer.distanceMeters)} m dari lokasi Anda. Dukung laporan itu?`,
-          [
-            { text: 'Tidak, aduan saya tetap terpisah', style: 'cancel', onPress: () => router.replace('/home') },
-            {
-              text: 'Dukung',
-              onPress: async () => {
-                try {
-                  await upvoteComplaint(supabase, offer.id, user.id);
-                } catch (upvoteErr) {
-                  console.error('upvoteComplaint error', upvoteErr);
-                }
-                router.replace('/home');
-              },
-            },
-          ],
-        );
+      if (hasDuplicates) {
+        router.replace(`/aduan/duplicate?id=${complaintId}`);
       } else {
-        Alert.alert('Aduan terkirim', successMessage);
-        router.replace('/home');
+        router.replace(`/aduan/review/${complaintId}`);
       }
     } catch (e) {
       console.error('createComplaint error', e);

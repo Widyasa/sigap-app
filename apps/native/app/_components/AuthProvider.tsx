@@ -6,15 +6,18 @@ import {
   ReactNode,
   useCallback,
 } from 'react';
+import { useRouter } from 'expo-router';
 import { authReasonToMessage, requestOtp, verifyOtp, baseUrl } from './api';
 import { supabase } from './supabase';
 import { decodeJwtPayload } from './jwtDecode';
 import {
   getAccessToken,
-  loadTokens,
-  saveTokens,
+  loadRefreshToken,
+  saveRefreshToken,
   clearTokens,
-  getTokenExpiry,
+  setAccessToken,
+  setAccessTokenChangeHandler,
+  refreshAccessToken,
 } from './session';
 
 export interface UserProfile {
@@ -60,8 +63,6 @@ export interface OnboardingInput {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-const PROFILE_KEY = 'sigap_user_profile';
-
 /** Rapikan spasi ganda dan seragamkan kapitalisasi nama wilayah. */
 function normalizePlaceName(value: string): string {
   return value
@@ -71,7 +72,44 @@ function normalizePlaceName(value: string): string {
     .replace(/(^|\s)\S/g, (c) => c.toUpperCase());
 }
 
+async function fetchUserProfile(userId: string): Promise<UserProfile | null> {
+  const [{ data: profile, error: profileError }, { data: user, error: userError }] = await Promise.all([
+    supabase
+      .from('profiles')
+      .select('id, full_name, role, dinas_id, kelurahan, kecamatan, rw')
+      .eq('id', userId)
+      .single(),
+    supabase
+      .from('users')
+      .select('email')
+      .eq('id', userId)
+      .single(),
+  ]);
+
+  if (profileError || !profile || userError || !user) {
+    console.error('fetch profile error', profileError, userError);
+    return null;
+  }
+
+  return {
+    id: profile.id,
+    email: user.email ?? '',
+    fullName: profile.full_name,
+    role: profile.role,
+    dinasId: profile.dinas_id,
+    kelurahan: profile.kelurahan,
+    kecamatan: profile.kecamatan,
+    rw: profile.rw,
+  };
+}
+
+function getUserIdFromToken(token: string): string {
+  const payload = decodeJwtPayload<{ sub?: string }>(token);
+  return payload?.sub ?? '';
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const router = useRouter();
   const [state, setState] = useState<AuthState>({
     isLoading: true,
     isAuthenticated: false,
@@ -80,45 +118,68 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     authError: null,
   });
 
+  const setRealtimeAuth = useCallback((accessToken: string) => {
+    // Supabase Realtime memerlukan setAuth eksplisit agar subscription
+    // timeline/SOS mengirim access token terbaru; tipe TS publik tidak
+    // mengekspos metode ini, jadi kita mengaksesnya lewat boundary yang jelas.
+    const realtime = supabase.realtime as unknown as { setAuth: (token: string) => void };
+    realtime.setAuth(accessToken);
+  }, []);
+
+  useEffect(() => {
+    setAccessTokenChangeHandler(setRealtimeAuth);
+    return () => {
+      setAccessTokenChangeHandler(null);
+    };
+  }, [setRealtimeAuth]);
+
+  const applySession = useCallback(async (accessToken: string) => {
+    const userId = getUserIdFromToken(accessToken);
+    if (!userId) {
+      await clearTokens();
+      setState((s) => ({ ...s, isLoading: false, isAuthenticated: false, user: null }));
+      return;
+    }
+
+    const user = await fetchUserProfile(userId);
+    if (!user) {
+      await clearTokens();
+      setState((s) => ({ ...s, isLoading: false, isAuthenticated: false, user: null }));
+      return;
+    }
+
+    setRealtimeAuth(accessToken);
+    setState({
+      isLoading: false,
+      isAuthenticated: true,
+      needsOnboarding: !user.kelurahan,
+      user,
+      authError: null,
+    });
+  }, [setRealtimeAuth]);
+
   const loadSession = useCallback(async () => {
     try {
-      const tokens = await loadTokens();
-      if (!tokens) {
+      const refreshToken = await loadRefreshToken();
+      if (!refreshToken) {
         setState((s) => ({ ...s, isLoading: false }));
         return;
       }
-      const accessToken = await getAccessToken();
-      if (!accessToken) {
-        await clearTokens();
-        setState((s) => ({ ...s, isLoading: false }));
-        return;
-      }
-      // Validate token by fetching own profile.
-      const { data: profile, error } = await supabase
-        .from('profiles')
-        .select('id, full_name, role, dinas_id, kelurahan, kecamatan, rw')
-        .eq('id', getUserIdFromToken(accessToken))
-        .single();
 
-      if (error || !profile) {
+      const refreshed = await refreshAccessToken(refreshToken);
+      if (!refreshed) {
         await clearTokens();
         setState((s) => ({ ...s, isLoading: false }));
         return;
       }
 
-      const user = profileToUser(profile);
-      setState({
-        isLoading: false,
-        isAuthenticated: true,
-        needsOnboarding: !user.kelurahan,
-        user,
-        authError: null,
-      });
+      await applySession(refreshed.accessToken);
     } catch (e) {
       console.error('loadSession error', e);
+      await clearTokens();
       setState((s) => ({ ...s, isLoading: false }));
     }
-  }, []);
+  }, [applySession]);
 
   useEffect(() => {
     loadSession();
@@ -150,24 +211,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setState((s) => ({ ...s, authError: null }));
       try {
         const result = await verifyOtp(email, code);
-        if (!result.ok || !result.accessToken || !result.refreshToken || !result.user) {
+        if (!result.ok || !result.accessToken || !result.refreshToken) {
           return { ok: false, message: authReasonToMessage(result.reason) };
         }
-        await saveTokens({
-          accessToken: result.accessToken,
-          refreshToken: result.refreshToken,
-          accessTokenExp: getTokenExpiry(result.accessToken),
-        });
-        const user: UserProfile = {
-          id: result.user.id,
-          email: result.user.email,
-          fullName: result.user.profile.fullName,
-          role: result.user.profile.role,
-          dinasId: result.user.profile.dinasId,
-          kelurahan: result.user.profile.kelurahan,
-          kecamatan: result.user.profile.kecamatan,
-          rw: result.user.profile.rw,
-        };
+
+        setAccessToken(result.accessToken);
+        await saveRefreshToken(result.refreshToken);
+
+        const userId = getUserIdFromToken(result.accessToken);
+        if (!userId) {
+          await clearTokens();
+          return { ok: false, message: 'Sesi tidak valid. Coba lagi.' };
+        }
+
+        const user = await fetchUserProfile(userId);
+        if (!user) {
+          await clearTokens();
+          return { ok: false, message: 'Gagal memuat profil. Coba lagi.' };
+        }
+
+        setRealtimeAuth(result.accessToken);
         setState({
           isLoading: false,
           isAuthenticated: true,
@@ -181,7 +244,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return { ok: false, message: 'Gagal memverifikasi kode. Periksa koneksi internet.' };
       }
     },
-    [],
+    [setRealtimeAuth],
   );
 
   const completeOnboarding = useCallback(
@@ -238,16 +301,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = useCallback(async (all = false) => {
     try {
-      const refreshToken = (await loadTokens())?.refreshToken;
+      const refreshToken = await loadRefreshToken();
       if (refreshToken) {
-        // Sama seperti session.ts: dulu ini menembak
-        // "undefined/functions/v1/auth-signout", jadi token lokal terhapus
-        // tapi `auth_sessions.revoked_at` tetap NULL — refresh token yang
-        // sudah "keluar" masih sah selama 30 hari.
-        await fetch(`${baseUrl}/functions/v1/auth-signout`, {
+        // `all=true` memanggil Edge Function khusus yang mencabut SEMUA
+        // sesi pengguna kecuali sesi perangkat ini — sesuai M6.
+        const endpoint = all ? 'auth-signout-all' : 'auth-signout';
+        await fetch(`${baseUrl}/functions/v1/${endpoint}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ refreshToken, all }),
+          body: JSON.stringify({ refreshToken }),
         });
       }
     } catch (e) {
@@ -261,8 +323,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         user: null,
         authError: null,
       });
+      router.replace('/login');
     }
-  }, []);
+  }, [router]);
 
   const clearError = useCallback(
     () => setState((s) => ({ ...s, authError: null })),
@@ -286,30 +349,4 @@ export function useAuth() {
   const context = useContext(AuthContext);
   if (!context) throw new Error('useAuth must be used inside AuthProvider');
   return context;
-}
-
-function getUserIdFromToken(token: string): string {
-  const payload = decodeJwtPayload<{ sub?: string }>(token);
-  return payload?.sub ?? '';
-}
-
-function profileToUser(profile: {
-  id: string;
-  full_name: string | null;
-  role: string;
-  dinas_id: string | null;
-  kelurahan: string | null;
-  kecamatan: string | null;
-  rw: string | null;
-}): UserProfile {
-  return {
-    id: profile.id,
-    email: '',
-    fullName: profile.full_name,
-    role: profile.role,
-    dinasId: profile.dinas_id,
-    kelurahan: profile.kelurahan,
-    kecamatan: profile.kecamatan,
-    rw: profile.rw,
-  };
 }

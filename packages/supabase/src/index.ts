@@ -10,6 +10,7 @@ export {
   listComplaintTimeline,
   listMyUpvotedComplaintIds,
   isDuplicateUpvoteError,
+  listDuplicateComplaints,
   listComplaintsForVerifier,
   listComplaintsForDinas,
   listActiveComplaintsAllDinas,
@@ -20,6 +21,7 @@ export {
 } from './queries/complaints';
 export type {
   ComplaintAuthorProfile,
+  DuplicateCandidate,
   FeedComplaint,
   ComplaintDetail,
   TimelineEntry,
@@ -104,6 +106,11 @@ export type {
   UpdateServiceRequestStatusInput,
   VerifyServiceDocumentResult,
 } from './queries/services';
+export {
+  listMySessions,
+  revokeSession,
+} from './queries/sessions';
+export type { MySession } from './queries/sessions';
 export {
   uploadEmergencyAudio,
   getEmergencyAlertSignedAudioUrl,

@@ -1,5 +1,5 @@
 import { hashCode } from "../_shared/otp.ts";
-import { createAccessToken, createRefreshToken, verifyRefreshToken } from "../_shared/jwt.ts";
+import { createAccessToken, createRefreshToken } from "../_shared/jwt.ts";
 import { getServiceClient } from "../_shared/supabase.ts";
 
 const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
@@ -32,31 +32,24 @@ Deno.serve(async (req) => {
     return new Response(null, { status: 204, headers: corsHeaders() });
   }
   if (req.method !== "POST") {
-    return jsonResponse({ ok: false, reason: "method_not_allowed" }, 405);
+    return jsonResponse({ ok: false, reason: "method_not_allowed" });
   }
 
   let body: { refreshToken?: string };
   try {
     body = await req.json();
   } catch {
-    return jsonResponse({ ok: false, reason: "invalid_body" }, 400);
+    return jsonResponse({ ok: false, reason: "invalid_body" });
   }
 
   const refreshToken = body.refreshToken;
   if (!refreshToken || typeof refreshToken !== "string") {
-    return jsonResponse({ ok: false, reason: "invalid_request" }, 400);
+    return jsonResponse({ ok: false, reason: "invalid_request" });
   }
 
   const pepper = Deno.env.get("OTP_PEPPER");
   if (!pepper) {
     return jsonResponse({ ok: false, reason: "server_misconfigured" }, 500);
-  }
-
-  let payload;
-  try {
-    payload = await verifyRefreshToken(refreshToken);
-  } catch {
-    return jsonResponse({ ok: false, reason: "session_expired" }, 401);
   }
 
   const supabase = getServiceClient();
@@ -93,7 +86,7 @@ Deno.serve(async (req) => {
         revoked_reason: "reuse_detected",
       }).eq("user_id", reused[0].user_id).is("revoked_at", null);
     }
-    return jsonResponse({ ok: false, reason: "session_expired" }, 401);
+    return jsonResponse({ ok: false, reason: "session_expired" });
   }
 
   const session = rows[0];
@@ -119,7 +112,7 @@ Deno.serve(async (req) => {
       revoked_at: nowIso,
       revoked_reason: "account_disabled",
     }).eq("user_id", session.user_id).is("revoked_at", null);
-    return jsonResponse({ ok: false, reason: "account_disabled" }, 403);
+    return jsonResponse({ ok: false, reason: "account_disabled" });
   }
 
   const { data: profile, error: profileError } = await supabase
@@ -133,7 +126,7 @@ Deno.serve(async (req) => {
     return jsonResponse({ ok: false, reason: "server_error" }, 500);
   }
 
-  const newRefreshToken = await createRefreshToken(session.user_id);
+  const newRefreshToken = createRefreshToken();
   const newRefreshHash = await hashCode(newRefreshToken, pepper);
   const sessionExpiresAt = new Date(Date.now() + SESSION_TTL_MS).toISOString();
 
@@ -159,16 +152,7 @@ Deno.serve(async (req) => {
     return jsonResponse({ ok: false, reason: "server_error" }, 500);
   }
 
-  const accessToken = await createAccessToken(
-    session.user_id,
-    {
-      role: profile.role,
-      dinas_id: profile.dinas_id,
-      kelurahan: profile.kelurahan,
-      kecamatan: profile.kecamatan,
-    },
-    userRow.email as string | undefined,
-  );
+  const accessToken = await createAccessToken(session.user_id);
 
   return jsonResponse({ ok: true, accessToken, refreshToken: newRefreshToken });
 });

@@ -1,33 +1,14 @@
 const ACCESS_TOKEN_TTL_SECONDS = 60 * 60; // 1 hour
-const REFRESH_TOKEN_TTL_SECONDS = 60 * 60 * 24 * 30; // 30 days
 const ISSUER = "sigap";
-const AUDIENCE = "sigap";
+const AUDIENCE = "authenticated";
 
 const TEXT_ENCODER = new TextEncoder();
 
-export interface ProfileClaims {
-  role: string;
-  dinas_id?: string | null;
-  kelurahan?: string | null;
-  kecamatan?: string | null;
-}
-
-export interface AccessTokenPayload extends ProfileClaims {
+export interface AccessTokenPayload {
   sub: string;
   jti: string;
   role: "authenticated";
-  app_role: string;
   type: "access";
-  iss: string;
-  aud: string;
-  iat: number;
-  exp: number;
-}
-
-export interface RefreshTokenPayload {
-  sub: string;
-  jti: string;
-  type: "refresh";
   iss: string;
   aud: string;
   iat: number;
@@ -121,25 +102,13 @@ async function verifyJwt(
   return payload;
 }
 
-export async function createAccessToken(
-  userId: string,
-  profile: ProfileClaims,
-  email?: string,
-): Promise<string> {
+export async function createAccessToken(userId: string): Promise<string> {
   return await signJwt(
     { alg: "HS256", typ: "JWT" },
     {
       sub: userId,
       jti: crypto.randomUUID(),
       role: "authenticated",
-      // Klien memakai klaim ini untuk menampilkan email petugas setelah
-      // memuat ulang halaman; tanpanya `StaffProfile.email` selalu kosong
-      // karena hanya jalur verifikasi OTP yang pernah mengisinya.
-      email: email ?? null,
-      app_role: profile.role,
-      dinas_id: profile.dinas_id ?? null,
-      kelurahan: profile.kelurahan ?? null,
-      kecamatan: profile.kecamatan ?? null,
       type: "access",
       iss: ISSUER,
       aud: AUDIENCE,
@@ -150,20 +119,16 @@ export async function createAccessToken(
   );
 }
 
-export async function createRefreshToken(userId: string): Promise<string> {
-  return await signJwt(
-    { alg: "HS256", typ: "JWT" },
-    {
-      sub: userId,
-      jti: crypto.randomUUID(),
-      type: "refresh",
-      iss: ISSUER,
-      aud: AUDIENCE,
-      iat: getNumericDate(0),
-      exp: getNumericDate(REFRESH_TOKEN_TTL_SECONDS),
-    },
-    await importSecret(),
-  );
+/**
+ * Membuat refresh token opak: 32 byte acak, dikodekan sebagai hex.
+ * Token ini bukan JWT dan disimpan di SecureStore tanpa modifikasi.
+ */
+export function createRefreshToken(): string {
+  const bytes = new Uint8Array(32);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes)
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
 }
 
 export async function verifyAccessToken(
@@ -174,16 +139,6 @@ export async function verifyAccessToken(
     throw new Error("Invalid token type");
   }
   return payload as unknown as AccessTokenPayload;
-}
-
-export async function verifyRefreshToken(
-  token: string,
-): Promise<RefreshTokenPayload> {
-  const payload = await verifyJwt(token, await importSecret());
-  if (payload.type !== "refresh") {
-    throw new Error("Invalid token type");
-  }
-  return payload as unknown as RefreshTokenPayload;
 }
 
 export function getTokenExpirySeconds(token: string): number {

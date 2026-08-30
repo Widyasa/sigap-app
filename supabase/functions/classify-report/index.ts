@@ -189,7 +189,6 @@ Deno.serve(async (req) => {
     return jsonResponse({ ok: true, classification, duplicates });
   } catch (e) {
     console.error('classify-report error', e);
-    // Baris aduan TIDAK disentuh — tetap `pending_classification` (aturan 7.2 / AC4).
     return jsonResponse({ ok: false, reason: 'ai_unavailable' }, 200);
   }
 });

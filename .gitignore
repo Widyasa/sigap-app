@@ -46,4 +46,8 @@ apps/native/.env
 # turbo & local tooling
 .turbo/
 .mcp.json
+# playwright
+test-results/
+playwright-report/
+e2e/.auth/
 supabase/.temp/

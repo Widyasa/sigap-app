@@ -6,7 +6,7 @@
     "lint": "turbo run lint",
     "test": "turbo run test",
     "typecheck": "turbo run typecheck",
-    "clean": "turbo run clean && rm -rf node_modules",
+    "test:e2e:web": "playwright test -c playwright.web.config.ts",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\" --ignore-path .gitignore"
   },
   "devDependencies": {
@@ -14,7 +14,8 @@
     "prettier": "^3.1.1",
     "supabase": "^2.116.0",
     "tsx": "^4.23.12",
-    "turbo": "^2.10.9"
+    "turbo": "^2.10.9",
+    "@playwright/test": "^1.62.1"
   },
   "engines": {
     "node": ">=18"
