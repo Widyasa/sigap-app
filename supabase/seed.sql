@@ -85,6 +85,15 @@ INSERT INTO point_ledger (user_id, points, reason, created_at) VALUES
   ('eeeeeeee-0001-0001-0001-000000000003', 10, 'report_created', NOW() - INTERVAL '1 days'),
   ('eeeeeeee-0001-0001-0001-000000000004', 95, 'report_resolved', NOW() - INTERVAL '60 days');
 
+-- Poin tambahan untuk warga lintas kelurahan agar filter waktu leaderboard
+-- (minggu/bulan/semua waktu) menampilkan data aspiration_musrenbang yang bervariasi.
+INSERT INTO point_ledger (user_id, points, reason, created_at) VALUES
+  ('eeeeeeee-0001-0001-0001-000000000001', 35, 'aspiration_musrenbang', NOW() - INTERVAL '2 days'),
+  ('77777777-7777-7777-7777-777777777777', 50, 'aspiration_musrenbang', NOW() - INTERVAL '15 days'),
+  ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 45, 'aspiration_musrenbang', NOW() - INTERVAL '25 days'),
+  ('88888888-8888-8888-8888-888888888888', 70, 'aspiration_musrenbang', NOW() - INTERVAL '40 days'),
+  ('99999999-9999-9999-9999-999999999999', 60, 'aspiration_musrenbang', NOW() - INTERVAL '55 days');
+
 INSERT INTO profiles (id, full_name, role, dinas_id, kelurahan, kecamatan, rw) VALUES
   ('11111111-1111-1111-1111-111111111111', 'Sri Wahyuni',  'citizen',            NULL,   'Sukamaju', 'Cibeunying', 'RW 01'),
   ('22222222-2222-2222-2222-222222222222', 'Wulan Sari',   'verifier',           NULL,   'Sukamaju', 'Cibeunying', 'RW 01'),
@@ -183,7 +192,7 @@ INSERT INTO announcements (
   ('cccccccc-0001-0001-0001-000000000002',
    'Perbaikan Drainase Jalan Merdeka Dimulai',
    'Warga Kelurahan Sukamaju dimohon berhati-hati, pengerjaan drainase berlangsung dua minggu ke depan.',
-   'pupr', 'Sukamaju', FALSE, '55555555-5555-5555-5555-555555555555', 'infrastruktur')
+   'pupr', 'Sukamaju', FALSE, '55555555-5555-5555-5555-555555555555', 'infrastruktur');
 
 -- ---------------------------------------------------------------------
 -- Data aspirasi & periode voting untuk demo.
@@ -229,6 +238,14 @@ INSERT INTO complaints (
   ('dago-complaint-002', '66666666-6666-6666-6666-666666666666', 'Sampah Menumpuk', 'Sampah tidak diangkut sudah 3 hari.', 'sampah', 'dlh', 'P0', -6.886, 107.616, 'Jl. Dago Pojok', 'Dago', 'Coblong', 'in_progress')
 ON CONFLICT (id) DO NOTHING;
 
+-- Aduan demo di Kelurahan Dalung, Kec. Kuta Utara — penerangan jalan.
+INSERT INTO complaints (
+  id, user_id, title, description, category, assigned_dinas, urgency,
+  location_lat, location_lng, location_address, kelurahan, kecamatan, status
+) VALUES
+  ('cccccccc-0003-0003-0003-000000000003', '66666666-6666-6666-6666-666666666666', 'Jalan Cempaka Gelap di Malam Hari', 'Penerangan jalan di Jalan Cempaka sangat minim sehingga rawan kecelakaan dan tindak kejahatan.', 'penerangan_jalan', 'dishub', 'P1', -8.704, 115.175, 'Jl. Cempaka', 'Dalung', 'Kuta Utara', 'pending')
+ON CONFLICT (id) DO NOTHING;
+
 -- 3. announcements
 INSERT INTO announcements (
   id, title, body, dinas_id, kelurahan, is_pinned, created_by, category
@@ -246,3 +263,144 @@ INSERT INTO aspirations (
   ('dago-aspiration-001', '66666666-6666-6666-6666-666666666666', 'Perbaikan Lapangan Olahraga Dago', 'Renovasi lapangan basket agar layak pakai.', 'Dago', 'Coblong', 50, 'voting', 100, 100000000, -6.885, 107.615, 'dddddddd-0000-0000-0000-000000000000', NOW()),
   ('dago-aspiration-002', '66666666-6666-6666-6666-666666666666', 'Pembangunan Pos Keamanan', 'Pembangunan pos keamanan di RW 01 Dago.', 'Dago', 'Coblong', 30, 'voting', 200, 50000000, -6.886, 107.616, 'dddddddd-0000-0000-0000-000000000000', NOW())
 ON CONFLICT (id) DO NOTHING;
+
+-- Tambahan aspirasi lintas kelurahan/kecamatan dengan status bervariasi.
+INSERT INTO aspirations (
+  id, user_id, title, description, kelurahan, kecamatan,
+  vote_count, status, estimated_beneficiaries, estimated_cost,
+  location_lat, location_lng, voting_period_id, created_at, linked_budget_item_id
+) VALUES
+  ('ffffffff-0001-0001-0001-000000000001', '77777777-7777-7777-7777-777777777777', 'Penerangan Jalan Sukagalih', 'Pemasangan lampu penerangan di jalur utama Sukagalih agar aman di malam hari.', 'Sukagalih', 'Sukajadi', 95, 'voting', 450, 75000000, -6.895, 107.595, 'dddddddd-0000-0000-0000-000000000000', NOW(), NULL),
+  ('ffffffff-0002-0002-0002-000000000002', '88888888-8888-8888-8888-888888888888', 'Renovasi Taman Citarum', 'Perbaikan taman dan area bermain anak di Kelurahan Citarum.', 'Citarum', 'Bandung Wetan', 72, 'musrenbang', 300, 120000000, -6.902, 107.620, NULL, NOW() - INTERVAL '20 days', NULL),
+  ('ffffffff-0003-0003-0003-000000000003', '99999999-9999-9999-9999-999999999999', 'Pembangunan Posyandu Turangga', 'Pembangunan posyandu baru untuk pelayanan kesehatan ibu dan anak.', 'Turangga', 'Lengkong', 130, 'budgeted', 800, 250000000, -6.931, 107.620, NULL, '2026-05-01 00:00:00+07', 'bbbbbbbb-0001-0001-0001-000000000008'),
+    ('ffffffff-0004-0004-0004-000000000004', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'Pembuatan Trotoar Pasirkaliki', 'Pembangunan trotoar pedestrian di sepanjang jalan utama Pasirkaliki.', 'Pasirkaliki', 'Cicendo', 210, 'realized', 1500, 450000000, -6.905, 107.590, NULL, '2026-06-15 00:00:00+07', 'bbbbbbbb-0001-0001-0001-000000000002')
+ON CONFLICT (id) DO NOTHING;
+
+-- ---------------------------------------------------------------------
+-- Demo warga Kelurahan Dalung, Kec. Kuta Utara (aspirasi, aduan, leaderboard)
+-- ---------------------------------------------------------------------
+
+-- 1. pengguna & profil
+INSERT INTO users (id, email, email_verified_at) VALUES
+  ('dddddddd-0001-0001-0001-000000000001', 'warga.dalung1@sigap.test', NOW()),
+  ('dddddddd-0002-0002-0002-000000000002', 'warga.dalung2@sigap.test', NOW()),
+  ('dddddddd-0003-0003-0003-000000000003', 'warga.dalung3@sigap.test', NOW()),
+  ('dddddddd-0004-0004-0004-000000000004', 'warga.dalung4@sigap.test', NOW()),
+  ('dddddddd-0005-0005-0005-000000000005', 'petugas.dalung@sigap.test', NOW()),
+  ('dddddddd-0006-0006-0006-000000000006', 'kepala.dalung@sigap.test', NOW())
+ON CONFLICT (email) DO NOTHING;
+
+INSERT INTO profiles (id, full_name, role, dinas_id, kelurahan, kecamatan, rw) VALUES
+  ('dddddddd-0001-0001-0001-000000000001', 'Ketut Suardana',  'citizen',     NULL,    'Dalung', 'Kuta Utara', 'RW 01'),
+  ('dddddddd-0002-0002-0002-000000000002', 'Made Wirata',     'citizen',     NULL,    'Dalung', 'Kuta Utara', 'RW 02'),
+  ('dddddddd-0003-0003-0003-000000000003', 'Nyoman Suartini', 'citizen',     NULL,    'Dalung', 'Kuta Utara', 'RW 03'),
+  ('dddddddd-0004-0004-0004-000000000004', 'Komang Wijaya',   'citizen',     NULL,    'Dalung', 'Kuta Utara', 'RW 04'),
+  ('dddddddd-0005-0005-0005-000000000005', 'I Wayan Susila',  'dinas_staff', 'pupr',  'Dalung', 'Kuta Utara', 'RW 01'),
+  ('dddddddd-0006-0006-0006-000000000006', 'I Gusti Ngurah Rai', 'dinas_head', 'dishub', 'Dalung', 'Kuta Utara', 'RW 02')
+ON CONFLICT (id) DO NOTHING;
+
+-- 2. point_ledger (leaderboard: minggu/bulan/semua waktu)
+INSERT INTO point_ledger (id, user_id, points, reason, created_at) VALUES
+  (100001, 'dddddddd-0001-0001-0001-000000000001', 20,  'report_created',        NOW() - INTERVAL '2 days'),
+  (100002, 'dddddddd-0001-0001-0001-000000000001', 50,  'report_resolved',       NOW() - INTERVAL '18 days'),
+  (100003, 'dddddddd-0002-0002-0002-000000000002', 15,  'report_verified',       NOW() - INTERVAL '5 days'),
+  (100004, 'dddddddd-0002-0002-0002-000000000002', 35,  'aspiration_musrenbang', NOW() - INTERVAL '25 days'),
+  (100005, 'dddddddd-0003-0003-0003-000000000003', 10,  'upvote_given',          NOW() - INTERVAL '1 day'),
+  (100006, 'dddddddd-0003-0003-0003-000000000003', 25,  'report_created',        NOW() - INTERVAL '45 days'),
+  (100007, 'dddddddd-0004-0004-0004-000000000004', 40,  'aspiration_musrenbang', NOW() - INTERVAL '3 days'),
+  (100008, '66666666-6666-6666-6666-666666666666', 30,  'aspiration_musrenbang', NOW() - INTERVAL '20 days'),
+  (100009, '77777777-7777-7777-7777-777777777777', 55,  'report_resolved',       NOW() - INTERVAL '7 days'),
+  (100010, 'eeeeeeee-0001-0001-0001-000000000001', 20,  'upvote_given',          NOW() - INTERVAL '60 days')
+ON CONFLICT (id) DO NOTHING;
+
+-- 3. aduan tambahan di Dalung
+INSERT INTO complaints (
+  id, user_id, title, description, category, assigned_dinas, urgency,
+  location_lat, location_lng, location_address, kelurahan, kecamatan, status
+) VALUES
+  ('dddddddd-0001-0001-0001-000000000101', 'dddddddd-0001-0001-0001-000000000001', 'Lampu Jalan Padang Galak Mati', 'Lampu penerangan jalan di Jalan Padang Galak padam sejak seminggu, rawan kecelakaan di malam hari.', 'penerangan_jalan', 'dishub', 'P1', -8.7035, 115.1745, 'Jl. Padang Galak', 'Dalung', 'Kuta Utara', 'verified'),
+  ('dddddddd-0001-0001-0001-000000000102', 'dddddddd-0002-0002-0002-000000000002', 'Sampah Menumpuk di Pasar Dalung', 'Tumpukan sampah di sekitar Pasar Dalung tidak diangkut selama tiga hari, menimbulkan bau dan lalat.', 'sampah', 'dlh', 'P0', -8.7045, 115.1755, 'Pasar Dalung', 'Dalung', 'Kuta Utara', 'pending'),
+  ('dddddddd-0001-0001-0001-000000000103', 'dddddddd-0003-0003-0003-000000000003', 'Jalan Raya Dalung Berlubang', 'Jalan Raya Dalung memiliki banyak lubang di sepanjang 200 meter, membahayakan pengendara.', 'jalan_rusak', 'pupr', 'P1', -8.7040, 115.1760, 'Jl. Raya Dalung', 'Dalung', 'Kuta Utara', 'in_progress'),
+  ('dddddddd-0001-0001-0001-000000000104', 'dddddddd-0004-0004-0004-000000000004', 'Drainase Tersumbat Jl. Pluit', 'Saluran drainase di Jalan Pluit tersumbat sampah sehingga air meluap saat hujan deras.', 'drainase', 'pupr', 'P0', -8.7050, 115.1750, 'Jl. Pluit', 'Dalung', 'Kuta Utara', 'pending')
+ON CONFLICT (id) DO NOTHING;
+
+-- 4. aspirasi Dalung (voting untuk tab Kelurahan, musrenbang untuk tab Musrenbang)
+INSERT INTO aspirations (
+  id, user_id, title, description, kelurahan, kecamatan,
+  vote_count, status, estimated_beneficiaries, estimated_cost,
+  location_lat, location_lng, voting_period_id, created_at
+) VALUES
+  ('dddddddd-0002-0002-0002-000000000201', 'dddddddd-0001-0001-0001-000000000001', 'Trotoar Aman SDN Dalung', 'Pembangunan trotoar dan rambu penyeberangan di depan SDN Dalung agar siswa aman berjalan kaki.', 'Dalung', 'Kuta Utara', 45, 'voting', 300, 120000000, -8.7035, 115.1760, 'dddddddd-0000-0000-0000-000000000000', NOW() - INTERVAL '2 days'),
+  ('dddddddd-0002-0002-0002-000000000202', 'dddddddd-0002-0002-0002-000000000002', 'Penerangan Jalan Utama Dalung', 'Pemasangan lampu penerangan di sepanjang jalan utama Dalung agar lebih aman pada malam hari.', 'Dalung', 'Kuta Utara', 78, 'voting', 500, 80000000, -8.7045, 115.1745, 'dddddddd-0000-0000-0000-000000000000', NOW() - INTERVAL '4 days'),
+  ('dddddddd-0002-0002-0002-000000000203', 'dddddddd-0003-0003-0003-000000000003', 'Revitalisasi Taman Desa Adat Dalung', 'Perbaikan taman dan area bermain anak di Desa Adat Dalung untuk ruang publik yang lebih nyaman.', 'Dalung', 'Kuta Utara', 12, 'musrenbang', 200, 95000000, -8.7050, 115.1755, NULL, NOW() - INTERVAL '20 days'),
+  ('dddddddd-0002-0002-0002-000000000204', 'dddddddd-0004-0004-0004-000000000004', 'Pembangunan Drainase Jl. Tukad Balian', 'Pembangunan drainase baru di Jalan Tukad Balian untuk mengatasi genangan saat musim hujan.', 'Dalung', 'Kuta Utara', 8, 'musrenbang', 150, 65000000, -8.7040, 115.1765, NULL, NOW() - INTERVAL '35 days')
+ON CONFLICT (id) DO NOTHING;
+
+
+-- ---------------------------------------------------------------------
+-- Akun petugas tambahan (diminta untuk demo/login dashboard).
+-- ---------------------------------------------------------------------
+DO $$
+DECLARE
+  v_email   CITEXT := 'widyarusmananda15@gmail.com';
+  v_name    TEXT   := 'Widyasa Rusmananda';
+  v_user_id UUID;
+BEGIN
+  -- Pastikan baris users ada untuk email target.
+  SELECT id INTO v_user_id FROM users WHERE email = v_email;
+
+  IF NOT FOUND THEN
+    v_user_id := gen_random_uuid();
+    INSERT INTO users (id, email, email_verified_at)
+    VALUES (v_user_id, v_email, NOW());
+  END IF;
+
+  -- Pastikan profilnya memiliki peran petugas (admin = akses penuh dashboard).
+  INSERT INTO profiles (id, full_name, role)
+  VALUES (v_user_id, v_name, 'admin')
+  ON CONFLICT (id) DO UPDATE
+    SET role = 'admin',
+        full_name = EXCLUDED.full_name;
+END $$;
+
+-- ---------------------------------------------------------------------
+-- Akun warga demo untuk uji login onboarding (profil belum lengkap).
+-- ---------------------------------------------------------------------
+DO $$
+DECLARE
+  v_email   CITEXT := 'strider.jaxston@forliion.com';
+  v_user_id UUID;
+BEGIN
+  SELECT id INTO v_user_id FROM users WHERE email = v_email;
+
+  IF NOT FOUND THEN
+    v_user_id := 'b0000000-0000-0000-0000-000000000001';
+    INSERT INTO users (id, email, email_verified_at)
+    VALUES (v_user_id, v_email, NOW());
+  END IF;
+
+  INSERT INTO profiles (id, full_name, role)
+  VALUES (v_user_id, 'Warga', 'citizen')
+  ON CONFLICT (id) DO NOTHING;
+END $$;
+
+-- ---------------------------------------------------------------------
+-- Akun warga demo untuk uji login onboarding (profil belum lengkap).
+-- ---------------------------------------------------------------------
+DO $$
+DECLARE
+  v_email   CITEXT := 'iperkins95800@radiant-flow.org';
+  v_user_id UUID;
+BEGIN
+  SELECT id INTO v_user_id FROM users WHERE email = v_email;
+
+  IF NOT FOUND THEN
+    v_user_id := 'b0000000-0000-0000-0000-000000000002';
+    INSERT INTO users (id, email, email_verified_at)
+    VALUES (v_user_id, v_email, NOW());
+  END IF;
+
+  INSERT INTO profiles (id, full_name, role)
+  VALUES (v_user_id, 'Warga', 'citizen')
+  ON CONFLICT (id) DO NOTHING;
+END $$;

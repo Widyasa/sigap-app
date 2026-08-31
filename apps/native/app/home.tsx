@@ -163,7 +163,6 @@ export default function HomeScreen() {
   );
 
   const p1 = useMemo(() => urgencyColor('P1', mode), [mode]);
-  const p0 = useMemo(() => urgencyColor('P0', mode), [mode]);
 
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]}>
@@ -189,9 +188,6 @@ export default function HomeScreen() {
         >
           <View style={styles.headerRow}>
             <View style={styles.greeting}>
-              <ThemedText variant="body" style={{ color: colors.accent }}>
-                Selamat pagi,
-              </ThemedText>
               <ThemedText
                 variant="display"
                 style={{ color: colors.surface, marginTop: spacing(1) }}
@@ -502,36 +498,6 @@ export default function HomeScreen() {
         </View>
       </ScrollView>
 
-      {/* Floating SOS */}
-      <Pressable
-        onPress={() => router.push('/sos')}
-        style={({ pressed }) => [
-          styles.sosButton,
-          {
-            backgroundColor: p0.fg,
-            bottom: insets.bottom + spacing(22),
-            opacity: pressed ? 0.9 : 1,
-            shadowColor: p0.fg,
-            shadowOpacity: 0.36,
-          },
-        ]}
-        accessibilityRole="button"
-        accessibilityLabel="SOS Darurat"
-      >
-        <Ionicons name="warning" size={24} color={colors.surface} />
-        <ThemedText
-          variant="micro"
-          style={{
-            color: colors.surface,
-            marginTop: spacing(1),
-            fontWeight: '800',
-            letterSpacing: 0.6,
-          }}
-        >
-          SOS
-        </ThemedText>
-      </Pressable>
-
       <BottomNav />
     </View>
   );
@@ -686,17 +652,5 @@ const styles = StyleSheet.create({
   },
   progressFill: {
     height: '100%',
-  },
-  sosButton: {
-    position: 'absolute',
-    right: 20,
-    width: 68,
-    height: 68,
-    borderRadius: 34,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowOffset: { width: 0, height: 8 },
-    shadowRadius: 20,
-    elevation: 6,
   },
 });

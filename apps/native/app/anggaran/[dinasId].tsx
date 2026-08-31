@@ -43,7 +43,6 @@ export default function AnggaranDinasScreen() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={{ padding: spacing(4), gap: spacing(1) }}>
-        <Button text="< Kembali" variant="ghost" onPress={() => router.back()} containerStyle={styles.backButton} />
         <ThemedText variant="h1">{dinasName}</ThemedText>
         <ThemedText color="secondary">Program dan kegiatan tahun anggaran {FISCAL_YEAR}</ThemedText>
       </View>

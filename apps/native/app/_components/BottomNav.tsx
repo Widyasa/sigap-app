@@ -64,7 +64,7 @@ function isTabActive(pathname: string, route: string): boolean {
   return pathname === route || pathname.startsWith(`${route}/`);
 }
 
-export function BottomNav() {
+export function BottomNav({ showSos = true }: { showSos?: boolean } = {}) {
   const { colors, spacing, mode } = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -86,7 +86,7 @@ export function BottomNav() {
           menavigasi pulang lebih dulu. DESIGN.md menempatkan SOS di lapisan
           z tertinggi dan di jalur kritis aplikasi, jadi ia ikut di bilah nav
           yang ada di setiap layar bertab. */}
-      {pathname !== '/sos' ? (
+      {showSos && pathname !== '/sos' ? (
         <Pressable
           onPress={() => router.push('/sos')}
           accessibilityRole="button"
@@ -97,7 +97,7 @@ export function BottomNav() {
             {
               backgroundColor: urgencyColor('P0', mode).fg,
               opacity: pressed ? 0.9 : 1,
-              bottom: insets.bottom + 72,
+              bottom: insets.bottom + 120,
             },
           ]}
         >

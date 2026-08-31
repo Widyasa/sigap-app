@@ -145,7 +145,6 @@ export default function AspirationDetailScreen() {
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       {header}
       <ScrollView contentContainerStyle={{ padding: spacing(4), paddingBottom: spacing(24), gap: spacing(4) }}>
-        <Button text="< Kembali" variant="ghost" onPress={() => router.back()} containerStyle={styles.backButton} />
 
         <View style={{ gap: spacing(1) }}>
           <ThemedText variant="h1">{aspiration.title}</ThemedText>

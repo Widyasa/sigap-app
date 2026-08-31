@@ -58,7 +58,6 @@ export default function BudgetItemDetailScreen() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       <ScrollView contentContainerStyle={{ padding: spacing(4), gap: spacing(4) }}>
-        <Button text="< Kembali" variant="ghost" onPress={() => router.back()} containerStyle={styles.backButton} />
 
         <View style={{ gap: spacing(1) }}>
           <ThemedText variant="h1">{item.programName}</ThemedText>

@@ -1,7 +1,7 @@
 'use client';
 
 import { createContext, useContext, useEffect, useState, useCallback, type ReactNode } from 'react';
-import { authReasonToMessage, requestOtp, verifyOtp as verifyOtpRequest, signOut as signOutRequest } from './api';
+import { authReasonToMessage, requestOtp, verifyOtp as verifyOtpRequest, loginPassword, setPassword, signOut as signOutRequest } from './api';
 import { supabase } from './supabaseClient';
 import { decodeJwtPayload } from './jwtDecode';
 import { getAccessToken, loadTokens, saveTokens, clearTokens, getTokenExpiry } from './session';
@@ -25,6 +25,8 @@ interface AuthState {
 interface AuthContextValue extends AuthState {
   requestOtp: (email: string) => Promise<{ ok: boolean; message?: string; devCode?: string }>;
   verifyOtp: (email: string, code: string) => Promise<{ ok: boolean; message?: string }>;
+  loginPassword: (email: string, password: string) => Promise<{ ok: boolean; message?: string }>;
+  setPassword: (email: string, password: string) => Promise<{ ok: boolean; message?: string }>;
   signOut: () => Promise<void>;
   getAccessToken: () => Promise<string | null>;
 }
@@ -149,6 +151,49 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const loginPasswordAction = useCallback(async (email: string, password: string) => {
+    try {
+      const result = await loginPassword(email, password);
+      if (!result.ok || !result.accessToken || !result.refreshToken || !result.user) {
+        return { ok: false, message: authReasonToMessage(result.reason) };
+      }
+      saveTokens({
+        accessToken: result.accessToken,
+        refreshToken: result.refreshToken,
+        accessTokenExp: getTokenExpiry(result.accessToken),
+      });
+      setState({
+        isLoading: false,
+        isAuthenticated: true,
+        user: {
+          id: result.user.id,
+          email: result.user.email,
+          fullName: result.user.profile.fullName,
+          role: result.user.profile.role,
+          dinasId: result.user.profile.dinasId,
+          kelurahan: result.user.profile.kelurahan,
+          kecamatan: result.user.profile.kecamatan,
+        },
+      });
+      return { ok: true };
+    } catch (e) {
+      console.error('loginPassword error', e);
+      return { ok: false, message: 'Gagal masuk. Periksa koneksi internet.' };
+    }
+  }, []);
+
+  const setPasswordAction = useCallback(async (email: string, password: string) => {
+    try {
+      const accessToken = await getAccessToken();
+      if (!accessToken) return { ok: false, message: 'Sesi habis. Masuk kembali.' };
+      const result = await setPassword(email, password, accessToken);
+      return { ok: result.ok, message: result.ok ? undefined : authReasonToMessage(result.reason) };
+    } catch (e) {
+      console.error('setPassword error', e);
+      return { ok: false, message: 'Gagal menyimpan password. Periksa koneksi internet.' };
+    }
+  }, []);
+
   const signOut = useCallback(async () => {
     try {
       const refreshToken = loadTokens()?.refreshToken;
@@ -165,6 +210,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     ...state,
     requestOtp: requestOtpAction,
     verifyOtp: verifyOtpAction,
+    loginPassword: loginPasswordAction,
+    setPassword: setPasswordAction,
     signOut,
     getAccessToken,
   };

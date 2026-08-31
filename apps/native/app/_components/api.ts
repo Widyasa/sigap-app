@@ -39,10 +39,13 @@ export interface VerifyOtpResponse {
     email: string;
     profile: {
       fullName: string | null;
+      phone: string | null;
       role: string;
       dinasId: string | null;
       kelurahan: string | null;
       kecamatan: string | null;
+      address: string | null;
+      rt: string | null;
       rw: string | null;
     };
   };

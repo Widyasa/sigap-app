@@ -54,9 +54,10 @@ const ROLE_NEEDS_DINAS: UserRole[] = ['dinas_staff', 'dinas_head'];
  * (lihat `packages/supabase/src/queries/admin.ts`).
  */
 export default function PenggunaPage() {
-  const { isLoading: authLoading, isAuthenticated, user } = useAuth();
+  const { isLoading: authLoading, isAuthenticated, user, setPassword } = useAuth();
   const router = useRouter();
 
+  const DEFAULT_STAFF_PASSWORD = 'password123';
   const canAccess = user?.role === 'admin';
 
   useEffect(() => {
@@ -88,6 +89,11 @@ export default function PenggunaPage() {
    */
   const [pendingRole, setPendingRole] = useState<{ target: StaffUser; role: UserRole; dinasId: string | null } | null>(null);
   const [pendingDisable, setPendingDisable] = useState<StaffUser | null>(null);
+  const [pendingSetPassword, setPendingSetPassword] = useState<StaffUser | null>(null);
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [bulkPasswordOpen, setBulkPasswordOpen] = useState(false);
+  const [bulkPasswordBusy, setBulkPasswordBusy] = useState(false);
 
   const load = useCallback(async () => {
     setError(null);
@@ -155,6 +161,69 @@ export default function PenggunaPage() {
     }
   };
 
+  const applySetPassword = async (target: StaffUser) => {
+    setBusyId(target.id);
+    setError(null);
+    if (newPassword.length < 8) {
+      setError('Password minimal 8 karakter.');
+      setBusyId(null);
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setError('Password dan konfirmasi tidak cocok.');
+      setBusyId(null);
+      return;
+    }
+    try {
+      const result = await setPassword(target.email, newPassword);
+      if (!result.ok) throw new Error(result.message);
+      showSuccess(`Password untuk ${target.fullName ?? target.email} berhasil diatur.`);
+      setPendingSetPassword(null);
+      setNewPassword('');
+      setConfirmPassword('');
+    } catch (e) {
+      console.error('setPassword error', e);
+      setError('Gagal mengatur password. Coba lagi.');
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const applyBulkDefaultPasswords = async () => {
+    if (DEFAULT_STAFF_PASSWORD.length < 8) {
+      setError('Password default tidak valid.');
+      return;
+    }
+    setBulkPasswordBusy(true);
+    setError(null);
+    try {
+      const staff = users.filter((u) => u.role !== 'citizen');
+      if (staff.length === 0) {
+        setError('Tidak ada akun staff untuk diatur passwordnya.');
+        setBulkPasswordBusy(false);
+        return;
+      }
+      let success = 0;
+      let failed = 0;
+      for (const u of staff) {
+        try {
+          const result = await setPassword(u.email, DEFAULT_STAFF_PASSWORD);
+          if (result.ok) success++;
+          else failed++;
+        } catch {
+          failed++;
+        }
+      }
+      showSuccess(`Password default berhasil diatur untuk ${success} akun.${failed > 0 ? ` ${failed} gagal.` : ''}`);
+      setBulkPasswordOpen(false);
+    } catch (e) {
+      console.error('bulk default password error', e);
+      setError('Gagal mengatur password default. Coba lagi.');
+    } finally {
+      setBulkPasswordBusy(false);
+    }
+  };
+
   if (authLoading || !isAuthenticated || !canAccess) {
     return <div style={{ padding: 24 }}>Memuat…</div>;
   }
@@ -169,6 +238,16 @@ export default function PenggunaPage() {
         loading || error
           ? `Masuk sebagai ${user?.fullName ?? user?.role}.`
           : `Masuk sebagai ${user?.fullName ?? user?.role}. ${users.length} akun terdaftar.`
+      }
+      actions={
+        <button
+          type="button"
+          style={smallButtonStyle}
+          disabled={loading || bulkPasswordBusy}
+          onClick={() => setBulkPasswordOpen(true)}
+        >
+          Password Default Staff
+        </button>
       }
     >
       <FlashMessage flash={flash} />
@@ -280,15 +359,26 @@ export default function PenggunaPage() {
                   </span>
                 </Td>
                 <Td>
-                  <button
-                    type="button"
-                    style={smallButtonStyle}
-                    disabled={busyId === u.id || u.id === user?.id}
-                    onClick={() => setPendingDisable(u)}
-                    title={u.id === user?.id ? 'Tidak dapat menonaktifkan akun sendiri' : undefined}
-                  >
-                    {busyId === u.id ? 'Menyimpan…' : u.disabledAt ? 'Aktifkan' : 'Nonaktifkan'}
-                  </button>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button
+                      type="button"
+                      style={smallButtonStyle}
+                      disabled={busyId === u.id || u.id === user?.id || u.role === 'citizen'}
+                      onClick={() => setPendingSetPassword(u)}
+                      title={u.role === 'citizen' ? 'Password tidak diizinkan untuk warga' : undefined}
+                    >
+                      Password
+                    </button>
+                    <button
+                      type="button"
+                      style={smallButtonStyle}
+                      disabled={busyId === u.id || u.id === user?.id}
+                      onClick={() => setPendingDisable(u)}
+                      title={u.id === user?.id ? 'Tidak dapat menonaktifkan akun sendiri' : undefined}
+                    >
+                      {busyId === u.id ? 'Menyimpan…' : u.disabledAt ? 'Aktifkan' : 'Nonaktifkan'}
+                    </button>
+                  </div>
                 </Td>
               </tr>
             ))}
@@ -373,6 +463,81 @@ export default function PenggunaPage() {
               }}
             >
               {pendingDisable.disabledAt ? 'Aktifkan' : 'Nonaktifkan'}
+            </button>
+          </div>
+        </Modal>
+      ) : null}
+
+      {pendingSetPassword ? (
+        <Modal title="Atur Password" onClose={() => { setPendingSetPassword(null); setNewPassword(''); setConfirmPassword(''); }}>
+          <p style={{ marginTop: 0 }}>
+            Atur password baru untuk <strong>{pendingSetPassword.fullName ?? pendingSetPassword.email}</strong>.
+          </p>
+          <label htmlFor="new-password" style={{ display: 'block', marginBottom: 4, fontSize: 13, color: THEME.textSecondary }}>
+            Password baru
+          </label>
+          <input
+            id="new-password"
+            type="password"
+            value={newPassword}
+            onChange={(e) => setNewPassword(e.target.value)}
+            style={{ ...selectStyle, width: '100%', marginBottom: 12, minHeight: 36, padding: '0 10px' }}
+            placeholder="Minimal 8 karakter"
+            autoComplete="new-password"
+          />
+          <label htmlFor="confirm-password" style={{ display: 'block', marginBottom: 4, fontSize: 13, color: THEME.textSecondary }}>
+            Konfirmasi password
+          </label>
+          <input
+            id="confirm-password"
+            type="password"
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+            style={{ ...selectStyle, width: '100%', marginBottom: 12, minHeight: 36, padding: '0 10px' }}
+            placeholder="Ketik ulang password"
+            autoComplete="new-password"
+          />
+          {error ? <p style={{ color: THEME.danger, fontSize: 13, marginBottom: 12 }}>{error}</p> : null}
+          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 16 }}>
+            <button type="button" style={secondaryButtonStyle} onClick={() => { setPendingSetPassword(null); setNewPassword(''); setConfirmPassword(''); }}>
+              Batal
+            </button>
+            <button
+              type="button"
+              style={sharedButtonStyle}
+              disabled={busyId === pendingSetPassword.id}
+              onClick={() => {
+                const t = pendingSetPassword;
+                void applySetPassword(t);
+              }}
+            >
+              {busyId === pendingSetPassword.id ? 'Menyimpan…' : 'Simpan Password'}
+            </button>
+          </div>
+        </Modal>
+      ) : null}
+
+      {bulkPasswordOpen ? (
+        <Modal title="Password Default untuk Staff" onClose={() => setBulkPasswordOpen(false)}>
+          <p style={{ marginTop: 0 }}>
+            Atur password semua akun staff (non-warga) menjadi <strong>{DEFAULT_STAFF_PASSWORD}</strong>.
+            Tindakan ini berguna untuk demo/development dan harus segera diubah setelahnya.
+          </p>
+          <p style={{ fontSize: 13, color: THEME.textSecondary }}>
+            Akun terdampak: {users.filter((u) => u.role !== 'citizen').length} staff.
+          </p>
+          {error ? <p style={{ color: THEME.danger, fontSize: 13, marginBottom: 12 }}>{error}</p> : null}
+          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 16 }}>
+            <button type="button" style={secondaryButtonStyle} onClick={() => setBulkPasswordOpen(false)}>
+              Batal
+            </button>
+            <button
+              type="button"
+              style={sharedButtonStyle}
+              disabled={bulkPasswordBusy}
+              onClick={() => void applyBulkDefaultPasswords()}
+            >
+              {bulkPasswordBusy ? 'Menerapkan…' : 'Terapkan Password Default'}
             </button>
           </div>
         </Modal>

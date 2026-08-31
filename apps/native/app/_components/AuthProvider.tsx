@@ -24,10 +24,13 @@ export interface UserProfile {
   id: string;
   email: string;
   fullName: string | null;
+  phone: string | null;
   role: string;
   dinasId: string | null;
   kelurahan: string | null;
   kecamatan: string | null;
+  address: string | null;
+  rt: string | null;
   rw: string | null;
 }
 
@@ -59,6 +62,10 @@ export interface OnboardingInput {
   fullName: string;
   kecamatan: string;
   kelurahan: string;
+  address: string;
+  phone: string;
+  rt: string;
+  rw: string;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -76,7 +83,7 @@ async function fetchUserProfile(userId: string): Promise<UserProfile | null> {
   const [{ data: profile, error: profileError }, { data: user, error: userError }] = await Promise.all([
     supabase
       .from('profiles')
-      .select('id, full_name, role, dinas_id, kelurahan, kecamatan, rw')
+      .select('id, full_name, phone, role, dinas_id, kelurahan, kecamatan, address, rt, rw')
       .eq('id', userId)
       .single(),
     supabase
@@ -95,10 +102,13 @@ async function fetchUserProfile(userId: string): Promise<UserProfile | null> {
     id: profile.id,
     email: user.email ?? '',
     fullName: profile.full_name,
+    phone: profile.phone,
     role: profile.role,
     dinasId: profile.dinas_id,
     kelurahan: profile.kelurahan,
     kecamatan: profile.kecamatan,
+    address: profile.address,
+    rt: profile.rt,
     rw: profile.rw,
   };
 }
@@ -106,6 +116,17 @@ async function fetchUserProfile(userId: string): Promise<UserProfile | null> {
 function getUserIdFromToken(token: string): string {
   const payload = decodeJwtPayload<{ sub?: string }>(token);
   return payload?.sub ?? '';
+}
+
+export function profileIsComplete(user: UserProfile): boolean {
+  return Boolean(
+    user.kelurahan?.trim() &&
+      user.kecamatan?.trim() &&
+      user.address?.trim() &&
+      user.phone?.trim() &&
+      user.rt?.trim() &&
+      user.rw?.trim(),
+  );
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -152,7 +173,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setState({
       isLoading: false,
       isAuthenticated: true,
-      needsOnboarding: !user.kelurahan,
+      needsOnboarding: !profileIsComplete(user),
       user,
       authError: null,
     });
@@ -230,15 +251,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return { ok: false, message: 'Gagal memuat profil. Coba lagi.' };
         }
 
+        const needsOnboarding = !profileIsComplete(user);
         setRealtimeAuth(result.accessToken);
         setState({
           isLoading: false,
           isAuthenticated: true,
-          needsOnboarding: !user.kelurahan,
+          needsOnboarding,
           user,
           authError: null,
         });
-        return { ok: true, needsOnboarding: !user.kelurahan };
+        return { ok: true, needsOnboarding };
       } catch (e) {
         console.error('verifyOtp error', e);
         return { ok: false, message: 'Gagal memverifikasi kode. Periksa koneksi internet.' };
@@ -249,8 +271,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const completeOnboarding = useCallback(
     async (input: OnboardingInput) => {
-      const { fullName, kecamatan, kelurahan } = input;
-      if (!fullName.trim() || !kecamatan.trim() || !kelurahan.trim()) {
+      const { fullName, kecamatan, kelurahan, address, phone, rt, rw } = input;
+      const phoneDigits = phone.trim().replace(/\D/g, '');
+      if (!fullName.trim() || !kecamatan.trim() || !kelurahan.trim() || !address.trim() || !phoneDigits || !rt.trim() || !rw.trim()) {
         return { ok: false, message: 'Semua kolom wajib diisi.' };
       }
       try {
@@ -266,12 +289,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // kelurahan. Tanpa normalisasi, warga yang mengetik "sukamaju" atau
         // "Suka  Maju" diam-diam melihat daftar aspirasi kosong dan tidak
         // akan pernah bisa memilih, tanpa satu pun penjelasan di layar.
+        const normalizedFullName = fullName.trim().replace(/\s+/g, ' ');
+        const normalizedKecamatan = normalizePlaceName(kecamatan);
+        const normalizedKelurahan = normalizePlaceName(kelurahan);
+        const normalizedAddress = address.trim().replace(/\s+/g, ' ');
+        const normalizedPhone = phone.trim().replace(/\D/g, '');
+        const normalizedRt = rt.trim();
+        const normalizedRw = rw.trim();
         const { error } = await supabase
           .from('profiles')
           .update({
-            full_name: fullName.trim().replace(/\s+/g, ' '),
-            kecamatan: normalizePlaceName(kecamatan),
-            kelurahan: normalizePlaceName(kelurahan),
+            full_name: normalizedFullName,
+            kecamatan: normalizedKecamatan,
+            kelurahan: normalizedKelurahan,
+            address: normalizedAddress,
+            phone: normalizedPhone,
+            rt: normalizedRt,
+            rw: normalizedRw,
           })
           .eq('id', userId);
         if (error) {
@@ -284,9 +318,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           user: s.user
             ? {
                 ...s.user,
-                fullName: fullName.trim(),
-                kecamatan: kecamatan.trim(),
-                kelurahan: kelurahan.trim(),
+                fullName: normalizedFullName,
+                kecamatan: normalizedKecamatan,
+                kelurahan: normalizedKelurahan,
+                address: normalizedAddress,
+                phone: normalizedPhone,
+                rt: normalizedRt,
+                rw: normalizedRw,
               }
             : null,
         }));

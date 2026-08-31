@@ -76,6 +76,7 @@ per-var comments — summary below):
 | Var | Purpose | Where to get it |
 |---|---|---|
 | `OTP_PEPPER` | Random secret used to hash OTP/refresh tokens | Generate a random 32-byte hex string yourself |
+| `PASSWORD_PEPPER` | Random secret used to hash staff passwords | Generate a different random 32-byte hex string yourself |
 | `RESEND_API_KEY` | Sends OTP emails | [resend.com/api-keys](https://resend.com/api-keys) |
 | `EMAIL_FROM` | Sender address for OTP emails | Must be from a domain verified in Resend (see `scripts/setup-resend-domain.sh`) |
 | `OTP_DEV_MODE` | If `true`, returns the OTP code in the API response instead of only emailing it | Local dev only — leave `false`/unset in production |
@@ -130,6 +131,39 @@ Root (via Turborepo, runs across all workspaces):
 
 Use `npm run <script> --workspace=apps/native` (or `apps/web`) to target one app, or `cd` into
 the app directory and run its scripts directly.
+
+## Staff password login (admin & staff dashboard)
+
+By default the staff dashboard still supports OTP login. As an alternative, admins can set a password for any staff/admin account so those users can log in with **email + password**.
+
+- Password login is only enabled for non-citizen roles (`verifier`, `dinas_staff`, `dinas_head`, `emergency_operator`, `admin`).
+- Citizens using the mobile app continue to use OTP only.
+
+### Setting the first staff password
+
+After the migration `20260831000001_password_login.sql` has been applied:
+
+1. Log in to the web dashboard as admin using OTP.
+2. Go to **Kelola Pengguna**.
+3. For an individual staff member, click **Password** on their row and enter a new password.
+4. Or, for demo/development, click **Password Default Staff** to set every staff account to the default dummy password.
+
+### Default dummy password (development only)
+
+The dashboard has a **Password Default Staff** action that sets every non-citizen account to:
+
+```
+password123
+```
+
+This is intended only for local/demo setups. Change it to real passwords before any real deployment.
+
+### Edge functions for password auth
+
+| Function | Purpose |
+|---|---|
+| `auth-login-password` | Validates email + password and returns access/refresh tokens |
+| `auth-set-password` | Admin-only endpoint to set a staff member's password |
 
 ## Deployment
 

@@ -700,8 +700,10 @@ export type Database = {
           id: string
           kecamatan: string | null
           kelurahan: string | null
+          address: string | null
           phone: string | null
           role: Database["public"]["Enums"]["user_role"]
+          rt: string | null
           rw: string | null
         }
         Insert: {
@@ -712,8 +714,10 @@ export type Database = {
           id: string
           kecamatan?: string | null
           kelurahan?: string | null
+          address?: string | null
           phone?: string | null
           role?: Database["public"]["Enums"]["user_role"]
+          rt?: string | null
           rw?: string | null
         }
         Update: {
@@ -724,8 +728,10 @@ export type Database = {
           id?: string
           kecamatan?: string | null
           kelurahan?: string | null
+          address?: string | null
           phone?: string | null
           role?: Database["public"]["Enums"]["user_role"]
+          rt?: string | null
           rw?: string | null
         }
         Relationships: [
@@ -821,6 +827,7 @@ export type Database = {
           email_verified_at?: string | null
           id?: string
           last_login_at?: string | null
+          password_hash?: string | null
         }
         Update: {
           created_at?: string
@@ -829,6 +836,7 @@ export type Database = {
           email_verified_at?: string | null
           id?: string
           last_login_at?: string | null
+          password_hash?: string | null
         }
         Relationships: []
       }

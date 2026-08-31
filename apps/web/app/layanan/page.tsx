@@ -10,6 +10,7 @@ import {
   generateServicePdf,
   type ServiceRequestSummary,
 } from '@repo/supabase';
+import type { Database } from '@repo/supabase';
 import {
   SERVICE_CATALOG,
   SERVICE_STATUS_LABELS,
@@ -17,6 +18,7 @@ import {
   serviceStatusColor,
   spacing,
   typography,
+  urgencyColor,
   type ServiceStatus,
 } from '@repo/shared';
 import { useAuth } from '../_lib/auth';
@@ -37,6 +39,8 @@ import {
 
 const THEME = colors.light;
 const STAFF_ROLES = ['verifier', 'dinas_staff', 'dinas_head', 'admin'];
+
+type ServiceRequestRow = Database['public']['Tables']['service_requests']['Row'];
 
 function serviceTypeName(serviceType: string): string {
   return SERVICE_CATALOG.find((s) => s.id === serviceType)?.name ?? serviceType;
@@ -65,7 +69,7 @@ export default function LayananAdminPage() {
   const [requests, setRequests] = useState<ServiceRequestSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
+  const [realtimeConnected, setRealtimeConnected] = useState(true);
   const load = useCallback(async () => {
     setError(null);
     try {
@@ -83,12 +87,63 @@ export default function LayananAdminPage() {
     if (canAccess) load();
   }, [canAccess, load]);
 
+  // Realtime: petugas melihat permohonan baru dan perubahan status tanpa
+  // reload manual. RLS SELECT yang sama dengan `listServiceRequestsForReview`
+  // tetap membatasi baris yang benar-benar terkirim ke petugas ini.
+  useEffect(() => {
+    if (!canAccess) return;
+    const channel = supabase
+      .channel('service-requests')
+      .on<ServiceRequestRow>(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'service_requests' },
+        () => load(),
+      )
+      .on<ServiceRequestRow>(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'service_requests' },
+        () => load(),
+      )
+      .subscribe((status) => {
+        setRealtimeConnected(status === 'SUBSCRIBED');
+      });
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [canAccess, load]);
+
   if (authLoading || !isAuthenticated || !canAccess) {
     return <div style={{ padding: 24 }}>Memuat…</div>;
   }
 
   return (
     <DashboardShell title="Layanan" subtitle={`Masuk sebagai ${user?.fullName ?? user?.role}.`}>
+      {!realtimeConnected && !loading ? (
+        <div
+          role="status"
+          style={{
+            background: urgencyColor('P1', 'light').bg,
+            color: urgencyColor('P1', 'light').fg,
+            border: `1px solid ${urgencyColor('P1', 'light').fg}`,
+            borderRadius: 10,
+            padding: 12,
+            marginBottom: 16,
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            gap: 12,
+            flexWrap: 'wrap',
+            fontSize: 14,
+          }}
+        >
+          <span>Koneksi realtime terputus — daftar mungkin tidak mutakhir.</span>
+          <button type="button" style={smallButtonStyle} onClick={() => void load()}>
+            Muat Ulang
+          </button>
+        </div>
+      ) : null}
+
       {/* Satu keadaan saja pada satu waktu. Dulu galat dan keadaan kosong
           dirender bersamaan: saat pengambilan data gagal, petugas melihat
           "Gagal memuat data" DAN "Tidak ada permohonan yang perlu

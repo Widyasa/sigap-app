@@ -30,15 +30,15 @@ export default function VerifyScreen() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [countdown, setCountdown] = useState(RESEND_SECONDS);
-  const { verifyOtp, requestOtp, isLoading, isAuthenticated } = useAuth();
+  const { verifyOtp, requestOtp, isLoading, isAuthenticated, needsOnboarding } = useAuth();
   const router = useRouter();
   const { colors, spacing } = useTheme();
 
   useEffect(() => {
     if (!isLoading && isAuthenticated) {
-      router.replace('/home');
+      router.replace(needsOnboarding ? '/onboarding' : '/home');
     }
-  }, [isLoading, isAuthenticated, router]);
+  }, [isLoading, isAuthenticated, needsOnboarding, router]);
 
   useEffect(() => {
     if (devCode) {

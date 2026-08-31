@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { View, FlatList, Pressable, StyleSheet, Alert } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import {
@@ -19,6 +19,7 @@ import { formatSlaCountdown } from '@repo/shared';
 import { ThemedText } from './_components/ThemedText';
 import { AspirationCard } from './_components/AspirationCard';
 import { BottomNav } from './_components/BottomNav';
+import { SosPill } from './_components/SosPill';
 import { useAuth } from './_components/AuthProvider';
 import { useTheme } from './_components/useTheme';
 import { supabase } from './_components/supabase';
@@ -28,6 +29,7 @@ type Tab = 'kelurahan' | 'musrenbang';
 export default function AspirasiScreen() {
   const { user } = useAuth();
   const { colors, spacing } = useTheme();
+  const insets = useSafeAreaInsets();
   const router = useRouter();
 
   const [tab, setTab] = useState<Tab>('kelurahan');
@@ -143,6 +145,7 @@ export default function AspirasiScreen() {
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
       <View style={[styles.headerRow, { paddingHorizontal: spacing(4), paddingTop: spacing(2) }]}>
         <ThemedText variant="h2">Aspirasi</ThemedText>
+        <SosPill />
       </View>
 
       {error ? (
@@ -160,7 +163,11 @@ export default function AspirasiScreen() {
         <FlatList
           data={activeList}
           keyExtractor={(a) => a.id}
-          contentContainerStyle={{ padding: spacing(4), paddingBottom: spacing(24), gap: spacing(3) }}
+          contentContainerStyle={{
+            padding: spacing(4),
+            paddingBottom: insets.bottom + 180,
+            gap: spacing(3),
+          }}
           ListHeaderComponent={
             <View style={{ gap: spacing(3), marginBottom: spacing(3) }}>
               <ThemedText variant="h1">Aspirasi warga</ThemedText>
@@ -285,7 +292,7 @@ export default function AspirasiScreen() {
         </ThemedText>
       </Pressable>
 
-      <BottomNav />
+      <BottomNav showSos={false} />
     </SafeAreaView>
   );
 }

@@ -120,7 +120,7 @@ export default function ComplaintDuplicateScreen() {
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
       <View style={[styles.topBar, { paddingHorizontal: spacing(4), paddingTop: spacing(2) }]}>
         <Pressable
-          onPress={() => router.back()}
+          onPress={() => (router.canGoBack() ? router.back() : router.replace('/feed'))}
           accessibilityRole="button"
           accessibilityLabel="Kembali"
           hitSlop={8}

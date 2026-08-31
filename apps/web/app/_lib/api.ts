@@ -35,6 +35,25 @@ export interface VerifyOtpResponse {
   retry_after_seconds?: number;
 }
 
+export interface LoginPasswordResponse {
+  ok: boolean;
+  accessToken?: string;
+  refreshToken?: string;
+  user?: {
+    id: string;
+    email: string;
+    profile: {
+      fullName: string | null;
+      role: string;
+      dinasId: string | null;
+      kelurahan: string | null;
+      kecamatan: string | null;
+    };
+  };
+  reason?: string;
+  retry_after_seconds?: number;
+}
+
 export async function verifyOtp(email: string, code: string): Promise<VerifyOtpResponse> {
   const response = await fetch(`${baseUrl}/functions/v1/auth-verify-otp`, {
     method: 'POST',
@@ -42,6 +61,39 @@ export async function verifyOtp(email: string, code: string): Promise<VerifyOtpR
     body: JSON.stringify({ email, code }),
   });
   return response.json() as Promise<VerifyOtpResponse>;
+}
+
+export async function loginPassword(
+  email: string,
+  password: string,
+): Promise<LoginPasswordResponse> {
+  const response = await fetch(`${baseUrl}/functions/v1/auth-login-password`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password }),
+  });
+  return response.json() as Promise<LoginPasswordResponse>;
+}
+
+export interface SetPasswordResponse {
+  ok: boolean;
+  reason?: string;
+}
+
+export async function setPassword(
+  email: string,
+  password: string,
+  accessToken: string,
+): Promise<SetPasswordResponse> {
+  const response = await fetch(`${baseUrl}/functions/v1/auth-set-password`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify({ email, password }),
+  });
+  return response.json() as Promise<SetPasswordResponse>;
 }
 
 export async function signOut(refreshToken: string): Promise<void> {
@@ -71,6 +123,16 @@ export function authReasonToMessage(reason: string | undefined): string {
     case 'server_misconfigured':
     case 'server_error':
       return 'Terjadi kesalahan server. Coba lagi nanti.';
+    case 'invalid_credentials':
+      return 'Email atau password salah.';
+    case 'unauthorized':
+      return 'Sesi habis. Masuk kembali.';
+    case 'forbidden':
+      return 'Anda tidak memiliki izin.';
+    case 'user_not_found':
+      return 'Pengguna tidak ditemukan.';
+    case 'citizen_password_forbidden':
+      return 'Password tidak diizinkan untuk peran warga.';
     default:
       return 'Terjadi kesalahan. Coba lagi.';
   }

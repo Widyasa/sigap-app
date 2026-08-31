@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Alert, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -15,12 +15,48 @@ import {
 import { POINT_REASON_LABELS, urgencyColor, pointsColor } from '@repo/shared';
 import { ThemedText } from './_components/ThemedText';
 import { Button } from './_components/Button';
-import { useAuth } from './_components/AuthProvider';
+import { useAuth, profileIsComplete } from './_components/AuthProvider';
 import { useTheme } from './_components/useTheme';
 import { BottomNav } from './_components/BottomNav';
 import { supabase } from './_components/supabase';
 import { baseUrl } from './_components/api';
 import { getAccessToken } from './_components/session';
+
+interface WebGlobals {
+  alert?: (message?: string) => void;
+  confirm?: (message?: string) => boolean;
+}
+
+const webGlobals = globalThis as unknown as WebGlobals;
+
+function showPlatformAlert(title: string, message?: string) {
+  if (Platform.OS === 'web') {
+    const text = message ? `${title}\n\n${message}` : title;
+    webGlobals.alert?.(text);
+  } else {
+    Alert.alert(title, message);
+  }
+}
+
+function confirmPlatformAction(
+  title: string,
+  message: string,
+  action: () => void,
+  confirmLabel = 'Lanjutkan',
+  destructive = true,
+) {
+  if (Platform.OS === 'web') {
+    const text = `${title}\n\n${message}`;
+    if (webGlobals.confirm?.(text)) {
+      action();
+    }
+  } else {
+    Alert.alert(title, message, [
+      { text: 'Batal', style: 'cancel' },
+      { text: confirmLabel, style: destructive ? 'destructive' : 'default', onPress: action },
+    ]);
+  }
+}
 
 const POINT_HISTORY_LIMIT = 50;
 
@@ -120,20 +156,15 @@ export default function ProfileScreen() {
   }, [load, loadSessions, user?.id]);
 
   const confirmSignOut = useCallback(() => {
-    Alert.alert('Keluar', 'Yakin ingin keluar dari akun?', [
-      { text: 'Batal', style: 'cancel' },
-      { text: 'Keluar', style: 'destructive', onPress: () => signOut() },
-    ]);
+    confirmPlatformAction('Keluar', 'Yakin ingin keluar dari akun?', () => signOut(), 'Keluar');
   }, [signOut]);
 
   const confirmSignOutAll = useCallback(() => {
-    Alert.alert(
+    confirmPlatformAction(
       'Keluar dari semua perangkat',
       'Semua perangkat yang masuk akun ini akan dikeluarkan. Lanjutkan?',
-      [
-        { text: 'Batal', style: 'cancel' },
-        { text: 'Keluar semua', style: 'destructive', onPress: () => signOut(true) },
-      ],
+      () => signOut(true),
+      'Keluar semua',
     );
   }, [signOut]);
 
@@ -142,13 +173,13 @@ export default function ProfileScreen() {
       try {
         const accessToken = await getAccessToken();
         if (!accessToken || !baseUrl) {
-          Alert.alert('Gagal', 'Sesi tidak ditemukan.');
+          showPlatformAlert('Gagal', 'Sesi tidak ditemukan.');
           return;
         }
         await revokeSession(baseUrl, accessToken, session.id);
         if (user?.id) loadSessions(user.id);
       } catch (err) {
-        Alert.alert(
+        showPlatformAlert(
           'Gagal mencabut perangkat',
           err instanceof Error ? err.message : 'Terjadi kesalahan.',
         );
@@ -347,6 +378,35 @@ export default function ProfileScreen() {
               </View>
             </View>
 
+
+            {user && !profileIsComplete(user) ? (
+              <View style={{ paddingHorizontal: spacing(6), marginTop: spacing(4) }}>
+                <View
+                  style={{
+                    backgroundColor: colors.surface,
+                    borderWidth: 1,
+                    borderColor: colors.border,
+                    borderRadius: spacing(3),
+                    padding: spacing(4),
+                    gap: spacing(2),
+                  }}
+                >
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing(3) }}>
+                    <Ionicons name="person-circle-outline" size={28} color={colors.accent} />
+                    <ThemedText variant="h2">Lengkapi profil Anda</ThemedText>
+                  </View>
+                  <ThemedText variant="body" color="secondary">
+                    Isi nama, alamat, dan data wilayah untuk mengakses fitur warga.
+                  </ThemedText>
+                  <Button
+                    text="Lengkapi profil"
+                    variant="secondary"
+                    onPress={() => router.push('/onboarding')}
+                    containerStyle={{ marginTop: spacing(2) }}
+                  />
+                </View>
+              </View>
+            ) : null}
             <ThemedText
               variant="h2"
               style={{ paddingHorizontal: spacing(4), marginTop: spacing(6), marginBottom: spacing(3) }}
@@ -520,14 +580,12 @@ export default function ProfileScreen() {
                     </View>
                     <Pressable
                       onPress={() =>
-                        Alert.alert('Cabut sesi', 'Cabut akses perangkat ini?', [
-                          { text: 'Batal', style: 'cancel' },
-                          {
-                            text: 'Cabut',
-                            style: 'destructive',
-                            onPress: () => handleRevokeSession(session),
-                          },
-                        ])
+                        confirmPlatformAction(
+                          'Cabut sesi',
+                          'Cabut akses perangkat ini?',
+                          () => handleRevokeSession(session),
+                          'Cabut',
+                        )
                       }
                       hitSlop={8}
                       accessibilityRole="button"

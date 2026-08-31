@@ -272,6 +272,12 @@ export default function ComplaintDetailScreen() {
     if (!user || !complaint || hasDukung) return;
     setHasDukung(true);
     setComplaint((prev) => (prev ? { ...prev, upvoteCount: prev.upvoteCount + 1 } : prev));
+
+    // Aduan contoh (`dummy-*`) tidak punya baris di DB; cukup update lokal.
+    if (id.startsWith('dummy-')) {
+      return;
+    }
+
     try {
       await upvoteComplaint(supabase, complaint.id, user.id);
     } catch (e) {
@@ -288,7 +294,7 @@ export default function ComplaintDetailScreen() {
       setComplaint((prev) => (prev ? { ...prev, upvoteCount: prev.upvoteCount - 1 } : prev));
       Alert.alert('Gagal', 'Tidak bisa mendukung aduan ini sekarang. Coba lagi.');
     }
-  }, [user, complaint, hasDukung]);
+  }, [user, complaint, hasDukung, id]);
 
   const handleKomentar = useCallback(() => {
     Alert.alert('Belum tersedia', 'Fitur komentar akan hadir segera.');
@@ -433,7 +439,11 @@ export default function ComplaintDetailScreen() {
         ]}
       >
         {/* Tombol bookmark dihapus: ia hanya memanggil console.log. */}
-        <HeaderIconButton name="chevron-back" label="Kembali" onPress={() => router.back()} />
+        <HeaderIconButton
+          name="chevron-back"
+          label="Kembali"
+          onPress={() => (router.canGoBack() ? router.back() : router.replace('/feed'))}
+        />
       </View>
 
       <View

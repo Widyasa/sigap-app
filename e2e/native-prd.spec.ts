@@ -239,6 +239,10 @@ async function completeOnboarding(page: Page) {
   await page.getByLabel('Nama Lengkap').fill('Test Warga');
   await page.getByLabel('Kecamatan').fill('Coblong');
   await page.getByLabel('Kelurahan').fill('Dago');
+  await page.getByLabel('Alamat Lengkap').fill('Jl. Dago Pojok No. 10');
+  await page.getByLabel('Nomor Telepon').fill('081234567890');
+  await page.getByLabel('RT').fill('01');
+  await page.getByLabel('RW').fill('02');
   await page.getByRole('button', { name: 'Mulai' }).click();
   await page.waitForURL('/home');
 }

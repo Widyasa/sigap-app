@@ -11,7 +11,7 @@ import {
 import { statusColor } from '@repo/shared';
 import { ThemedText } from './_components/ThemedText';
 import { Button } from './_components/Button';
-import { useAuth } from './_components/AuthProvider';
+import { useAuth, profileIsComplete } from './_components/AuthProvider';
 import { useTheme } from './_components/useTheme';
 import { supabase } from './_components/supabase';
 
@@ -121,13 +121,13 @@ export default function LeaderboardScreen() {
         <ThemedText variant="h2">SIGAP</ThemedText>
       </View>
 
-      {!user?.kelurahan ? (
+      {user && !profileIsComplete(user) ? (
         <View style={{ flex: 1, padding: spacing(4), justifyContent: 'center', gap: spacing(3) }}>
           <ThemedText variant="h2" align="center">
             Lengkapi profil Anda
           </ThemedText>
           <ThemedText variant="body" color="secondary" align="center">
-            Isi kelurahan pada profil untuk melihat peringkat warga di wilayah Anda.
+            Isi nama, alamat, dan data wilayah pada profil untuk melihat peringkat warga di sekitar Anda.
           </ThemedText>
           <Button text="Lengkapi profil" onPress={() => router.push('/onboarding')} />
         </View>

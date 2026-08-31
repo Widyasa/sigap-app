@@ -21,15 +21,15 @@ export default function LoginScreen() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [retryAfter, setRetryAfter] = useState(0);
-  const { requestOtp, isLoading, isAuthenticated } = useAuth();
+  const { requestOtp, isLoading, isAuthenticated, needsOnboarding } = useAuth();
   const router = useRouter();
   const { colors, spacing } = useTheme();
 
   useEffect(() => {
     if (!isLoading && isAuthenticated) {
-      router.replace('/home');
+      router.replace(needsOnboarding ? '/onboarding' : '/home');
     }
-  }, [isLoading, isAuthenticated, router]);
+  }, [isLoading, isAuthenticated, needsOnboarding, router]);
 
   useEffect(() => {
     if (retryAfter <= 0) return;

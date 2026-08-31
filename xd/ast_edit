@@ -1,0 +1,9 @@
+{
+  "ops": [
+    {
+      "pat": "const selectStyle: CSSProperties = {\n  border: `1px solid ${THEME.border}`,\n  borderRadius: 6,\n  padding: '4px 6px',\n  fontSize: 13,\n};",
+      "out": "const selectStyle: CSSProperties = {\n  border: `1px solid ${THEME.border}`,\n  borderRadius: 6,\n  padding: '4px 6px',\n  fontSize: 13,\n};\n\nconst passwordInputStyle: CSSProperties = {\n  ...selectStyle,\n  width: '100%',\n  minHeight: 36,\n  padding: '0 10px',\n  marginBottom: 12,\n};"
+    }
+  ],
+  "paths": ["apps/web/app/pengguna/page.tsx"]
+}

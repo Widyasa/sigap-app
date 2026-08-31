@@ -11,6 +11,7 @@ const THEME = colors.light;
 const RESEND_SECONDS = 60;
 
 type Step = 'email' | 'code';
+type AuthMode = 'otp' | 'password';
 
 /** Landing pasca-login per peran (issue #14 kriteria role-based views).
  * Operator darurat langsung ke antrean SOS; peran lain ke dashboard `/`
@@ -20,11 +21,13 @@ function landingPathForRole(role: string): string {
 }
 
 export default function LoginPage() {
-  const { requestOtp, verifyOtp, isAuthenticated, user } = useAuth();
+  const { requestOtp, verifyOtp, loginPassword, isAuthenticated, user } = useAuth();
   const router = useRouter();
 
+  const [mode, setMode] = useState<AuthMode>('otp');
   const [step, setStep] = useState<Step>('email');
   const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [code, setCode] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -107,6 +110,36 @@ export default function LoginPage() {
     // Navigasi ditangani oleh effect di atas begitu `user` termuat.
   };
 
+  const handlePasswordLogin = async () => {
+    if (loading) return;
+    setError(null);
+    const parsed = emailSchema.safeParse(email);
+    if (!parsed.success) {
+      setError(parsed.error.issues[0]?.message ?? 'Email tidak valid');
+      return;
+    }
+    if (password.length < 8) {
+      setError('Password minimal 8 karakter');
+      return;
+    }
+    setLoading(true);
+    const result = await loginPassword(parsed.data, password);
+    setLoading(false);
+    if (!result.ok) {
+      setError(result.message ?? 'Gagal masuk');
+      return;
+    }
+    // Navigasi ditangani oleh effect di atas begitu `user` termuat.
+  };
+
+  const switchMode = (next: AuthMode) => {
+    setMode(next);
+    setStep('email');
+    setCode('');
+    setPassword('');
+    setError(null);
+  };
+
   return (
     <main style={pageStyle}>
       <div style={cardStyle}>
@@ -115,9 +148,71 @@ export default function LoginPage() {
           Alat internal untuk mengelola periode voting dan tinjauan aspirasi. Bukan untuk warga.
         </p>
 
-        {/* Dibungkus <form> supaya menekan Enter di kolom input mengirim
-          formulir — tanpa ini tombol hanya bisa diklik dengan tetikus. */}
-        {step === 'email' ? (
+        <div style={tabContainerStyle}>
+          <button
+            type="button"
+            style={mode === 'otp' ? activeTabStyle : tabStyle}
+            onClick={() => switchMode('otp')}
+          >
+            OTP
+          </button>
+          <button
+            type="button"
+            style={mode === 'password' ? activeTabStyle : tabStyle}
+            onClick={() => switchMode('password')}
+          >
+            Password
+          </button>
+        </div>
+
+        {mode === 'password' ? (
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              handlePasswordLogin();
+            }}
+          >
+            <label htmlFor="login-email" style={labelStyle}>
+              Email petugas
+            </label>
+            <input
+              id="login-email"
+              name="email"
+              style={inputStyle}
+              type="email"
+              autoComplete="email"
+              autoFocus
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="admin@sigap.test"
+              aria-invalid={!!error}
+              aria-describedby={error ? 'login-error' : undefined}
+            />
+            <label htmlFor="login-password" style={labelStyle}>
+              Password
+            </label>
+            <input
+              id="login-password"
+              name="password"
+              style={inputStyle}
+              type="password"
+              autoComplete="current-password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="••••••••"
+              aria-invalid={!!error}
+              aria-describedby={error ? 'login-error' : undefined}
+            />
+            {error ? (
+              <p id="login-error" role="alert" style={errorStyle}>
+                {error}
+              </p>
+            ) : null}
+            <button type="submit" style={buttonStyle} disabled={loading}>
+              {loading ? 'Memuat…' : 'Masuk'}
+            </button>
+          </form>
+        ) : step === 'email' ? (
           <form
             onSubmit={(e) => {
               e.preventDefault();
@@ -205,6 +300,17 @@ export default function LoginPage() {
             >
               Ganti Email
             </button>
+            <p style={{ fontSize: 13, color: THEME.textSecondary, marginTop: 12 }}>
+              Tidak menerima kode?{' '}
+              <button
+                type="button"
+                onClick={handleResend}
+                disabled={loading || resendIn > 0}
+                style={linkButtonStyle}
+              >
+                {resendIn > 0 ? `Kirim ulang dalam ${resendIn}s` : 'Kirim Ulang'}
+              </button>
+            </p>
           </form>
         )}
       </div>
@@ -224,6 +330,30 @@ const pageStyle: CSSProperties = {
 const cardStyle: CSSProperties = {
   width: '100%',
   maxWidth: 380,
+};
+
+const tabContainerStyle: CSSProperties = {
+  display: 'flex',
+  gap: 8,
+  marginBottom: 20,
+};
+
+const tabStyle: CSSProperties = {
+  flex: 1,
+  minHeight: 36,
+  borderRadius: 8,
+  border: 'none',
+  background: THEME.surface,
+  color: THEME.textSecondary,
+  fontSize: 14,
+  fontWeight: 500,
+  cursor: 'pointer',
+};
+
+const activeTabStyle: CSSProperties = {
+  ...tabStyle,
+  background: THEME.primary,
+  color: 'white',
 };
 
 const labelStyle: CSSProperties = {
@@ -255,6 +385,17 @@ const buttonStyle: CSSProperties = {
   fontWeight: 600,
   marginBottom: 12,
   cursor: 'pointer',
+};
+
+const linkButtonStyle: CSSProperties = {
+  background: 'none',
+  border: 'none',
+  padding: 0,
+  color: THEME.primary,
+  fontSize: 13,
+  fontWeight: 600,
+  cursor: 'pointer',
+  textDecoration: 'underline',
 };
 
 const errorStyle: CSSProperties = {

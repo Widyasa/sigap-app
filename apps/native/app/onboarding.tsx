@@ -18,6 +18,10 @@ export default function OnboardingScreen() {
   const [fullName, setFullName] = useState('');
   const [kecamatan, setKecamatan] = useState('');
   const [kelurahan, setKelurahan] = useState('');
+  const [address, setAddress] = useState('');
+  const [phone, setPhone] = useState('');
+  const [rt, setRt] = useState('');
+  const [rw, setRw] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const { completeOnboarding } = useAuth();
@@ -27,7 +31,15 @@ export default function OnboardingScreen() {
   const handleSubmit = async () => {
     setError(null);
     setLoading(true);
-    const result = await completeOnboarding({ fullName, kecamatan, kelurahan });
+    const result = await completeOnboarding({
+      fullName,
+      kecamatan,
+      kelurahan,
+      address,
+      phone,
+      rt,
+      rw,
+    });
     setLoading(false);
     if (!result.ok) {
       setError(result.message ?? 'Gagal menyimpan profil');
@@ -49,8 +61,8 @@ export default function OnboardingScreen() {
           <View style={styles.header}>
             <ThemedText variant="h1">Lengkapi Profil</ThemedText>
             <ThemedText variant="body" color="secondary">
-              Isi nama, kecamatan, dan kelurahan agar kami bisa menampilkan
-              informasi yang relevan untuk Anda.
+              Isi nama, alamat lengkap, kecamatan, dan kelurahan agar kami bisa
+              menampilkan informasi yang relevan untuk Anda.
             </ThemedText>
           </View>
 
@@ -75,14 +87,60 @@ export default function OnboardingScreen() {
             placeholder="Sukamaju"
             value={kelurahan}
             onChangeText={setKelurahan}
-            error={error ?? undefined}
             containerStyle={{ marginBottom: spacing(4) }}
           />
+
+          <Input
+            label="Alamat Lengkap"
+            placeholder="Jl. Merdeka No. 10, RT 01/RW 02"
+            value={address}
+            onChangeText={setAddress}
+            multiline
+            numberOfLines={3}
+            textAlignVertical="top"
+            containerStyle={{ marginBottom: spacing(4) }}
+          />
+
+          <Input
+            label="Nomor Telepon"
+            placeholder="081234567890"
+            value={phone}
+            onChangeText={setPhone}
+            keyboardType="phone-pad"
+            maxLength={15}
+            containerStyle={{ marginBottom: spacing(4) }}
+          />
+
+          <View style={{ flexDirection: 'row', marginBottom: spacing(4) }}>
+            <Input
+              label="RT"
+              placeholder="01"
+              value={rt}
+              onChangeText={setRt}
+              containerStyle={{ flex: 1, marginEnd: spacing(3) }}
+              maxLength={5}
+            />
+            <Input
+              label="RW"
+              placeholder="02"
+              value={rw}
+              onChangeText={setRw}
+              containerStyle={{ flex: 1 }}
+              maxLength={5}
+            />
+          </View>
+
+          {error ? (
+            <ThemedText variant="micro" color="danger" style={{ marginTop: spacing(2), marginBottom: spacing(4) }}>
+              {error}
+            </ThemedText>
+          ) : null}
 
           <Button
             text="Mulai"
             loading={loading}
             onPress={handleSubmit}
+            containerStyle={{ marginTop: spacing(2) }}
           />
         </ScrollView>
       </KeyboardAvoidingView>

@@ -65,6 +65,10 @@ verify_jwt = false
 verify_jwt = false
 [functions.auth-signout]
 verify_jwt = false
+[functions.auth-login-password]
+verify_jwt = false
+[functions.auth-set-password]
+verify_jwt = true
 
 [analytics]
 enabled = false
