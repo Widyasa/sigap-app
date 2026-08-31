@@ -9,7 +9,11 @@
     "userInterfaceStyle": "automatic",
     "extra": {
       "supabaseUrl": "https://kfbbaeuzvfzcbwjlopne.supabase.co",
-      "supabasePublishableKey": "sb_publishable_scwzXInxD6edkia43QDjjA_WB5z_b9k"
+      "supabasePublishableKey": "sb_publishable_scwzXInxD6edkia43QDjjA_WB5z_b9k",
+      "router": {},
+      "eas": {
+        "projectId": "ca351132-e165-42a1-b30c-7e92198d2e92"
+      }
     },
     "splash": {
       "image": "./assets/splash.png",
@@ -30,7 +34,11 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "white"
       },
-      "package": "id.sigap.app"
+      "package": "id.sigap.app",
+      "permissions": [
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png",
@@ -53,6 +61,7 @@
         }
       ],
       "expo-secure-store"
-    ]
+    ],
+    "owner": "widyasa"
   }
 }

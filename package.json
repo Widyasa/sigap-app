@@ -11,6 +11,7 @@
   },
   "devDependencies": {
     "@types/minimatch": "^6.0.0",
+    "next": "16.3.0-canary.107",
     "prettier": "^3.1.1",
     "supabase": "^2.116.0",
     "tsx": "^4.23.12",

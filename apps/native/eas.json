@@ -9,10 +9,18 @@
       "channel": "preview",
       "android": {
         "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_SUPABASE_URL": "https://kfbbaeuzvfzcbwjlopne.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY": "sb_publishable_scwzXInxD6edkia43QDjjA_WB5z_b9k"
       }
     },
     "production": {
-      "autoIncrement": true
+      "autoIncrement": true,
+      "env": {
+        "EXPO_PUBLIC_SUPABASE_URL": "https://kfbbaeuzvfzcbwjlopne.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY": "sb_publishable_scwzXInxD6edkia43QDjjA_WB5z_b9k"
+      }
     }
   }
 }
